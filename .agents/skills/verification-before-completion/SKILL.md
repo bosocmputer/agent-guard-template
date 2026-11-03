@@ -4,6 +4,8 @@ description: Use when about to claim a task is complete, fixed, or passing, or b
 ---
 # Verification Before Completion (`obra/superpowers` Protocol)
 
+> **Reference Architecture:** [`obra/superpowers`](https://github.com/obra/superpowers) (`skills/verification-before-completion/SKILL.md`)
+
 ## 1. The Iron Law
 > **NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE.**
 
@@ -32,7 +34,12 @@ Before making any claim of success ("Done", "Fixed", "Tests pass"):
 | *"Tests passed earlier in the session"* | Any edit after the last test run invalidates that run. Run it fresh. |
 | *"No test server is running"* | Explicitly state: `"ยังไม่ได้รันทดสอบในส่วน Runtime Server เนื่องจาก..."` |
 
-## 4. Required Reporting Format
+## 4. Constraints (`MUST DO` / `MUST NOT DO`)
+- **MUST** run the actual verification command in the current turn before claiming completion.
+- **MUST** report the exact command, exit code, and unverified scope honestly.
+- **MUST NOT** use words like *"Should work now"*, *"100% complete"*, or *"Guaranteed bug-free"*.
+
+## 5. Required Reporting Format
 ```markdown
 ### ✅ สรุปผลการดำเนินงานและหลักฐานการตรวจสอบ
 - **สิ่งที่แก้ไข:**

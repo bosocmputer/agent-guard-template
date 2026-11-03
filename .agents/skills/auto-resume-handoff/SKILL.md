@@ -2,23 +2,39 @@
 name: auto-resume-handoff
 description: Use when resuming unfinished work, switching between Claude Code and Antigravity after quota exhaustion, or when .agent-last-state.log / TASK_STATE.md is present (ใช้เมื่อรับไม้ต่อหรือทำต่อจากงานที่ค้างไว้)
 ---
-# Auto-Resume & Seamless Handoff Protocol (โปรโตคอลรับไม้ต่อเมื่อสลับ Agent)
+# Auto-Resume & Seamless Handoff (`Anthropic Long-Running Agent Harness` Protocol)
 
-ใช้เมื่อผู้ใช้สลับโปรแกรม (เช่น โควต้า Claude Code หมดกลางคันแล้วสลับมาเปิด Antigravity ใน VS Code หรือสลับกลับ) แล้วพิมพ์สั่งสั้นๆ เช่น *"ทำต่อจากที่ค้างไว้"*, *"แก้ต่อให้เสร็จ"*, หรือเมื่อระบบแจ้งเตือน `[AUTO-HANDOFF READY]`
+> **Reference Architecture:** Anthropic Engineering — *"Effective Harnesses for Long-Running Agents"* (Externalized State & Shift-Note Ritual)
 
-## 1. ขั้นตอนการกู้คืนบริบทงานอัตโนมัติ (Context Recovery Steps)
-ห้ามถามผู้ใช้ว่า *"ก่อนหน้านี้ทำอะไรค้างไว้ครับ?"* ให้ดึงข้อมูลเองตามลำดับนี้ทันที:
+## 1. The Iron Law
+> **ZERO CONTEXT AMNESIA — ORIENT FROM DISK & GIT BEFORE WRITING A SINGLE LINE OF CODE.**
 
-1. **อ่านไฟล์สถานะล่าสุด:**
-   - เปิดอ่าน `.agent-last-state.log` (บันทึกโดย Hook ทุกครั้งที่มีการแก้ไฟล์) และ `TASK_STATE.md` (ถ้ามี)
-2. **ตรวจสอบการเปลี่ยนแปลงใน Git Working Tree:**
-   - รัน `git status --short` เพื่อดูรายการไฟล์ที่ถูกแก้ไข (`M`) หรือสร้างใหม่ (`??`)
-   - รัน `git diff` เฉพาะไฟล์ที่กำลังทำค้างอยู่ เพื่อดูว่า Agent ตัวก่อนหน้าเขียนโค้ดถึงบรรทัดไหนแล้ว และมี `TODO` หรือฟังก์ชันที่ยังเขียนไม่จบตรงไหน
-3. **รันเทสต์เช็กสถานะปัจจุบัน:**
-   - รันเทสต์ของไฟล์ที่เกี่ยวข้อง 1 ครั้ง (เช่น `node --test <path>` หรือ `npm test -- <path>`) เพื่อดูว่าโค้ดที่ค้างอยู่ผ่านไปแล้วกี่ข้อ และติด Error ที่ข้อไหน
+When switching sessions or agents (e.g., Claude Code quota hits 100% and the user switches to Antigravity, or starts a fresh session saying *"ทำต่อจากที่ค้างไว้"*), **never ask the user what they were working on**. Recover state from the workspace immediately.
 
-## 2. การลงมือทำต่อและรายงานผล (Execution & Reporting)
-1. สรุปสถานะที่ตรวจพบให้ผู้ใช้ทราบสั้นๆ 2 บรรทัดแรก:
-   > `🔄 รับไม้ต่อจากไฟล์ <ชื่อไฟล์> (พบการแก้ไขค้างไว้ที่ฟังก์ชัน <ชื่อฟังก์ชัน> — กำลังดำเนินการต่อทันที)`
-2. เขียนโค้ดส่วนที่ยังค้างอยู่ให้เสร็จตามมาตรฐาน `code-simplicity.md`
-3. รันเทสต์ยืนยันผลจริงก่อนส่งมอบงานตามกฎ `verification-before-completion`
+## 2. Core Workflow (3-Phase Harness Ritual)
+
+### Phase 1: Boot & Orientation Ritual (กู้คืนบริบทจากไฟล์และ Git)
+1. **Read Shift Notes & State Logs:**
+   - Read `.agent-last-state.log` (automatically updated on every file edit by `post-edit-format.sh`) and `TASK_STATE.md` (if present).
+2. **Inspect Git History & Working Tree:**
+   - Run `git log --oneline -n 5` and `git status --short` to see recently committed and uncommitted files (`M`, `??`).
+   - Run `git diff` on the active file(s) to identify the exact function, line number, or `TODO` left unfinished.
+3. **Run Baseline Sanity Check:**
+   - Run the target test file once (`node --test <path>` or `npm test -- <path>`) *before* editing any code to verify which assertions already pass and which assertion is currently failing.
+
+### Phase 2: Incremental Execution (ลงมือทำต่อจากจุดที่ค้าง)
+1. Report the recovered state in the first 2 lines:
+   > `🔄 รับไม้ต่อจากไฟล์ <ชื่อไฟล์> (พบงานค้างที่ฟังก์ชัน <ชื่อฟังก์ชัน> — เทสต์ปัจจุบันผ่าน X/Y ข้อ กำลังทำต่อทันที)`
+2. Complete only the remaining unfinished logic following `code-simplicity.md` without rewriting already-passing functions.
+3. Verify the completed work via `verification-before-completion`.
+
+### Phase 3: Handoff / Shift-Note Ritual (เมื่อผู้ใช้สั่งพักงานหรือ `/handoff`)
+Write or overwrite `TASK_STATE.md` (under 15 lines) with:
+- **Completed:** Files and functions verified passing.
+- **In Progress / Broken:** Exact `file:line` and current error output.
+- **Next Immediate Step:** The single exact action the next session should take first.
+
+## 3. Constraints (`MUST DO` / `MUST NOT DO`)
+- **MUST** read `.agent-last-state.log` and `git diff` before asking the user any question.
+- **MUST** run the existing test suite before making new edits so you do not break working baseline code.
+- **MUST NOT** redo or refactor code that the previous session already completed and tested.

@@ -4,6 +4,8 @@ description: Use when encountering any bug, test failure, build error, or unexpe
 ---
 # Systematic Root-Cause Debugging (`obra/superpowers` + Circuit Breaker)
 
+> **Reference Architecture:** [`obra/superpowers`](https://github.com/obra/superpowers) (`skills/systematic-debugging/SKILL.md`)
+
 ## 1. The Iron Law
 > **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**
 
@@ -43,3 +45,9 @@ If Attempt 2 fails, **DO NOT attempt Fix #3**. Multiple failed fixes indicate ei
       - ทางเลือก A: [แนวทางที่ 1]
       - ทางเลือก B: [แนวทางที่ 2]
    ```
+
+## 2. Constraints (`MUST DO` / `MUST NOT DO`)
+- **MUST** read the full error message and stack trace before proposing a hypothesis.
+- **MUST** stop at `0-Strike` if a business formula or rate is undocumented.
+- **MUST** stop after 2 failed fix attempts (`2-Strike Limit`) and restore the file via `Edit`.
+- **MUST NOT** guess magic numbers or run destructive `git checkout` / `git reset` commands.

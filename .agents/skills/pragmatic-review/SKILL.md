@@ -2,54 +2,55 @@
 name: pragmatic-review
 description: Use when reviewing code changes or diffs for logic bugs and security vulnerabilities using a Blocker-Only policy capped at 2 rounds (ใช้เมื่อต้องการตรวจรีวิวโค้ดเฉพาะจุดที่เป็น Blocker ไม่เกิน 2 รอบ)
 ---
-# Pragmatic Code & Security Review (Convergence Circuit Breaker)
+# Pragmatic Code Review & Convergence Gate (`obra/superpowers` Review Protocol)
 
-ใช้เมื่อต้องตรวจสอบคุณภาพและความปลอดภัยของโค้ด โดยมีเป้าหมายหลักคือ **การทำให้โค้ดพร้อมใช้งานอย่างรวดเร็ว (Convergence)** ไม่ใช่การจับผิดจุกจิกไม่รู้จบ
+> **Reference Architecture:** [`obra/superpowers`](https://github.com/obra/superpowers) (`requesting-code-review/SKILL.md` & `receiving-code-review/SKILL.md`)
 
-## 1. กฎเหล็ก Blocker-Only Policy (สิ่งที่ต้องตรวจ vs สิ่งที่ห้ามติ)
+## 1. The Iron Law
+> **TECHNICAL CORRECTNESS OVER SOCIAL COMFORT — REPORT BLOCKERS ONLY, CONVERGE IN AT MOST 2 ROUNDS.**
 
-### 🔴 สิ่งที่ต้องรายงาน (`[BLOCKER]` เท่านั้น):
-1. **Broken Logic & Edge Cases:** บั๊กที่ทำให้โปรแกรมพัง คำนวณเงิน/จำนวนผิดพลาด ค่า `null`/`undefined`/`NaN` ที่ทำให้ระบบล่ม หรือการเรียกซ้ำแล้วข้อมูลเพี้ยน (Idempotency/Double-submit)
-2. **Security Vulnerabilities:**
-   - ลืมตรวจสิทธิ์เข้าถึงข้อมูล (Missing Auth / IDOR)
-   - ช่องโหว่ SQL Injection, XSS, Command Injection
-   - ข้อมูลความลับ (API Key, Token, Password, PII) หลุดออกไปใน Response หรือ Log
-3. **Data Loss & Race Conditions:** การตัดสต็อกหรือเงินโดยไม่ตรวจยอดก่อน หรือไม่มี Transaction รองรับ
-4. **Severe Performance Issues:** การยิง N+1 Query ในลูป หรือการดึงข้อมูลทั้งตารางโดยไม่มี Limit
+## 2. Core Workflow
 
-### ⚪ สิ่งที่ห้ามนำมารายงานเด็ดขาด (Ignore Nitpicks):
-- ความสวยงามของการจัดย่อหน้า การเว้นบรรทัด หรือเครื่องหมาย `;` (เป็นหน้าที่ของ Prettier/Linter)
-- การตั้งชื่อตัวแปรภายในฟังก์ชันสั้นๆ ที่ไม่ได้ทำให้เกิดบั๊ก
-- การแนะนำให้เขียนโค้ดใหม่ด้วยสไตล์ส่วนตัวที่มีผลลัพธ์การทำงานเหมือนเดิมทุกประการ
+### Step 1: Diff Inspection (`requesting-code-review` Protocol)
+1. Inspect exact changes using `git status --short` and `git diff` (or `git diff BASE_SHA..HEAD_SHA`).
+2. Read the surrounding context of modified functions to verify data contracts, input validation, and error handling.
 
----
+### Step 2: Severity Triage (`Blocker-Only Policy`)
+Categorize findings strictly and **report only `[BLOCKER]` items**:
 
-## 2. กฎป้องกันการวนลูปรีวิว (Convergence & Hard Cap `MAX_ROUNDS = 2`)
-- **รอบที่ 1 (Round 1 of 2):** ตรวจ `git diff` หรือไฟล์ที่ระบุ หากพบปัญหาในกลุ่ม 🔴 ให้รายงานเฉพาะ `[BLOCKER]` พร้อมวิธีแก้ที่ชัดเจน
-- **รอบที่ 2 (Round 2 of 2 — No Moving Goalposts):**
-  - ตรวจเฉพาะว่า `[BLOCKER]` จากรอบที่ 1 ได้รับการแก้ไขครบหรือยัง
-  - รันเทสต์ของไฟล์นั้น 1 ครั้งเพื่อยืนยันว่าการแก้ Blocker ไม่ได้ทำให้เทสต์เดิมพัง (Regression Check)
-  - **ห้ามขุดประเด็นใหม่ในโค้ดส่วนอื่นที่ไม่ได้เพิ่งแก้ขึ้นมาติในรอบที่ 2 เด็ดขาด**
+#### 🔴 Report Immediately (`[BLOCKER]`):
+1. **Broken Logic & Edge Cases:** Incorrect calculations, unhandled `null`/`undefined`/`NaN`, off-by-one errors, or broken idempotency (double-submit bug).
+2. **Security Vulnerabilities:** Missing authentication/authorization (IDOR), SQL/Command Injection, XSS, or leaked secrets/PII in logs or responses.
+3. **Data Corruption & Race Conditions:** Missing database transactions, check-then-act race conditions (e.g., double booking or negative stock).
+4. **Severe Performance Defects:** N+1 queries inside loops, unbounded `SELECT *`, or memory leaks.
 
----
+#### ⚪ Suppress Completely (Ignore Nitpicks):
+- Formatting, indentation, or semicolon style (handled by Prettier/Linters).
+- Subjective variable naming or personal stylistic preferences that do not affect correctness.
 
-## 3. รูปแบบคำตัดสินมาตรฐาน (Required Verdict Output)
-บรรทัดแรกของผลการรีวิวต้องขึ้นต้นด้วยคำตัดสินใดคำตัดสินหนึ่งต่อไปนี้เสมอ:
+### Step 3: Receiving & Applying Review (`receiving-code-review` Protocol)
+- **No Hollow Praise:** Skip conversational filler (*"You're absolutely right!"* or *"Great catch!"*).
+- **Verify Before Changing:** Trace each reported `[BLOCKER]` against the actual code contract, apply the surgical fix, and run the test suite.
 
-- กรณีไม่พบ `[BLOCKER]` และเทสต์ผ่าน:
-  ```markdown
-  VERDICT: APPROVE
-  - ตรวจสอบโค้ดและผลการรันเทสต์เรียบร้อยแล้ว ไม่พบปัญหาในระดับ Blocker
-  ```
-- กรณีพบ `[BLOCKER]`:
-  ```markdown
-  VERDICT: CHANGES_REQUESTED
-  - **[BLK-01] [หมวดหมู่ปัญหา] (`ชื่อไฟล์:เลขบรรทัด`)**
-    - **ปัญหา:** [อธิบายสั้นๆ ว่าทำไมถึงพังหรือเสี่ยงอย่างไร]
-    - **วิธีแก้:** [ระบุโค้ดหรือเงื่อนไขที่ต้องแก้ให้ชัดเจน]
-  ```
-- กรณีครบ 2 รอบแล้วยังตกลงแนวทางแก้ไม่ได้:
-  ```markdown
-  VERDICT: ESCALATE_TO_USER
-  - [สรุปประเด็นที่ติดขัด 2 บรรทัดเพื่อให้ผู้ใช้ตัดสินใจ]
-  ```
+### Step 4: Convergence Circuit Breaker (`MAX_ROUNDS = 2`)
+- **Round 1 of 2:** Report all `[BLOCKER]` defects found in the current diff.
+- **Round 2 of 2 (`No Moving Goalposts`):** Verify **only** whether Round 1 `[BLOCKER]` items were resolved and whether tests pass. Never invent new critiques on untouched code in Round 2.
+
+## 3. Constraints (`MUST DO` / `MUST NOT DO`)
+- **MUST** run the relevant test file to verify behavior before issuing `VERDICT: APPROVE`.
+- **MUST** include exact `file:line` references and a concrete fix for every `[BLOCKER]`.
+- **MUST NOT** nitpick code style, formatting, or suggest unsolicited architectural rewrites.
+- **MUST NOT** exceed 2 review rounds; if unresolved after Round 2, output `VERDICT: ESCALATE_TO_USER`.
+
+## 4. Required Verdict Output Format
+```markdown
+VERDICT: APPROVE
+- ตรวจสอบ `git diff` และรันเทสต์ยืนยันเรียบร้อยแล้ว ไม่พบปัญหาในระดับ Blocker
+```
+*(Or when blockers exist:)*
+```markdown
+VERDICT: CHANGES_REQUESTED
+- **[BLK-01] [Security / Logic / Race Condition] (`path/to/file.ts:L42`)**
+  - **ปัญหา:** [ระบุสาเหตุที่ทำให้พังหรือเกิดช่องโหว่]
+  - **วิธีแก้:** [ระบุโค้ดหรือเงื่อนไขที่ต้องแก้ให้ชัดเจน]
+```
