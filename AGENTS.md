@@ -2,12 +2,18 @@
 > ใช้ร่วมกันทั้ง **Claude Code** (`.claude/`) และ **Antigravity / VS Code** (`.agents/`)
 > **Upstream Architectures:** [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config)
 
-## 0. Project Stack & Quick Commands (แก้ไขให้ตรงกับโปรเจกต์ของคุณ)
-- **Tech Stack:** [ระบุ เช่น Next.js 15 / Node.js 22 / TypeScript / PostgreSQL (Prisma)]
-- **Dev Server:** `npm run dev` *(ห้ามรันค้างใน Foreground ของ Agent ให้เช็กพอร์ตด้วย `lsof -i` แทน)*
-- **Build & Typecheck:** `npm run build` | `npx tsc --noEmit`
-- **Unit Test (รันเฉพาะไฟล์ที่แก้เป็นหลัก):** `node --test <path>` หรือ `npm test -- <path>`
-- **Linter & Formatter:** `npm run lint` | `npx prettier --check <path>`
+## 0. Auto-Detect Tech Stack & Quick Commands (รองรับหลายภาษาอัตโนมัติ)
+ให้ตรวจสอบไฟล์ตั้งต้นในโปรเจกต์เพื่อเลือกใช้คำสั่งรันเทสต์และตรวจโค้ดให้ตรงกับภาษาที่ใช้จริงโดยอัตโนมัติ:
+
+| ภาษา / Framework (ตรวจจากไฟล์ในโปรเจกต์) | คำสั่งรันเทสต์เฉพาะไฟล์ (Tier 1: Single-File Test) | คำสั่งตรวจ Type / Analyze / Build (Tier 2) |
+| :--- | :--- | :--- |
+| **Node.js / TypeScript** (`package.json`) | `node --test <path>` หรือ `npm test -- <path>` | `npx tsc --noEmit` \| `npm run build` |
+| **Go (Golang)** (`go.mod`) | `go test -v ./path/to/pkg -run <TestName>` | `go vet ./...` \| `go build ./...` |
+| **Flutter / Dart** (`pubspec.yaml`) | `flutter test test/<file>_test.dart` | `flutter analyze` |
+| **Python** (`pyproject.toml` / `requirements.txt`) | `pytest <path/to/test_file.py>` | `ruff check .` \| `mypy .` |
+| **Rust** (`Cargo.toml`) | `cargo test <test_name>` | `cargo check` \| `cargo clippy` |
+
+- **Dev Server / App Runner:** ห้ามรันเซิร์ฟเวอร์ค้างใน Foreground ของ Agent (เช่น `npm run dev`, `go run`, `flutter run`) ให้ตรวจพอร์ตด้วย `lsof -i :<port>` แทน
 - **Local Framework Docs (`llms.txt`):** หากมีเอกสารย่อใน `docs/llms/` หรือ `llms.txt` ให้อ่านจากที่นั่นก่อนเสมอแทนการเปิด MCP Server หนักๆ
 
 ---

@@ -14,10 +14,20 @@ If you have not run the verification command in the current turn, you cannot cla
 ## 2. The 5-Step Gate Function
 Before making any claim of success ("Done", "Fixed", "Tests pass"):
 1. **IDENTIFY:** What exact terminal command proves this claim?
-2. **RUN:** Execute the full command fresh in this turn:
-   - **Tier 1 (Unit/Logic):** `node --test <path>` or `npm test -- <path>`
-   - **Tier 2 (Typecheck/Build):** `npx tsc --noEmit` or `npm run build`
-   - **Tier 3 (Non-Blocking Smoke Check):** Check active ports via `lsof -i :<port>` and test via `curl -s -i` (never run `npm run dev` in the foreground where it hangs).
+2. **RUN:** Execute the full command fresh in this turn (auto-detected by project stack):
+   - **Tier 1 (Single-File Unit/Widget Test):**
+     - **JS/TS:** `node --test <path>` or `npm test -- <path>`
+     - **Go:** `go test -v ./path/to/pkg -run <TestName>`
+     - **Flutter / Dart:** `flutter test test/<file>_test.dart`
+     - **Python:** `pytest <path/to/test_file.py>`
+     - **Rust:** `cargo test <test_name>`
+   - **Tier 2 (Typecheck / Static Analysis / Build):**
+     - **JS/TS:** `npx tsc --noEmit` or `npm run build`
+     - **Go:** `go vet ./...` or `go build ./...`
+     - **Flutter / Dart:** `flutter analyze`
+     - **Python:** `ruff check .` or `mypy .`
+     - **Rust:** `cargo check`
+   - **Tier 3 (Non-Blocking Smoke Check):** Check active ports via `lsof -i :<port>` and test via `curl -s -i` (never run `npm run dev`, `go run`, or `flutter run` in the foreground where it hangs).
 3. **READ:** Read the full terminal output, check the exit code, and count failures.
 4. **VERIFY:** Does the output confirm the claim?
    - **If NO:** State the actual status with the actual error output.

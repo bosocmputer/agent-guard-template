@@ -7,7 +7,7 @@
 - **When to Delegate vs Execute Directly:**
   - **1–2 Known Files (Direct Execution):** Read the target line ranges and apply surgical edits directly in the main session. Do not spawn subagents for trivial edits.
   - **>3 Files or Unknown Codebase Layout (Delegate to `explorer`):** Offload broad codebase searches to the `explorer` subagent (`model: haiku`, `maxTurns: 6`) so only its 15-line summary enters the main context window.
-- **Targeted Single-File Testing:** During active implementation or debugging, execute only the specific test file (`node --test <path>` or `npm test -- <path>`) rather than running the entire repository test suite on every edit.
+- **Targeted Single-File Testing:** During active implementation or debugging, execute only the specific test file (`node --test <path>`, `go test -v ./pkg -run <TestName>`, `flutter test test/<file>_test.dart`, or `pytest <path>`) rather than running the entire repository test suite on every edit.
 
 ## 2. Non-Destructive Rollback Protocol
 - When reverting a failed hypothesis or broken edit, **always use the `Edit` (`edit_file`) tool to restore the exact lines modified**.

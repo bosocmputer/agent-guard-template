@@ -159,11 +159,12 @@ chmod +x .claude/hooks/*.sh
 
 ---
 
-## 🛡️ ระบบป้องกันอัตโนมัติเบื้องหลัง (ไม่ต้องตั้งค่าเพิ่ม)
+## 🛡️ ระบบป้องกันอัตโนมัติเบื้องหลัง (รองรับ JS/TS, Go, Flutter/Dart, Python, Rust ทันที)
 
-ภายในโฟลเดอร์ `.claude/hooks/` มีสคริปต์ยามรักษาความปลอดภัยที่คอยทำงานอยู่เบื้องหลังทุกครั้งที่ AI ขยับตัว:
-* **`validate-bash.sh`** — บล็อกคำสั่งอันตราย เช่น `rm -rf`, `git push --force`, `git restore` / `git checkout .` (ป้องกัน AI เผลอลบโค้ดที่คุณเขียนค้างไว้แต่ยังไม่ได้ Commit) และบล็อกการแอบรัน `npm install` ลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน
-* **`protect-sensitive-files.sh`** — บล็อกไม่ให้ AI แอบอ่านหรือแก้ไขไฟล์ความลับ เช่น `.env`, `.pem`, `.key` หรือแก้ไฟล์ `package-lock.json` โดยตรง
+Template นี้ตั้งค่าให้ตรวจจับภาษาของโปรเจกต์อัตโนมัติ (`package.json`, `go.mod`, `pubspec.yaml`, `pyproject.toml`, `Cargo.toml`) พร้อมสคริปต์ยามรักษาความปลอดภัยใน `.claude/hooks/`:
+* **`validate-bash.sh`** — บล็อกคำสั่งอันตราย เช่น `rm -rf`, `git push --force`, `git restore` / `git checkout .` และบล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`)
+* **`protect-sensitive-files.sh`** — บล็อกไม่ให้ AI แอบอ่านหรือแก้ไขไฟล์ความลับ (`.env`, `.pem`, `.key`, `.keystore`, `.jks`, `.p12`) หรือแก้ไฟล์ Lockfile โดยตรง (`package-lock.json`, `pubspec.lock`, `go.sum`, `poetry.lock`, `Cargo.lock`)
+* **`post-edit-format.sh`** — จัด Format โค้ดอัตโนมัติตามภาษา (`prettier`, `gofmt`, `dart format`, `ruff format`, `rustfmt`) และบันทึกจุด Checkpoint ล่าสุดลง `.agent-last-state.log`
 * **`loop-circuit-breaker.sh`** — นับจำนวนครั้งที่ AI รันคำสั่งเดิมซ้ำๆ หากรันเทสต์เดิมซ้ำเกิน 3 ครั้ง ระบบจะตัดเบรกเกอร์และสั่งให้ AI หยุดทันที
 
 ---

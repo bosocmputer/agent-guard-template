@@ -1,10 +1,17 @@
 ---
 paths:
-  - "**/*.{test,spec}.{js,ts,tsx,py,go}"
+  - "**/*.{test,spec}.{js,ts,tsx,py}"
+  - "**/*_test.{go,dart,py}"
+  - "**/test_*.py"
+  - "test/**/*.dart"
   - "src/**/routes/**"
   - "src/**/controllers/**"
   - "src/**/services/**"
   - "src/app/api/**"
+  - "internal/**/handler*/**"
+  - "internal/**/service*/**"
+  - "lib/**/services/**"
+  - "lib/**/repositories/**"
 ---
 # Testing Standards (`obra/superpowers` TDD) & API Security Conventions
 

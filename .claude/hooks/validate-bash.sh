@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dual-Mode Hook (Claude Code + Antigravity): บล็อกคำสั่งอันตราย ทับโค้ดที่ยังไม่ Commit หรือลงแพ็กเกจโดยไม่ขออนุญาต
+# Dual-Mode Hook (Claude Code + Antigravity): บล็อกคำสั่งอันตราย ทับโค้ดที่ยังไม่ Commit หรือลงแพ็กเกจใหม่โดยไม่ขออนุญาต (รองรับ JS/TS, Go, Flutter/Dart, Python, Rust)
 INPUT=$(cat)
 
 if echo "$INPUT" | grep -q '"toolCall"'; then
@@ -32,8 +32,8 @@ if echo "$COMMAND" | grep -qE '(rm -rf /|rm -rf \*|DROP DATABASE|TRUNCATE TABLE|
   block_action "คำสั่งถูกระงับเพื่อป้องกันข้อมูลสูญหายหรือทับโค้ดที่ยังไม่ได้ Commit"
 fi
 
-if echo "$COMMAND" | grep -qE '(npm (install|i) [^"-]|pnpm add |yarn add )'; then
-  block_action "ห้ามติดตั้งแพ็กเกจใหม่โดยไม่ถามผู้ใช้ก่อนตามกฎ No Unapproved Dependencies"
+if echo "$COMMAND" | grep -qE '(npm (install|i) [a-zA-Z0-9@_]|pnpm add |yarn add |bun add |flutter pub add |dart pub add |go get [a-zA-Z0-9]|pip install [a-zA-Z0-9]|uv add |poetry add |cargo add )'; then
+  block_action "ห้ามติดตั้งแพ็กเกจหรือ Library ใหม่โดยไม่ถามผู้ใช้ก่อนตามกฎ No Unapproved Dependencies"
 fi
 
 allow_action
