@@ -1,12 +1,17 @@
-# /common-ground — เคลียร์สมมติฐานที่ซ่อนอยู่ก่อนเริ่มเขียนโค้ด
+---
+description: Surface hidden assumptions, business rules, and scope boundaries before coding a new feature
+argument-hint: [feature-request]
+allowed-tools: Read, Grep, Glob
+---
+# /common-ground — Surface Hidden Assumptions Before Coding
 
-วิเคราะห์คำสั่งต่อไปนี้เพื่อหาจุดที่อาจเข้าใจไม่ตรงกัน (Hidden Assumptions) ก่อนเริ่มเขียนโค้ด:
+Analyze the following request and establish explicit common ground before writing code:
 $ARGUMENTS
 
-## ขั้นตอนการทำงาน:
-1. ตรวจสอบไฟล์กฎธุรกิจใน `docs/llms/` (ถ้ามี) และดู Pattern จากโค้ดเดิมในโปรเจกต์ก่อน (สิ่งใดมีอยู่แล้วในโค้ดเดิม ให้ยึดตามนั้นโดยไม่ต้องถามซ้ำ)
-2. สรุปสมมติฐานที่ระบบเข้าใจไม่เกิน **3–4 ข้อสั้นๆ**:
-   - **กฎธุรกิจ / ตัวเลขการคำนวณ:** (อัตราส่วนลด, ขีดจำกัด, เงื่อนไขเวลา)
-   - **การจัดเก็บข้อมูล & สถานะ:** (ตารางฐานข้อมูล หรือตัวแปรที่ใช้เก็บ)
-   - **ขอบเขตที่จะยังไม่ทำในรอบนี้ (Out of Scope):** (สิ่งที่ตัดออกเพื่อไม่ให้โค้ดบวม)
-3. รอให้ผู้ใช้ยืนยันหรือปรับแก้ก่อนลงมือเขียนโค้ด
+## Execution Steps
+1. Check `docs/llms/` (if present) and 1–2 existing project files to see what patterns and rules are already established. Do not ask about things already answered by the codebase.
+2. Surface the remaining **3–4 key assumptions** in a concise bulleted list:
+   - **Business Rules & Formulas:** (Rates, thresholds, limits, validation rules)
+   - **Data & State Storage:** (Where data lives and how state transitions)
+   - **Explicitly Out of Scope:** (What will NOT be built in this turn to prevent over-engineering)
+3. Pause and wait for the user to confirm or adjust these assumptions before editing code.

@@ -1,9 +1,18 @@
-# /review — ตรวจคุณภาพและความปลอดภัยของโค้ด (Blocker-Only & Max 2 Rounds)
+---
+description: Run a pragmatic Blocker-Only code and security review capped at 2 convergence rounds
+argument-hint: [optional-file-or-diff-scope]
+allowed-tools: Read, Edit, Grep, Glob, Bash
+---
+# /review — Convergent Code & Security Review (Max 2 Rounds)
 
-เรียกใช้ `reviewer` sub-agent (หรือโปรโตคอล `pragmatic-review`) เพื่อตรวจโค้ดที่เปลี่ยนแปลงล่าสุด (`git diff`):
-$ARGUMENTS
+Delegate to the `reviewer` sub-agent (or apply the `pragmatic-review` skill) to inspect recent changes (`git diff` $ARGUMENTS):
 
-## กฎการตัดลูป Non-Converging Review:
-1. **Blocker-Only:** รายงานเฉพาะจุดที่เป็น `[BLOCKER]` (บั๊กคำนวณผิด/ระบบพัง, ข้อมูลสูญหาย, ช่องโหว่ความปลอดภัย Auth/Injection/Secrets) ห้ามติเรื่องความสวยงามหรือการตั้งชื่อตัวแปรเล็กน้อย
-2. **Round 1:** หากได้ `VERDICT: APPROVE` ให้จบงานทันที หากได้ `VERDICT: CHANGES_REQUESTED` ให้แก้ไขเฉพาะจุดที่เป็น `[BLOCKER]` ด้วย Surgical Edit
-3. **Round 2 (เพดานสูงสุด):** ตรวจยืนยันเฉพาะว่า `[BLOCKER]` เดิมถูกแก้แล้ว และรันเทสต์ของไฟล์นั้นผ่าน (ห้ามขุดประเด็นใหม่ในโค้ดส่วนอื่น) แล้วจบด้วย `VERDICT: APPROVE`
+## Convergence Protocol
+1. **Round 1 (Blocker-Only Scan):**
+   - Flag ONLY `[BLOCKER]` defects (broken logic, calculation bugs, security vulnerabilities, data loss). Ignore stylistic nitpicks.
+   - If no blockers exist, output `VERDICT: APPROVE` and stop immediately.
+2. **Surgical Repair (If `CHANGES_REQUESTED`):**
+   - Fix only the flagged `[BLK-XX]` items using minimal edits.
+3. **Round 2 (Final Verification & Scope Freeze):**
+   - Verify that Round 1 blockers are resolved and run the relevant test file once to confirm zero regressions.
+   - Do not raise new issues in untouched code. Output `VERDICT: APPROVE` (or `VERDICT: ESCALATE_TO_USER` if deadlocked).

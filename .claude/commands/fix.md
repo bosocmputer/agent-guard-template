@@ -1,9 +1,15 @@
-# /fix — วิเคราะห์และแก้บั๊กภายใต้กฎ 0-Strike & 2-Strike Circuit Breaker
+---
+description: Diagnose and fix bugs systematically using 0-Strike missing-spec detection and a 2-Strike circuit breaker
+argument-hint: [bug-description-or-failing-test]
+allowed-tools: Read, Edit, Grep, Glob, Bash
+---
+# /fix — Systematic Root-Cause Repair (Max 2 Attempts)
 
-เรียกใช้ `debugger` sub-agent (หรือโปรโตคอล `root-cause-debug`) เพื่อแก้ไขปัญหาต่อไปนี้:
+Delegate to the `debugger` sub-agent (or apply the `root-cause-debug` skill) to resolve:
 $ARGUMENTS
 
-## กฎการควบคุมโควต้าและการตัดลูป:
-1. **0-Strike for Missing Spec:** หากรากของปัญหาคือขาดสูตรทางธุรกิจหรือค่าคงที่ที่ไม่ได้ระบุไว้ในโค้ด ให้หยุดและส่ง `CIRCUIT_BREAKER: MISSING_SPEC` เพื่อถามผู้ใช้ทันที ห้ามเดาตัวเลขสุ่ม
-2. **2-Strike Technical Limit:** หากเป็นบั๊กทางเทคนิค ให้ลองแก้ไขที่ต้นเหตุและรันเทสต์เฉพาะไฟล์นั้นได้สูงสุด **ไม่เกิน 2 ครั้ง**
-3. **Hard Stop:** หากลองครบ 2 ครั้งแล้วยังไม่ผ่าน ห้ามแก้ต่อเป็นครั้งที่ 3 ให้ใช้ `Edit` คืนค่าไฟล์กลับสู่สภาพเดิม แล้วส่งรายงาน `CIRCUIT_BREAKER: 2_STRIKES_REACHED` พร้อมทางเลือกให้ผู้ใช้ตัดสินใจ
+## Mandatory Guardrails
+1. **No Fixes Without Root Cause First:** Read the full stack trace and target lines before making any edit.
+2. **0-Strike for Missing Spec:** If the failure stems from an undocumented business formula or missing requirement, stop immediately (`CIRCUIT_BREAKER: MISSING_SPEC`) and ask the user.
+3. **2-Strike Ceiling:** Attempt at most **2 targeted fixes**, running only the relevant test file after each attempt.
+4. **Safe Revert on Strike 2:** If Attempt 2 fails, use `Edit` to restore the original code (never use `git checkout`/`git restore`) and output `CIRCUIT_BREAKER: 2_STRIKES_REACHED` with options for the user.

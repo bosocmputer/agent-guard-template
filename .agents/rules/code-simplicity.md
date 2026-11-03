@@ -4,35 +4,36 @@ paths:
   - "app/**/*"
   - "lib/**/*"
 ---
-# Surgical Code Simplicity & Anti-Over-Engineering (Karpathy Guidelines)
+# Karpathy Coding Guidelines (`forrestchang/andrej-karpathy-skills`)
 
-กฎชุดนี้บังคับใช้เมื่อเขียนหรือแก้ไขโค้ดทุกไฟล์ เพื่อป้องกันโค้ดบวม (Code Bloat) และลดการใช้ Output Token โดยไม่จำเป็น
+Behavioral principles to reduce common LLM coding mistakes: overcomplicating code, making silent assumptions, and editing unrelated lines.
 
-## 1. Simplicity First (เขียนให้ตรงไปตรงมาที่สุด)
-- เลือกวิธีที่สั้น อ่านเข้าใจง่าย และตรงไปตรงมาที่สุดในการแก้ปัญหาปัจจุบัน
-- **Rule of Three:** ห้ามสร้าง Helper Function, Base Class, Factory, หรือ Generic Utility สำหรับโค้ดที่ถูกเรียกใช้งานเพียง 1–2 จุด ให้เขียนโค้ดตรงๆ (Inline) จนกว่าจะมีการใช้ซ้ำอย่างน้อย 3 จุดขึ้นไป
-- หลีกเลี่ยงการซ้อน `if-else` เกิน 2 ชั้น ให้ใช้ **Early Return (Guard Clauses)** แทนเสมอ
+## 1. Think Before Coding
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+- State your assumptions explicitly. If uncertain about a business rule or formula, ask rather than guessing.
+- If multiple interpretations exist, present them briefly—do not pick silently.
+- If a simpler approach exists than what was asked, say so.
 
-### ตัวอย่าง (Do vs Don't):
-- ❌ **Don't (Over-engineered):** สร้างคลาส `DiscountStrategyFactory` และ `IDiscountProvider` เพียงเพื่อหักส่วนลด 10%
-- ✅ **Do (Simple & Direct):** เขียนฟังก์ชัน `applyDiscount(price, percent)` ความยาว 5 บรรทัดที่รับค่าและคืนผลลัพธ์ชัดเจน
+## 2. Simplicity First
+**Minimum code that solves the problem. Nothing speculative.**
+- No features beyond what was asked.
+- No abstractions (helpers, factories, base classes) for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- **Self-Check:** If 200 lines could be 50, rewrite it. Ask: *"Would a senior engineer say this is overcomplicated?"*
 
----
+## 3. Surgical Changes
+**Touch only what you must. Clean up only your own mess.**
+- When editing existing code:
+  - Do NOT "improve" adjacent code, comments, or formatting (No Drive-by Refactoring).
+  - Do NOT refactor systems that aren't broken.
+  - Match existing project style, imports, and conventions even if you'd do it differently.
+- Remove imports/variables/functions that **your own changes** made unused, but do NOT delete pre-existing dead code unless asked.
+- **The Test:** Every changed line in `git diff` must trace directly to the user's request.
 
-## 2. Surgical Edits Only (แก้เฉพาะจุดที่สั่ง ห้ามแตะส่วนอื่น)
-- แก้ไขเฉพาะบรรทัดและฟังก์ชันที่เกี่ยวข้องกับคำสั่งของผู้ใช้โดยตรงเท่านั้น
-- **No Drive-by Refactoring:** ห้ามจัดเรียง Import ใหม่ทั้งหมด, ห้ามเปลี่ยนชื่อตัวแปรเดิม, ห้ามแก้ย่อหน้า หรือปรับโครงสร้างฟังก์ชันอื่นที่อยู่ในไฟล์เดียวกันแต่ไม่ได้เกี่ยวกับงานที่สั่ง
-- การทำให้ `git diff` สั้นและคลีนที่สุดคือตัวชี้วัดคุณภาพอันดับแรก
-
----
-
-## 3. No Speculative Code (ห้ามเขียนโค้ดเผื่ออนาคต)
-- ห้ามเพิ่ม Configuration Options, Feature Flags, Callback Hooks, หรือพารามิเตอร์เผื่อเลือกที่ผู้ใช้ไม่ได้ขอในรอบนี้
-- หากสเปกกำหนดให้รองรับแค่กรณี A ห้ามเขียนโค้ดเผื่อกรณี B, C, D โดยเดาเอาเองว่าอนาคตอาจจะได้ใช้
-
----
-
-## 4. Clean Code Hygiene & Documentation Integrity
-- **Preserve Existing Comments:** ห้ามลบคอมเมนต์หรือ Docstring เดิมที่มีอยู่แล้วในไฟล์ หากส่วนนั้นไม่ได้ถูกแก้ไข
-- **Why-Only Comments:** ไม่เขียนคอมเมนต์อธิบายสิ่งที่อ่านรู้เรื่องจากชื่อฟังก์ชันอยู่แล้ว เขียนคอมเมนต์เฉพาะเหตุผลทางธุรกิจหรือข้อจำกัดทางเทคนิค (**"ทำไมถึงต้องทำแบบนี้"**)
-- **No Unrequested Markdown Files:** ห้ามสร้างไฟล์ `SUMMARY.md`, `NOTES.md`, หรือ `ARCHITECTURE.md` เพิ่มเติมเองโดยที่ผู้ใช้ไม่ได้สั่ง
+## 4. Goal-Driven Execution
+**Define success criteria. Loop until verified.**
+- Transform tasks into verifiable goals:
+  - *"Add validation"* ➔ Write tests for invalid inputs, then make them pass.
+  - *"Fix the bug"* ➔ Write a test that reproduces it, then make it pass.
+- Never create unrequested documentation files (`SUMMARY.md`, `NOTES.md`, etc.).

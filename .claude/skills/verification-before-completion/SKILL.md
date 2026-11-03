@@ -1,45 +1,44 @@
 ---
 name: verification-before-completion
-description: โหลดอัตโนมัติทุกครั้งก่อนที่จะสรุปจบงาน ส่งมอบงาน หรือแจ้งผู้ใช้ว่าแก้ไข/ทดสอบเสร็จสิ้นแล้ว
+description: Use when about to claim a task is complete, fixed, or passing, or before committing/opening a PR. Enforces the Iron Law of Verification and the 5-step Gate Function.
 ---
-# Iron Law of Verification & 3-Tier Full-Stack Check
+# Verification Before Completion (`obra/superpowers` Protocol)
 
-> **กฎเหล็ก:** ห้ามแจ้งว่างานเสร็จสิ้น แก้บั๊กหายแล้ว หรือโค้ดทำงานได้ถูกต้อง โดยไม่มีหลักฐานการรันตรวจสอบสดในรอบปัจจุบัน (No Completion Claims Without Fresh Evidence)
+## 1. The Iron Law
+> **NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE.**
 
-## 1. การตรวจสอบ 3 ระดับตามประเภทของงาน (3-Tier Verification)
+If you have not run the verification command in the current turn, you cannot claim it passes.
 
-เลือกระดับการตรวจสอบให้ตรงกับไฟล์ที่เพิ่งแก้ไข:
+## 2. The 5-Step Gate Function
+Before making any claim of success ("Done", "Fixed", "Tests pass"):
+1. **IDENTIFY:** What exact terminal command proves this claim?
+2. **RUN:** Execute the full command fresh in this turn:
+   - **Tier 1 (Unit/Logic):** `node --test <path>` or `npm test -- <path>`
+   - **Tier 2 (Typecheck/Build):** `npx tsc --noEmit` or `npm run build`
+   - **Tier 3 (Non-Blocking Smoke Check):** Check active ports via `lsof -i :<port>` and test via `curl -s -i` (never run `npm run dev` in the foreground where it hangs).
+3. **READ:** Read the full terminal output, check the exit code, and count failures.
+4. **VERIFY:** Does the output confirm the claim?
+   - **If NO:** State the actual status with the actual error output.
+   - **If YES:** State the claim WITH the evidence.
+5. **ONLY THEN:** Conclude the task.
 
-### Tier 1: Unit & Logic Verification (บังคับทุกครั้งที่แก้โค้ด)
-- รันเทสต์เฉพาะไฟล์ที่เกี่ยวข้องกับจุดที่แก้ (เช่น `node --test <path>`, `npm test -- <path>`, `pytest <path>`)
-- ตรวจสอบว่า Exit Code เป็น `0` และจำนวนเทสต์ที่ผ่าน (`pass`) ตรงตามจริง
-- ห้ามเคลมผลจากการรันเทสต์ในเทิร์นเก่าก่อนที่จะแก้โค้ดครั้งล่าสุด
+## 3. Red Flags & Rationalization Prevention Table
 
-### Tier 2: Typecheck & Build Verification (เมื่อแก้ Type, Interface, หรือ Import ข้ามไฟล์)
-- รันตรวจชนิดข้อมูลระดับโปรเจกต์ เช่น `npx tsc --noEmit` หรือ `npm run build`
-- เพื่อป้องกันปัญหาแก้ไฟล์ A ผ่าน แต่ทำไฟล์ B ที่เรียกใช้ไฟล์ A พังเงียบๆ (Silent Breaking Change)
+| Common LLM Excuse / Rationalization | Reality & Mandatory Rule |
+| :--- | :--- |
+| *"Should work now"* / *"Probably fixed"* | **STOP.** Run the verification command first. |
+| *"I'm confident"* / *"It's a 1-line change"* | Confidence ≠ evidence. 1-line changes break builds constantly. |
+| *"Linter passed, so it compiles"* | Linters do not check types or runtime behavior. Run the test/build. |
+| *"Tests passed earlier in the session"* | Any edit after the last test run invalidates that run. Run it fresh. |
+| *"No test server is running"* | Explicitly state: `"ยังไม่ได้รันทดสอบในส่วน Runtime Server เนื่องจาก..."` |
 
-### Tier 3: Non-Blocking Runtime Smoke Check (เมื่อแก้ API Route หรือ Server)
-- **ข้อห้ามสำคัญ:** ห้ามรันคำสั่งเปิดเซิร์ฟเวอร์ค้างไว้ใน Foreground (เช่น `npm run dev` หรือ `node server.js` ตรงๆ) เพราะจะทำให้ Terminal ค้างจนบล็อกหน้าแชท!
-- **วิธีที่ถูกต้อง:**
-  1. เช็กก่อนว่าพอร์ตเปิดอยู่แล้วหรือไม่ด้วย `lsof -i :<port>`
-  2. หากเซิร์ฟเวอร์รันอยู่แล้ว ให้ยิงทดสอบด้วย `curl -s -i http://localhost:<port>/api/...` เพื่อดู HTTP Status Code และ JSON Response จริง
-
----
-
-## 2. กฎการรายงานผลตามความจริง (Honest Reporting Format)
-
-ทุกครั้งที่จบงาน ต้องสรุปท้ายคำตอบด้วยโครงสร้างนี้เสมอ:
-
+## 4. Required Reporting Format
 ```markdown
 ### ✅ สรุปผลการดำเนินงานและหลักฐานการตรวจสอบ
 - **สิ่งที่แก้ไข:**
-  - `[ชื่อไฟล์:เลขบรรทัด]`: [อธิบายสิ่งที่เปลี่ยนแปลงสั้นๆ 1–2 บรรทัด]
-- **หลักฐานการตรวจสอบ (Fresh Verification):**
-  - **Unit Test:** รันคำสั่ง `<คำสั่งที่รันจริง>` ➔ ผลลัพธ์: `<จำนวน pass/fail จริง>` (Exit Code: 0)
-  - **Typecheck / Build:** `<คำสั่งที่รันจริง + ผลลัพธ์>` *(หรือระบุตรงๆ ว่า "ยังไม่ได้รันทดสอบ เนื่องจาก...")*
+  - `path/to/file.ext:LXX`: [สรุปการแก้ไขแบบ Surgical 1–2 บรรทัด]
+- **หลักฐานการตรวจสอบสด (Fresh Verification):**
+  - **Command:** `<คำสั่งที่รันจริง>`
+  - **Output:** `<ผลลัพธ์จริง เช่น pass X, fail 0 (Exit Code: 0)>`
+  - **Unverified Scope:** `<ระบุตรงๆ หากส่วนใดยังไม่ได้รันทดสอบ>`
 ```
-
-### คำต้องห้าม (Banned Over-Claiming Phrases):
-- ห้ามใช้คำว่า `"เสร็จสมบูรณ์ 100%"`, `"สมบูรณ์แบบไร้ที่ติ"`, `"รับรองว่าไม่มีบั๊ก"`
-- หากคำสั่งตรวจล้มเหลวหรือติดสิทธิ์ Sandbox ให้รายงาน Error จริงตามตรง ห้ามปกปิด

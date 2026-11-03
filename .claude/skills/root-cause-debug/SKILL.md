@@ -1,54 +1,45 @@
 ---
 name: root-cause-debug
-description: โหลดอัตโนมัติเมื่อผู้ใช้แจ้งบั๊ก เทสต์พัง หรือระบบทำงานผิดพลาด โดยบังคับใช้กฎ 0-Strike สำหรับสเปกที่ขาด และ 2-Strike สำหรับบั๊กเทคนิค
+description: Use when encountering any bug, test failure, build error, or unexpected behavior. Enforces the 4-Phase Systematic Debugging protocol plus 0-Strike and 2-Strike circuit breakers.
 ---
-# Root-Cause Debugging Protocol (0-Strike & 2-Strike Circuit Breaker)
+# Systematic Root-Cause Debugging (`obra/superpowers` + Circuit Breaker)
 
-ใช้เมื่อต้องวิเคราะห์บั๊ก เทสต์ไม่ผ่าน หรือระบบเกิดข้อผิดพลาด โดยเน้นการหาต้นตอด้วยหลักฐานจริงและป้องกันการวนลูปเดาแก้จนเปลืองโควต้า
+## 1. The Iron Law
+> **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**
 
-## 1. ขั้นที่ 0: แยกแยะ "ขาดสเปกธุรกิจ" ออกจาก "บั๊กทางเทคนิค" (`0-Strike Rule`)
-1. อ่าน Error Message, Stack Trace, โค้ดบรรทัดที่เกิดปัญหา และไฟล์ใน `docs/llms/` (ถ้ามี)
-2. **หากพบว่าสาเหตุที่แท้จริงคือ "ไม่มีข้อมูลสเปกทางธุรกิจ"** (เช่น โค้ดเว้น `TODO` ไว้รอสูตรลับของฝ่ายบัญชี/การตลาด หรือเทสต์ถามหาตัวเลขเฉพาะขององค์กรที่ไม่ได้เขียนไว้ในโค้ด):
-   - **ห้ามเดาสุ่มตัวเลขแม้แต่ครั้งเดียว (0-Strike)**
-   - หยุดทันทีและส่งข้อความแจ้งผู้ใช้ตามรูปแบบนี้:
+Randomly tweaking code ("shotgun debugging") wastes token quota and introduces new bugs. Follow these 4 phases strictly:
+
+### Phase 1: Root Cause Investigation (`0-Strike for Missing Spec`)
+1. **Read Error Messages Carefully:** Read the complete stack trace, line numbers, and error codes.
+2. **Check Local Docs & Recent Changes:** Inspect the target function and check `docs/llms/` (if present).
+3. **0-Strike Missing Spec Gate:**
+   - If the failure occurs because a business formula, rate, or requirement is undocumented (e.g., a `TODO` or unknown magic constant), **DO NOT GUESS ANY NUMBERS**.
+   - Stop immediately and output:
      ```markdown
      CIRCUIT_BREAKER: MISSING_SPEC
-     - **สาเหตุ:** พบว่าฟังก์ชัน `<ชื่อฟังก์ชัน>` ใน `<ชื่อไฟล์:เลขบรรทัด>` ต้องใช้สูตร/ค่าคงที่ทางธุรกิจที่ไม่ได้ระบุไว้ในโค้ด
-     - **ข้อมูลที่ต้องการ:** กรุณาระบุ [รายละเอียดสูตร/เงื่อนไข] เพื่อนำไปใส่ให้ถูกต้องโดยไม่ต้องเดาสุ่ม
+     - **สาเหตุ:** ฟังก์ชัน `<ชื่อฟังก์ชัน>` ใน `<ไฟล์:บรรทัด>` ต้องใช้สูตร/ข้อกำหนดทางธุรกิจที่ไม่ได้ระบุไว้
+     - **ข้อมูลที่ต้องขอจากผู้ใช้:** [ระบุตัวเลขหรือเงื่อนไขที่ต้องการทราบ]
      ```
 
----
+### Phase 2: Pattern Analysis
+1. Locate a working example of similar logic in the codebase.
+2. Compare the working code against the broken code to isolate what is different.
 
-## 2. ขั้นที่ 1 & 2: การแก้บั๊กทางเทคนิคภายใต้เพดาน `2-Strike Limit`
-เมื่อมั่นใจว่าเป็นบั๊กทางเทคนิค (เช่น เขียนเครื่องหมายผิด, ลืม `await`, ดัชนี Array ผิด, หรือไม่ได้ดัก `null`):
+### Phase 3: Single-Variable Hypothesis Testing (`2-Strike Limit`)
+- **Attempt 1:** State a single hypothesis ("X fails because Y"). Apply the smallest possible `Edit` to fix Y and run **only** the failing test file.
+- **Attempt 2 (If Attempt 1 fails):** Read the new error. Use `Edit` to replace Attempt 1 with Hypothesis 2 in a single step (do not waste a tool call reverting in between) and re-run the test.
 
-- **Attempt 1 (ลองแก้ครั้งที่ 1):**
-  1. ตั้งสมมติฐานที่ชัดเจนจาก Stack Trace
-  2. แก้ไขโค้ดที่ต้นเหตุด้วยจำนวนบรรทัดน้อยที่สุด (Surgical Fix)
-  3. รันเฉพาะไฟล์เทสต์ที่เกี่ยวข้อง (`node --test <path>` หรือ `npm test -- <path>`)
-  4. หากผ่าน ➔ จบงานและรายงานผลตาม `verification-before-completion`
-
-- **Attempt 2 (ลองแก้ครั้งที่ 2 — หากครั้งที่ 1 ยังพัง):**
-  1. อ่านผล Error ใหม่เทียบกับครั้งที่ 1
-  2. ใช้เครื่องมือ `Edit` แก้ทับจากโค้ดของ Attempt 1 ไปเป็นสมมติฐานที่ 2 ในขั้นตอนเดียว (ไม่ต้อง Revert คั่นกลางให้เสียโควต้า)
-  3. รันเทสต์ไฟล์เดิมซ้ำอีกครั้ง
-
----
-
-## 3. จุดตัดเบรกเกอร์ (`HARD STOP` เมื่อครบ 2 ครั้งแล้วยังไม่ผ่าน)
-หาก Attempt 2 ยังล้มเหลว **ห้ามแก้โค้ดต่อเป็นครั้งที่ 3 เด็ดขาด**:
-1. ใช้เครื่องมือ `Edit` คืนค่าไฟล์ที่แก้ไขกลับสู่สภาพเริ่มต้นก่อนเริ่มงาน (ห้ามใช้ `git checkout` หรือ `git restore`)
-2. ส่งรายงานสรุปให้ผู้ใช้ตัดสินใจตามรูปแบบนี้:
+### Phase 4: Hard Circuit Breaker (Stop After 2 Failed Fixes)
+If Attempt 2 fails, **DO NOT attempt Fix #3**. Multiple failed fixes indicate either an architectural issue or missing context that requires human input.
+1. Use `Edit` to restore the file back to its original pre-debug state (never run `git checkout` or `git restore`).
+2. Output this escalation report:
    ```markdown
    CIRCUIT_BREAKER: 2_STRIKES_REACHED
-   ได้ลองแก้ไข `<ชื่อไฟล์>` ครบ 2 ครั้งตามเพดานประหยัดโควต้าแล้ว และได้คืนค่าไฟล์กลับสู่สภาพเดิมเรียบร้อยแล้ว
-
-   1. **สิ่งที่ลองแก้ไขไปแล้ว:**
-      - Attempt 1: [สมมติฐานที่ 1 และสิ่งที่แก้] ➔ ผลลัพธ์: [สาเหตุที่ไม่ผ่าน]
-      - Attempt 2: [สมมติฐานที่ 2 และสิ่งที่แก้] ➔ ผลลัพธ์: [สาเหตุที่ไม่ผ่าน]
-   2. **Error ล่าสุดจาก Terminal:**
-      `[ข้อความ Error จริงสั้นๆ]`
-   3. **ทางเลือกเพื่อดำเนินการต่อ:**
+   1. **สิ่งที่ลองแก้ไขไปแล้ว 2 ครั้ง:**
+      - Attempt 1: [สมมติฐานที่ 1] ➔ ผลลัพธ์: [Error จริง]
+      - Attempt 2: [สมมติฐานที่ 2] ➔ ผลลัพธ์: [Error จริง]
+   2. **Error ล่าสุดจาก Terminal:** `[ข้อความ Error จริง]`
+   3. **ทางเลือกเพื่อตัดสินใจต่อ:**
       - ทางเลือก A: [แนวทางที่ 1]
       - ทางเลือก B: [แนวทางที่ 2]
    ```

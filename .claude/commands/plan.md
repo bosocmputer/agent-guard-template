@@ -1,15 +1,20 @@
-# /plan — วิเคราะห์ขนาดงานและวางแผนอย่างกระชับ
+---
+description: Analyze task complexity and create a concise, read-only implementation plan before writing code
+argument-hint: [feature-or-task-description]
+allowed-tools: Read, Grep, Glob
+---
+# /plan — Task Triage & Concise Architecture Plan
 
-ประเมินงานต่อไปนี้ตามกฎ Task Triage:
+Evaluate the following task using the **Task Triage** rules:
 $ARGUMENTS
 
-## ขั้นตอนการทำงาน:
-1. **กรณีเป็นงานเล็ก (Trivial Task — แก้ 1–2 ไฟล์ชัดเจน):**
-   - แจ้งผู้ใช้ทันทีว่างานนี้ชัดเจนอยู่แล้ว ไม่จำเป็นต้องเขียนแผนยาว และสามารถลงมือแก้แบบ Surgical Edit ได้เลย
-2. **กรณีเป็นงานซับซ้อน (Complex Task — กระทบ >3 ไฟล์ หรือเปลี่ยนโครงสร้าง):**
-   - เรียกใช้ `explorer` sub-agent เพื่อสำรวจไฟล์ที่เกี่ยวข้อง
-   - สรุปแผนการดำเนินงานความยาว **ไม่เกิน 10–15 บรรทัด** ประกอบด้วย:
-     1. **ไฟล์ที่ต้องสร้างหรือแก้ไข:** (ระบุพาธไฟล์และหน้าที่สั้นๆ)
-     2. **สมมติฐานหรือความเสี่ยงสำคัญ:** (จุดที่อาจกระทบส่วนอื่น)
-     3. **วิธีทดสอบยืนยันผล:** (คำสั่งเทสต์ที่จะรันเมื่อทำเสร็จ)
-   - รอให้ผู้ใช้ตอบยืนยันก่อนเริ่มแก้ไขโค้ดจริง
+## Execution Steps
+1. **Trivial Check (1–2 files, unambiguous):**
+   - If the change is localized and obvious, state in 2 lines which file/function needs updating and tell the user it is ready for direct surgical implementation without ceremony.
+2. **Complex Task (>3 files or architectural impact):**
+   - Delegate to the `explorer` sub-agent (or perform targeted `Glob`/`Grep` searches, max 5 calls).
+   - Output a structured plan (**maximum 12 lines**):
+     - **Assumptions & Tradeoffs:** (Surface any ambiguity upfront per Karpathy's *Think Before Coding*)
+     - **Files to Modify/Create:** (`path/to/file` — 1-line purpose)
+     - **Verification Command:** (Exact test/build command to prove completion)
+   - Wait for user confirmation before modifying any files.

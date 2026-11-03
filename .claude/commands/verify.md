@@ -1,13 +1,18 @@
-# /verify — ตรวจสอบความถูกต้องครบ 3 ระดับก่อนส่งมอบงาน
+---
+description: Execute the 5-step Gate Function and 3-tier verification (Unit Test, Typecheck/Build, Runtime Smoke Check)
+argument-hint: [target-test-or-module]
+allowed-tools: Read, Grep, Glob, Bash
+---
+# /verify — Evidence-Based Verification Gate (`obra/superpowers`)
 
-ดำเนินการตรวจสอบความพร้อมของโค้ดตามโปรโตคอล `verification-before-completion`:
-$ARGUMENTS
+Run the mandatory **Verification Gate Function** for: $ARGUMENTS
 
-## ขั้นตอนการตรวจสอบ (ห้ามรัน Dev Server ค้างใน Foreground):
-1. **Tier 1 (Unit / Logic Test):** รันเทสต์ของไฟล์ที่แก้ไข (เช่น `node --test <path>` หรือ `npm test -- <path>`)
-2. **Tier 2 (Typecheck / Build):** รันตรวจชนิดข้อมูลหรือบิลด์โปรเจกต์ (`npx tsc --noEmit` หรือ `npm run build` ถ้ามีในโปรเจกต์)
-3. **Tier 3 (Runtime Smoke Check):** หากเป็นงานแก้ API/Server ให้เช็กพอร์ตด้วย `lsof -i :<port>` ก่อน ถ้ารันอยู่แล้วให้ยิงทดสอบด้วย `curl -s -i`
-
-## รูปแบบการรายงานผล:
-- ระบุ **`คำสั่งที่รันจริง`** และ **`ผลลัพธ์จริงจาก Terminal`** ของแต่ละระดับ
-- ส่วนใดที่ยังไม่ได้รันทดสอบ ให้ระบุตรงๆ ว่า **"ยังไม่ได้รันทดสอบ เนื่องจาก..."**
+## The 5-Step Gate Function
+1. **IDENTIFY:** Determine the exact commands that prove the recent changes work.
+2. **RUN:** Execute the fresh commands now:
+   - **Tier 1 (Unit/Logic):** `node --test <path>` or `npm test -- <path>`
+   - **Tier 2 (Typecheck/Build):** `npx tsc --noEmit` or `npm run build` (if configured)
+   - **Tier 3 (Non-Blocking Smoke Check):** Check active ports via `lsof -i :<port>` and test via `curl -s -i` (never run `npm run dev` in the foreground).
+3. **READ:** Inspect the full terminal output, exit code, and pass/fail counts.
+4. **VERIFY:** Confirm whether the output actually proves the claim.
+5. **REPORT:** Output the exact command run and actual terminal result, explicitly stating any tier that was not run.

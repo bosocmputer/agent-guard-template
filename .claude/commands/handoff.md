@@ -1,16 +1,22 @@
-# /handoff — บันทึกสถานะงานค้างเพื่อเตรียมล้างแชท (`/clear`) หรือสลับ Agent
+---
+description: Save compact task state to TASK_STATE.md before running /clear or switching between Claude Code and Antigravity
+argument-hint: [optional-notes]
+allowed-tools: Read, Write, Edit, Bash
+---
+# /handoff — Seamless Session & Cross-Agent State Handoff
 
-สรุปสถานะงานปัจจุบันลงในไฟล์ `TASK_STATE.md` (ความยาวไม่เกิน 15 บรรทัด) เพื่อเตรียมส่งไม้ต่อ:
+Write a compact state checkpoint to `TASK_STATE.md` (maximum 15 lines) so a fresh session or another agent (Antigravity / Claude Code) can resume with zero context loss:
 $ARGUMENTS
 
-## โครงสร้างไฟล์ `TASK_STATE.md` ที่ต้องบันทึก:
+## Required `TASK_STATE.md` Structure
 ```markdown
 # Active Task Handoff State
-- **เป้าหมายหลัก (Goal):** [สรุปสิ่งที่กำลังทำ 1 บรรทัด]
-- **สิ่งที่ทำเสร็จและเทสต์ผ่านแล้ว (Completed):**
-  - `[ชื่อไฟล์]`: [สิ่งที่ทำเสร็จแล้ว]
-- **จุดที่กำลังทำค้างอยู่ (In Progress / Next Steps):**
-  - `[ชื่อไฟล์:เลขบรรทัด]`: [สิ่งที่ต้องทำต่อในแชทถัดไป]
-- **คำสั่งรันเทสต์สำหรับตรวจงานนี้:** `<คำสั่งเทสต์>`
+- **Objective:** [1-sentence goal of current feature/fix]
+- **Completed & Verified:**
+  - `path/to/file`: [What is done + passing test command]
+- **Next Immediate Step:**
+  - `path/to/file:LXX`: [Exact function or bug remaining]
+- **Known Constraints / Decisions:**
+  - [Key business rules or user decisions established in this session]
 ```
-เมื่อบันทึกไฟล์เสร็จแล้ว ให้แจ้งผู้ใช้ว่าสามารถพิมพ์ `/clear` หรือสลับไปเปิดอีก Agent แล้วสั่ง *"ทำต่อจากที่ค้างไว้"* ได้ทันที
+After writing `TASK_STATE.md`, inform the user they can now run `/clear` or switch to the other agent and type *"ทำต่อจากที่ค้างไว้"*.
