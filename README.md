@@ -130,21 +130,51 @@ chmod +x .claude/hooks/*.sh
 
 ```text
 project-root/
-├── AGENTS.md                                   # กฎหลักสำหรับ Antigravity / VS Code / Cursor
-├── CLAUDE.md                                   # กฎหลักสำหรับ Claude Code
+├── AGENTS.md                                   # กฎหลัก + Auto-Router สำหรับ Antigravity / VS Code / Cursor
+├── CLAUDE.md                                   # กฎหลัก + Auto-Router สำหรับ Claude Code
 ├── .mcp.json                                   # ตั้งค่า MCP (เริ่มต้นเป็นค่าว่างเพื่อประหยัดโควต้า)
 ├── .gitignore                                  # ป้องกันไฟล์ความลับและไฟล์สถานะชั่วคราวขึ้น Git
 │
 ├── .agents/                                    # ⚡ ตั้งค่าอัตโนมัติสำหรับ Antigravity (VS Code)
-│   ├── hooks.json                              # ผูกสคริปต์ป้องกันและระบบส่งไม้ต่ออัตโนมัติ
-│   ├── rules/                                  # กฎการเขียนโค้ดกระชับและตรงจุด
-│   └── skills/                                 # ทักษะอัตโนมัติ (common-ground, review, debug, verify, handoff)
+│   ├── hooks.json                              # ผูก SessionStart, PreToolUse, PostToolUse
+│   ├── rules/
+│   │   ├── code-simplicity.md                  # Karpathy 4 Principles (Think, Simplicity, Surgical, Goal-Driven)
+│   │   ├── execution-discipline.md             # วินัยการรันเทสต์เฉพาะจุดและการย้อนโค้ดอย่างปลอดภัย
+│   │   └── testing-and-api.md                  # มาตรฐานเทสต์ AAA และการแยกชั้น API
+│   └── skills/
+│       ├── auto-resume-handoff/SKILL.md        # รับไม้ต่ออัตโนมัติเมื่อสลับมาจาก Agent อื่น
+│       ├── common-ground/SKILL.md              # เคลียร์สมมติฐานที่ซ่อนอยู่ก่อนเริ่มฟีเจอร์ใหม่
+│       ├── db-migration/SKILL.md               # กฎความปลอดภัยเมื่อแก้ไข Schema ฐานข้อมูล
+│       ├── pragmatic-review/SKILL.md           # รีวิวเฉพาะ [BLOCKER] ไม่เกิน 2 รอบ
+│       ├── root-cause-debug/SKILL.md           # 4-Phase Debugging (obra/superpowers) + 0/2-Strike Breaker
+│       ├── tech-stack-skills/SKILL.md          # ดึง Skill เฉพาะทางจาก jeffallan/claude-skills อัตโนมัติ
+│       └── verification-before-completion/     # Iron Law & 5-Step Gate Function (Test + Build + Smoke Check)
 │
 └── .claude/                                    # 🤖 ตั้งค่าอัตโนมัติสำหรับ Claude Code
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks
-    ├── agents/                                 # 4 Sub-Agents (explorer, implementer, debugger, reviewer)
-    ├── rules/                                  # กฎโหลดตาม Path ไฟล์
+    ├── agents/                                 # 4 Sub-Agents (พร้อมเพดาน maxTurns & disallowedTools)
+    │   ├── explorer.md                         # สำรวจโค้ดแบบ Read-only (haiku, maxTurns: 6)
+    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (sonnet, maxTurns: 15)
+    │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet, maxTurns: 10)
+    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker แบบ Read-only (sonnet, maxTurns: 8)
+    ├── rules/                                  # กฎโหลดตาม Path ไฟล์ (ชุดเดียวกับ .agents/rules)
     ├── skills/                                 # ทักษะอัตโนมัติ (ชุดเดียวกับ .agents/skills)
     ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /verify, /handoff)
-    └── hooks/                                  # 🛡️ สคริปต์ยามรักษาความปลอดภัย (ใช้ร่วมกันทั้ง 2 โปรแกรม)
+    └── hooks/                                  # 🛡️ สคริปต์ยามรักษาความปลอดภัย Dual-Mode (Claude + Antigravity)
+        ├── auto-resume.sh                      # ฉีดสถานะงานค้างเข้าแชทใหม่อัตโนมัติ (SessionStart)
+        ├── validate-bash.sh                    # บล็อก rm -rf, git restore/checkout ทับโค้ด, และการลง pkg มั่ว
+        ├── protect-sensitive-files.sh          # บล็อกการแก้ไขไฟล์ .env, .pem, .key, และ lockfiles
+        ├── loop-circuit-breaker.sh             # บล็อกเมื่อ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน 3 ครั้ง
+        ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึกจุด Checkpoint ล่าสุด
+        └── install-skill.sh                    # ดึง Skill เฉพาะทางจาก jeffallan/claude-skills แบบ Sparse Checkout
 ```
+
+---
+
+## 📚 มาตรฐานและงานวิจัยที่นำมาพัฒนา (Built On)
+
+* **Anthropic Claude Code Official Specification:** ใช้การจำกัด `maxTurns` และ `disallowedTools` ในระดับ Sub-agent Frontmatter ร่วมกับ `SessionStart`, `PreToolUse`, และ `PostToolUse` Hooks
+* **Antigravity Customization System (`.agents/`):** รองรับ Progressive Disclosure ของ Rules/Skills และ JSON Lifecycle Hooks (`hooks.json`)
+* **[`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills):** กฎ 4 ข้อของ Karpathy (*Think Before Coding*, *Simplicity First*, *Surgical Changes*, *Goal-Driven Execution*)
+* **[`obra/superpowers`](https://github.com/obra/superpowers):** โปรโตคอล *Verification Before Completion* (5-Step Gate Function & Red Flags Table) และ *4-Phase Systematic Debugging*
+* **[`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills):** ระบบ Progressive Disclosure และสคริปต์ดึงทักษะเฉพาะทางตาม Tech Stackจริง (`install-skill.sh`)

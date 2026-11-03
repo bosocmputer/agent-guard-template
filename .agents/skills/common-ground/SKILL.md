@@ -1,6 +1,6 @@
 ---
 name: common-ground
-description: โหลดอัตโนมัติเมื่อผู้ใช้สั่งสร้างฟีเจอร์ใหม่ที่มีจุดกำกวม หรือมีหลายแนวทางในการออกแบบ เพื่อเคลียร์สมมติฐานที่ซ่อนอยู่ก่อนเริ่มเขียนโค้ด
+description: Use when building a new feature or module with ambiguous requirements or multiple design choices to surface hidden assumptions before writing code (ใช้เมื่อสั่งสร้างฟีเจอร์ใหม่ที่มีจุดกำกวมเพื่อเคลียร์สมมติฐานก่อนเขียนโค้ด)
 ---
 # Common Ground Protocol (การเคลียร์สมมติฐานที่ซ่อนอยู่ก่อนเขียนโค้ด)
 

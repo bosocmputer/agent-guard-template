@@ -1,6 +1,6 @@
 ---
 name: auto-resume-handoff
-description: โหลดอัตโนมัติเมื่อผู้ใช้สั่งให้ทำงานต่อจากที่ค้างไว้ สลับมาจาก Agent ตัวอื่นเพราะโควต้าหมด หรือเมื่อพบไฟล์ .agent-last-state.log / TASK_STATE.md
+description: Use when resuming unfinished work, switching between Claude Code and Antigravity after quota exhaustion, or when .agent-last-state.log / TASK_STATE.md is present (ใช้เมื่อรับไม้ต่อหรือทำต่อจากงานที่ค้างไว้)
 ---
 # Auto-Resume & Seamless Handoff Protocol (โปรโตคอลรับไม้ต่อเมื่อสลับ Agent)
 

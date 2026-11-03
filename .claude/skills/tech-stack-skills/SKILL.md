@@ -1,6 +1,6 @@
 ---
 name: tech-stack-skills
-description: โหลดอัตโนมัติเมื่อผู้ใช้เริ่มต้นโปรเจกต์ใหม่ แจ้ง Tech Stack ที่ใช้ หรือขอให้ติดตั้ง Skill เฉพาะทางเพิ่มเติมจาก jeffallan/claude-skills
+description: Use when initializing a project, declaring the project tech stack, or installing framework-specific skills from jeffallan/claude-skills (ใช้เมื่อเริ่มโปรเจกต์ใหม่หรือต้องการดึง Skill เฉพาะทางของภาษามาติดตั้ง)
 ---
 # On-Demand Tech Stack Skill Installer (`jeffallan/claude-skills`)
 

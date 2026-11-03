@@ -1,6 +1,6 @@
 ---
 name: db-migration
-description: โหลดอัตโนมัติเมื่อมีการแก้ Schema ฐานข้อมูล สร้างตารางใหม่ เพิ่มคอลัมน์ หรือรัน Migration
+description: Use when modifying database schemas, creating tables, adding columns, writing migrations, or tuning SQL/ORM queries (ใช้เมื่อแก้ไขโครงสร้างฐานข้อมูลหรือรัน Migration)
 ---
 # Safe Database Schema & Zero-Downtime Migration Protocol
 

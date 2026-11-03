@@ -1,6 +1,6 @@
 ---
 name: root-cause-debug
-description: Use when encountering any bug, test failure, build error, or unexpected behavior. Enforces the 4-Phase Systematic Debugging protocol plus 0-Strike and 2-Strike circuit breakers.
+description: Use when encountering any bug, test failure, build error, or unexpected behavior. Enforces 4-Phase Systematic Debugging plus 0-Strike and 2-Strike circuit breakers (ใช้เมื่อแจ้งบั๊กหรือเทสต์พัง)
 ---
 # Systematic Root-Cause Debugging (`obra/superpowers` + Circuit Breaker)
 

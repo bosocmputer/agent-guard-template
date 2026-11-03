@@ -1,6 +1,6 @@
 ---
 name: verification-before-completion
-description: Use when about to claim a task is complete, fixed, or passing, or before committing/opening a PR. Enforces the Iron Law of Verification and the 5-step Gate Function.
+description: Use when about to claim a task is complete, fixed, or passing, or before committing/opening a PR. Enforces the Iron Law of Verification and the 5-step Gate Function (ใช้ตรวจยืนยันผลจริงก่อนแจ้งจบงานทุกครั้ง)
 ---
 # Verification Before Completion (`obra/superpowers` Protocol)
 

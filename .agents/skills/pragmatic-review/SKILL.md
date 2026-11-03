@@ -1,6 +1,6 @@
 ---
 name: pragmatic-review
-description: โหลดอัตโนมัติเมื่อผู้ใช้ขอให้ตรวจโค้ด รีวิวโค้ด หรือเช็กความถูกต้องของโค้ด โดยเน้นเฉพาะ Blocker และตัดลูปไม่ให้รีวิวซ้ำเกิน 2 รอบ
+description: Use when reviewing code changes or diffs for logic bugs and security vulnerabilities using a Blocker-Only policy capped at 2 rounds (ใช้เมื่อต้องการตรวจรีวิวโค้ดเฉพาะจุดที่เป็น Blocker ไม่เกิน 2 รอบ)
 ---
 # Pragmatic Code & Security Review (Convergence Circuit Breaker)
 
