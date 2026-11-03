@@ -183,7 +183,8 @@ project-root/
 │   ├── rules/
 │   │   ├── code-simplicity.md                  # Karpathy 4 Principles (Think, Simplicity, Surgical, Goal-Driven)
 │   │   ├── execution-discipline.md             # Context Hygiene (trailofbits/claude-code-config) & Safe Rollback
-│   │   └── testing-and-api.md                  # Real Testing (obra/superpowers TDD) & OWASP API Security
+│   │   ├── testing-and-api.md                  # Real Testing (obra/superpowers TDD) & OWASP API Security
+│   │   └── ui-anti-slop.md                     # กฎออกแบบ UI 9 ด้านแบบ Auto 1-Pass (heydamir/unslop)
 │   └── skills/
 │       ├── auto-resume-handoff/SKILL.md        # 3-Phase Harness รับไม้ต่ออัตโนมัติ (Anthropic Long-Running Harness)
 │       ├── common-ground/SKILL.md              # Socratic Discovery & YAGNI Scope (obra/superpowers brainstorming)
@@ -222,3 +223,4 @@ project-root/
 * **[`obra/superpowers`](https://github.com/obra/superpowers):** โปรโตคอล *Verification Before Completion*, *4-Phase Systematic Debugging*, *Socratic Brainstorming*, *Code Review Convergence*, และ *Real-Code TDD*
 * **[`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config):** สถาปัตยกรรม *Two-Layer Context Hygiene* และการแยกขอบเขตการส่งงานเข้า Sub-agent เพื่อรักษาขนาด Context Window
 * **[`supabase/agent-skills`](https://github.com/supabase/agent-skills) & [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills):** กฎ *Zero-Downtime Postgres Migration / RLS* และระบบดึงทักษะเฉพาะทางตาม Tech Stack จริงแบบ Sparse Checkout (`install-skill.sh`)
+* **[`heydamir/unslop`](https://github.com/heydamir/unslop):** สกัดเกณฑ์ตรวจสอบ UI 9 ด้าน (*Spacing, Color, Icons, Copy, Type, Layout, Details, Visuals, Motion*) มาเป็นกฎ `ui-anti-slop.md` ที่ทำงานอัตโนมัติในรอบเดียวเมื่อแก้ไขไฟล์หน้าบ้าน และรองรับการดึง Skill ตัวเต็มผ่าน `install-skill.sh unslop`

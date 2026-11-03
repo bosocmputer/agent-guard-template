@@ -13,9 +13,9 @@ Every installed skill's `name` and `description` are loaded into the agent's sys
 
 ## 2. Official `jeffallan/claude-skills` Catalog (Verified Folder Names)
 
-| Project Layer | Verified Skill Names in `jeffallan/claude-skills` |
+| Project Layer | Verified Skill Names (`jeffallan/claude-skills` & `heydamir/unslop`) |
 | :--- | :--- |
-| **Frontend & Mobile** | `react-expert`, `nextjs-developer`, `vue-expert`, `angular-architect`, `tailwind-expert`, `react-native-expert`, `flutter-expert` |
+| **Frontend, Mobile & UI Polish** | `react-expert`, `nextjs-developer`, `vue-expert`, `angular-architect`, `tailwind-expert`, `react-native-expert`, `flutter-expert`, `unslop` *(จาก `heydamir/unslop`)* |
 | **Backend Frameworks** | `nestjs-expert`, `fastapi-expert`, `django-expert`, `laravel-specialist`, `spring-boot-engineer`, `rails-expert`, `dotnet-core-expert` |
 | **Core Languages** | `typescript-pro`, `python-pro`, `golang-pro`, `rust-engineer`, `java-architect`, `cpp-pro`, `csharp-developer` |
 | **Database & API** | `postgres-pro`, `sql-pro`, `database-architect`, `graphql-architect`, `api-designer`, `microservices-architect` |
