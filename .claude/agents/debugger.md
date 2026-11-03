@@ -5,6 +5,9 @@ tools: Read, Edit, Grep, Glob, Bash
 disallowedTools: Write
 model: sonnet
 maxTurns: 10
+skills:
+  - root-cause-debug
+  - verification-before-completion
 ---
 # Systematic Root-Cause Debugger (`obra/superpowers` + Circuit Breaker)
 

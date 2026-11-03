@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Dual-Mode Hook (Claude Code + Antigravity): บล็อกเมื่อ AI รันคำสั่งเทสต์หรือบิลด์เดิมซ้ำเกิน 3 ครั้งในหน้าต่าง 6 คำสั่งล่าสุด
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$PROJECT_ROOT" || exit 0
 INPUT=$(cat)
 
 if echo "$INPUT" | grep -q '"toolCall"'; then

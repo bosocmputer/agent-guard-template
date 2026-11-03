@@ -1,5 +1,6 @@
 # Project Overview & Universal Agent Governance
-> ใช้ร่วมกันทั้ง **Claude Code** และ **Antigravity (VS Code)**
+> ใช้ร่วมกันทั้ง **Claude Code** (`.claude/`) และ **Antigravity / VS Code** (`.agents/`)
+> **Upstream Architectures:** [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config)
 
 ## 0. Project Stack & Quick Commands (แก้ไขให้ตรงกับโปรเจกต์ของคุณ)
 - **Tech Stack:** [ระบุ เช่น Next.js 15 / Node.js 22 / TypeScript / PostgreSQL (Prisma)]

@@ -1,5 +1,6 @@
 # Project Overview & Universal Agent Governance
-> ใช้ร่วมกันทั้ง **Antigravity (VS Code)**, **Claude Code**, และ **Cursor**
+> ใช้ร่วมกันทั้ง **Claude Code** (`.claude/`) และ **Antigravity / VS Code** (`.agents/`)
+> **Upstream Architectures:** [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config)
 
 ## 0. Project Stack & Quick Commands (แก้ไขให้ตรงกับโปรเจกต์ของคุณ)
 - **Tech Stack:** [ระบุ เช่น Next.js 15 / Node.js 22 / TypeScript / PostgreSQL (Prisma)]
@@ -12,17 +13,17 @@
 ---
 
 ## 1. Zero-Command Auto-Routing (พิมพ์ความต้องการอย่างเดียว ระบบเลือกโหมดเอง)
-วิเคราะห์เจตนาจากประโยคของผู้ใช้และเลือกโหลดโปรโตคอลอัตโนมัติโดยไม่ต้องรอคำสั่ง `/slash`:
+วิเคราะห์เจตนาจากประโยคของผู้ใช้และเลือกโหลดโปรโตคอลหรือ Sub-agent อัตโนมัติโดยไม่ต้องรอคำสั่ง `/slash`:
 
-| สิ่งที่ผู้ใช้พิมพ์สั่ง | ขนาด/ลักษณะงาน | โปรโตคอลที่ต้องใช้ทันที |
+| สิ่งที่ผู้ใช้พิมพ์สั่ง | ขนาด/ลักษณะงาน | โปรโตคอล / Sub-Agent ที่ต้องใช้ทันที |
 | :--- | :--- | :--- |
 | **"โปรเจกต์นี้ใช้ React / NestJS..."** | ตั้งค่าเริ่มต้น / แจ้ง Tech Stack | โหลด `tech-stack-skills` ดึงเฉพาะ 2–4 Skills ที่ใช้จาก `jeffallan/claude-skills` ผ่าน `install-skill.sh` |
 | **"ทำต่อจากที่ค้างไว้ / โควต้าอีกฝั่งหมด"** | สลับ Agent กลางคัน | โหลด `auto-resume-handoff` อ่าน `.agent-last-state.log` + `git diff` แล้วทำต่อทันทีไม่ต้องถามซ้ำ |
 | **"สร้างระบบ... / เพิ่มฟีเจอร์..." (โจทย์กว้าง)** | มีจุดกำกวม / เลือกทำได้หลายแบบ | โหลด `common-ground` สรุปสมมติฐาน 3–4 ข้อสั้นๆ ให้ผู้ใช้ยืนยันก่อนเริ่มเขียนโค้ด |
-| **"แก้ปุ่ม / แก้ฟังก์ชัน..." (1–2 ไฟล์ชัดเจน)** | **Trivial Task** | ลงมือแก้แบบ Surgical Edit + รันตรวจด้วย `verification-before-completion` ทันที (ห้ามสร้างไฟล์แผนงาน) |
-| **"ปรับโครงสร้าง / เชื่อมต่อหลายโมดูล" (>3 ไฟล์)** | **Complex Task** | สำรวจเฉพาะไฟล์ที่เกี่ยวข้อง สรุปแผนไม่เกิน 10 บรรทัด (ไฟล์ที่กระทบ + ความเสี่ยง) รอผู้ใช้ยืนยัน |
-| **"เทสต์พัง / บั๊กหน้า... / Error..."** | แก้บั๊ก / วิเคราะห์ปัญหา | โหลด `root-cause-debug` (ใช้กฎ `0-Strike Missing Spec` และ `2-Strike Bug Limit`) |
-| **"ช่วยตรวจโค้ด / รีวิวให้หน่อย"** | ตรวจสอบคุณภาพและความปลอดภัย | โหลด `pragmatic-review` (ตรวจเฉพาะ `[BLOCKER]` ห้ามติจุกจิก จบภายในไม่เกิน 2 รอบ) |
+| **"แก้ปุ่ม / แก้ฟังก์ชัน..." (1–2 ไฟล์ชัดเจน)** | **Trivial Task** | ลงมือแก้แบบ Surgical Edit + รันตรวจด้วย `verification-before-completion` ทันที (ห้ามเรียก Sub-agent) |
+| **"ปรับโครงสร้าง / เชื่อมต่อหลายโมดูล" (>3 ไฟล์)** | **Complex Task** | เรียก `explorer` sub-agent สำรวจไฟล์ที่เกี่ยวข้อง แล้วสรุปแผนไม่เกิน 10 บรรทัดรอผู้ใช้ยืนยัน |
+| **"เทสต์พัง / บั๊กหน้า... / Error..."** | แก้บั๊ก / วิเคราะห์ปัญหา | เรียก `debugger` sub-agent (ใช้กฎ `0-Strike Missing Spec` และ `2-Strike Bug Limit`) |
+| **"ช่วยตรวจโค้ด / รีวิวให้หน่อย"** | ตรวจสอบคุณภาพและความปลอดภัย | เรียก `reviewer` sub-agent (ตรวจเฉพาะ `[BLOCKER]` ห้ามติจุกจิก จบภายในไม่เกิน 2 รอบ) |
 
 ---
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Dual-Mode SessionStart Hook (Claude Code + Antigravity): ตรวจจับงานค้างอัตโนมัติเมื่อสลับ Agent หลังโควต้าหมด
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$PROJECT_ROOT" || exit 0
 INPUT=$(cat)
 
 if echo "$INPUT" | grep -q '"conversationId"'; then

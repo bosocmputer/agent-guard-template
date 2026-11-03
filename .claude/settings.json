@@ -16,6 +16,14 @@
       "Read(./.env.*)",
       "Read(./**/*.pem)",
       "Read(./**/*.key)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(./**/*.pem)",
+      "Edit(./**/*.key)",
+      "Write(./.env)",
+      "Write(./.env.*)",
+      "Write(./**/*.pem)",
+      "Write(./**/*.key)",
       "Bash(rm -rf *)",
       "Bash(git push --force*)",
       "Bash(git checkout *)",
@@ -30,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/auto-resume.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/auto-resume.sh\""
           }
         ]
       }
@@ -41,11 +49,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-bash.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/validate-bash.sh\""
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/loop-circuit-breaker.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/loop-circuit-breaker.sh\""
           }
         ]
       },
@@ -54,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/protect-sensitive-files.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/protect-sensitive-files.sh\""
           }
         ]
       }
@@ -65,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/post-edit-format.sh"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/post-edit-format.sh\""
           }
         ]
       }

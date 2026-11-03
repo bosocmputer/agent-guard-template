@@ -4,6 +4,9 @@ description: Use this agent when executing well-scoped code changes across 1-5 f
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 maxTurns: 15
+skills:
+  - verification-before-completion
+  - db-migration
 ---
 # Surgical Implementation Specialist
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Dual-Mode Hook (Claude Code + Antigravity): จัด Format อัตโนมัติ + บันทึก Auto-Checkpoint เผื่อโควต้าหมดกลางคัน
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$PROJECT_ROOT" || exit 0
 INPUT=$(cat)
 
 if echo "$INPUT" | grep -q '"toolCall"'; then

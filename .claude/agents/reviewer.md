@@ -5,6 +5,8 @@ tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 model: sonnet
 maxTurns: 8
+skills:
+  - pragmatic-review
 ---
 # Pragmatic Code & Security Reviewer (Convergence Protocol)
 

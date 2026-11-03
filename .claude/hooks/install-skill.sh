@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # ดึงเฉพาะโฟลเดอร์ Skill ที่ต้องการจาก jeffallan/claude-skills มาติดตั้งทั้งฝั่ง Claude Code (.claude/skills) และ Antigravity (.agents/skills)
 set -e
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$PROJECT_ROOT"
 
 if [ "$#" -eq 0 ]; then
   echo "Usage: bash .claude/hooks/install-skill.sh <skill-name> [skill-name-2 ...]"

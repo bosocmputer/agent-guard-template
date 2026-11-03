@@ -1,22 +1,23 @@
-# Execution Discipline, Context Hygiene & Token Efficiency
+# Execution Discipline, Context Hygiene & Subagent Delegation
 
-กฎควบคุมวินัยการทำงานของ Agent เพื่อป้องกันการผลาญโควต้าและรักษาความแม่นยำตลอดทั้ง Session
+> **Reference Architecture:** [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) (Two-Layer Context Hygiene & Subagent Scoping) & [`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) (*Goal-Driven Execution*)
 
-## 1. Task Sizing & Tool Discipline (ประหยัดรอบการเรียกใช้เครื่องมือ)
-- **Read Before Write:** ห้ามแก้ไขไฟล์โดยที่ยังไม่ได้เปิดอ่านเนื้อหาบริเวณนั้นก่อน
-- **Batch Edits Carefully:** หากต้องแก้หลายจุดในไฟล์เดียว ให้วางแผนและแก้ให้จบใน 1–2 รอบคำสั่ง แทนการแก้ทีละบรรทัดแล้วรันเทสต์ซ้ำทุกบรรทัด
-- **Single-Test Execution First:** เมื่อกำลังพัฒนาหรือแก้บั๊กในไฟล์เดียว ให้รันเทสต์เฉพาะไฟล์นั้น (เช่น `node --test path/to/file.test.js` หรือ `npm test -- path/to/file`) เสมอ ห้ามรัน Test Suite ทั้งโปรเจกต์ซ้ำๆ ทุกครั้งที่แก้โค้ด 1 บรรทัด
+## 1. Context Window Protection & Subagent Delegation (`trailofbits/claude-code-config`)
+- **Keep Primary Context Lean:** Never dump entire large files or run broad, unfiltered recursive searches (`grep -R` across `node_modules/` or `dist/`) in the main conversation window.
+- **When to Delegate vs Execute Directly:**
+  - **1–2 Known Files (Direct Execution):** Read the target line ranges and apply surgical edits directly in the main session. Do not spawn subagents for trivial edits.
+  - **>3 Files or Unknown Codebase Layout (Delegate to `explorer`):** Offload broad codebase searches to the `explorer` subagent (`model: haiku`, `maxTurns: 6`) so only its 15-line summary enters the main context window.
+- **Targeted Single-File Testing:** During active implementation or debugging, execute only the specific test file (`node --test <path>` or `npm test -- <path>`) rather than running the entire repository test suite on every edit.
 
-## 2. Safe Rollback Protocol (การย้อนโค้ดอย่างปลอดภัย)
-- เมื่อการลองแก้บั๊กไม่สำเร็จและต้องการย้อนโค้ดกลับ **ต้องใช้เครื่องมือ `Edit` (`edit_file`) แก้กลับเฉพาะบรรทัดที่เพิ่งเปลี่ยนเท่านั้น**
-- **ห้ามเด็ดขาด:** ห้ามรัน `git checkout .`, `git restore`, `git reset --hard`, หรือ `git clean` เพราะใน Working Tree อาจมีโค้ดส่วนอื่นที่ผู้ใช้เขียนค้างไว้แต่ยังไม่ได้ Commit
+## 2. Non-Destructive Rollback Protocol
+- When reverting a failed hypothesis or broken edit, **always use the `Edit` (`edit_file`) tool to restore the exact lines modified**.
+- **Strictly Forbidden:** Never run `git checkout .`, `git restore`, `git reset --hard`, or `git clean -f`—the working tree may contain uncommitted work authored by the user.
 
-## 3. Stop When Objective Is Met (หยุดทันทีเมื่อบรรลุเป้าหมาย)
-- เมื่อทำตามคำสั่งเสร็จและรัน Verification ผ่านแล้ว ให้สรุปผลและหยุดทันที
-- ห้ามแอบทำฟีเจอร์ต่อเนื่องเอง ห้าม Refactor โค้ดต่อเอง และห้ามรันคำสั่งสำรวจเพิ่มเติมหลังงานจบแล้ว
+## 3. Goal-Driven Execution & Hard Stop
+- Define the exact verification command before editing code.
+- Once the stated objective is implemented and verified passing with fresh terminal output, **STOP IMMEDIATELY**. Do not perform unsolicited refactoring, add extra features, or run exploratory commands after completion.
 
-## 4. Concise & High-Signal Communication (การรายงานผลที่กระชับ)
-- ไม่เขียนคำเกริ่นนำยาวเหยียด และไม่คัดลอกโค้ดทั้งไฟล์ที่เพิ่งแก้มาแปะซ้ำในหน้าแชท (ให้ระบุเฉพาะชื่อไฟล์ เลขบรรทัด และสรุปสิ่งที่เปลี่ยน 1–3 ข้อ)
-- รายงานผลลัพธ์ท้ายคำตอบตามโครงสร้างมาตรฐาน:
-  1. **สิ่งที่แก้ไข (Changes):** ไฟล์และจุดที่เปลี่ยนสั้นๆ
-  2. **หลักฐานการตรวจสอบ (Verification):** คำสั่งที่รันจริง + ผลลัพธ์จริง (หรือระบุว่ายังไม่ได้รันเพราะอะไร)
+## 4. Constraints (`MUST DO` / `MUST NOT DO`)
+- **MUST** read the target function and 1 adjacent file before writing or editing code.
+- **MUST** report changes concisely (`file:line` + 1-line summary) without pasting entire modified files into chat.
+- **MUST NOT** modify more than 5 files in a single turn without prior user confirmation.
