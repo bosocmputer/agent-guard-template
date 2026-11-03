@@ -181,24 +181,24 @@ project-root/
 │   ├── hooks.json                              # ผูก SessionStart, PreToolUse, PostToolUse
 │   ├── rules/
 │   │   ├── code-simplicity.md                  # Karpathy 4 Principles (Think, Simplicity, Surgical, Goal-Driven)
-│   │   ├── execution-discipline.md             # วินัยการรันเทสต์เฉพาะจุดและการย้อนโค้ดอย่างปลอดภัย
-│   │   └── testing-and-api.md                  # มาตรฐานเทสต์ AAA และการแยกชั้น API
+│   │   ├── execution-discipline.md             # Context Hygiene (trailofbits/claude-code-config) & Safe Rollback
+│   │   └── testing-and-api.md                  # Real Testing (obra/superpowers TDD) & OWASP API Security
 │   └── skills/
-│       ├── auto-resume-handoff/SKILL.md        # รับไม้ต่ออัตโนมัติเมื่อสลับมาจาก Agent อื่น
-│       ├── common-ground/SKILL.md              # เคลียร์สมมติฐานที่ซ่อนอยู่ก่อนเริ่มฟีเจอร์ใหม่
-│       ├── db-migration/SKILL.md               # กฎความปลอดภัยเมื่อแก้ไข Schema ฐานข้อมูล
-│       ├── pragmatic-review/SKILL.md           # รีวิวเฉพาะ [BLOCKER] ไม่เกิน 2 รอบ
+│       ├── auto-resume-handoff/SKILL.md        # 3-Phase Harness รับไม้ต่ออัตโนมัติ (Anthropic Long-Running Harness)
+│       ├── common-ground/SKILL.md              # Socratic Discovery & YAGNI Scope (obra/superpowers brainstorming)
+│       ├── db-migration/SKILL.md               # Zero-Downtime Migration (supabase/agent-skills + postgres-pro)
+│       ├── pragmatic-review/SKILL.md           # Blocker-Only Review ไม่เกิน 2 รอบ (obra/superpowers review)
 │       ├── root-cause-debug/SKILL.md           # 4-Phase Debugging (obra/superpowers) + 0/2-Strike Breaker
 │       ├── tech-stack-skills/SKILL.md          # ดึง Skill เฉพาะทางจาก jeffallan/claude-skills อัตโนมัติ
 │       └── verification-before-completion/     # Iron Law & 5-Step Gate Function (Test + Build + Smoke Check)
 │
 └── .claude/                                    # 🤖 ตั้งค่าอัตโนมัติสำหรับ Claude Code
-    ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks
-    ├── agents/                                 # 4 Sub-Agents (พร้อมเพดาน maxTurns & disallowedTools)
+    ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks ($CLAUDE_PROJECT_DIR)
+    ├── agents/                                 # 4 Sub-Agents (พร้อม model, maxTurns, disallowedTools & skills preload)
     │   ├── explorer.md                         # สำรวจโค้ดแบบ Read-only (haiku, maxTurns: 6)
-    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (sonnet, maxTurns: 15)
-    │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet, maxTurns: 10)
-    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker แบบ Read-only (sonnet, maxTurns: 8)
+    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (sonnet, maxTurns: 15 + skills preload)
+    │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet, maxTurns: 10 + skills preload)
+    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker แบบ Read-only (sonnet, maxTurns: 8 + skills preload)
     ├── rules/                                  # กฎโหลดตาม Path ไฟล์ (ชุดเดียวกับ .agents/rules)
     ├── skills/                                 # ทักษะอัตโนมัติ (ชุดเดียวกับ .agents/skills)
     ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /verify, /handoff)
@@ -215,8 +215,9 @@ project-root/
 
 ## 📚 มาตรฐานและงานวิจัยที่นำมาพัฒนา (Built On)
 
-* **Anthropic Claude Code Official Specification:** ใช้การจำกัด `maxTurns` และ `disallowedTools` ในระดับ Sub-agent Frontmatter ร่วมกับ `SessionStart`, `PreToolUse`, และ `PostToolUse` Hooks
+* **Anthropic Claude Code Official Specification & Engineering:** ใช้การจำกัด `model`, `maxTurns`, `disallowedTools`, และการ Preload `skills` ในระดับ Sub-agent Frontmatter ร่วมกับ `$CLAUDE_PROJECT_DIR` Hooks และรูปแบบ *Effective Harnesses for Long-Running Agents*
 * **Antigravity Customization System (`.agents/`):** รองรับ Progressive Disclosure ของ Rules/Skills และ JSON Lifecycle Hooks (`hooks.json`)
 * **[`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills):** กฎ 4 ข้อของ Karpathy (*Think Before Coding*, *Simplicity First*, *Surgical Changes*, *Goal-Driven Execution*)
-* **[`obra/superpowers`](https://github.com/obra/superpowers):** โปรโตคอล *Verification Before Completion* (5-Step Gate Function & Red Flags Table) และ *4-Phase Systematic Debugging*
-* **[`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills):** ระบบ Progressive Disclosure และสคริปต์ดึงทักษะเฉพาะทางตาม Tech Stackจริง (`install-skill.sh`)
+* **[`obra/superpowers`](https://github.com/obra/superpowers):** โปรโตคอล *Verification Before Completion*, *4-Phase Systematic Debugging*, *Socratic Brainstorming*, *Code Review Convergence*, และ *Real-Code TDD*
+* **[`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config):** สถาปัตยกรรม *Two-Layer Context Hygiene* และการแยกขอบเขตการส่งงานเข้า Sub-agent เพื่อรักษาขนาด Context Window
+* **[`supabase/agent-skills`](https://github.com/supabase/agent-skills) & [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills):** กฎ *Zero-Downtime Postgres Migration / RLS* และระบบดึงทักษะเฉพาะทางตาม Tech Stack จริงแบบ Sparse Checkout (`install-skill.sh`)
