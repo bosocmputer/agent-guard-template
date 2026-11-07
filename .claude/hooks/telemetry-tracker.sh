@@ -63,8 +63,10 @@ if prompt_txt:
 
 if stage == "prompt":
     state["activeNode"] = "core"
+    if mode == "claude" and not payload.get("modelName"):
+        state["activeModel"] = "opus"
     state["systemStatus"] = "working"
-    state["currentAction"] = f"🧠 กำลังวิเคราะห์โจทย์: {state['currentTask'][:70]}"
+    state["currentAction"] = f"👑 หัวหน้าสถาปนิก (Opus) กำลังวิเคราะห์โจทย์: {state['currentTask'][:70]}"
 elif stage == "read":
     tool_name = (payload.get("toolCall") or {}).get("name") or payload.get("tool_name") or "Read/Search"
     tool_args = (payload.get("toolCall") or {}).get("args") or payload.get("tool_input") or {}
@@ -126,13 +128,14 @@ PYEOF
   exit 0
 fi
 
-# โหมด 2: เรียกจาก Hook อื่นๆ (--engine <mode> --node <node> --status <status> --detail <msg> [--file <path>] [--strike <n>])
+# โหมด 2: เรียกจาก Hook อื่นๆ (--engine <mode> --node <node> --status <status> --detail <msg> [--file <path>] [--strike <n>] [--model <model>])
 ENGINE="claude"
 NODE="core"
 STATUS="working"
 DETAIL=""
 FILE_TOUCHED=""
 STRIKE=""
+MODEL_ARG=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -142,26 +145,27 @@ while [ $# -gt 0 ]; do
     --detail) DETAIL="${2:-}"; shift 2 ;;
     --file)   FILE_TOUCHED="${2:-}"; shift 2 ;;
     --strike) STRIKE="${2:-}"; shift 2 ;;
+    --model)  MODEL_ARG="${2:-}"; shift 2 ;;
     *) shift ;;
   esac
 done
 
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$TELEMETRY_FILE" "$ENGINE" "$NODE" "$STATUS" "$DETAIL" "$FILE_TOUCHED" "$STRIKE" <<'PYEOF' 2>/dev/null || true
+  python3 - "$TELEMETRY_FILE" "$ENGINE" "$NODE" "$STATUS" "$DETAIL" "$FILE_TOUCHED" "$STRIKE" "$MODEL_ARG" <<'PYEOF' 2>/dev/null || true
 import sys, os, json, time
 from datetime import datetime, timezone
 
-t_file, engine, node, status, detail, file_touched, strike = sys.argv[1:8]
+t_file, engine, node, status, detail, file_touched, strike, model_arg = sys.argv[1:9]
 
 state = {
     "updatedAt": "",
     "updatedEpochMs": 0,
     "activeEngine": engine,
-    "activeModel": "sonnet" if engine == "claude" else "gemini-4-argon",
+    "activeModel": "opus" if (engine == "claude" and node == "core") else ("sonnet" if engine == "claude" else "gemini-4-argon"),
     "activeNode": node,
     "systemStatus": status,
     "currentTask": "กำลังดำเนินงานในโปรเจกต์...",
-    "currentAction": detail or "Processing...",
+    "currentAction": detail or "กำลังประมวลผล...",
     "strikeCount": 0,
     "maxStrikes": 3,
     "touchedFiles": [],
@@ -179,10 +183,17 @@ if os.path.exists(t_file):
 state["activeEngine"] = engine
 state["activeNode"] = node
 state["systemStatus"] = status
-if node == "explorer" and engine == "claude":
-    state["activeModel"] = "haiku"
-elif node in ("implementer", "debugger", "reviewer") and engine == "claude":
-    state["activeModel"] = "sonnet"
+if model_arg:
+    state["activeModel"] = model_arg
+elif engine == "claude":
+    if node == "core":
+        state["activeModel"] = "opus"
+    elif node == "explorer":
+        state["activeModel"] = "haiku"
+    elif node in ("implementer", "debugger", "reviewer"):
+        state["activeModel"] = "sonnet"
+else:
+    state["activeModel"] = "gemini-4-argon"
 
 if detail:
     state["currentAction"] = detail

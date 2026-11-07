@@ -340,6 +340,7 @@ class HudHandler(BaseHTTPRequestHandler):
             detail = data.get("detail", "Simulated Event")
             file_arg = data.get("file", "")
             strike = str(data.get("strike", ""))
+            model_arg = str(data.get("model", ""))
             cmd = [
                 "bash",
                 os.path.join(PROJECT_ROOT, ".claude", "hooks", "telemetry-tracker.sh"),
@@ -352,6 +353,8 @@ class HudHandler(BaseHTTPRequestHandler):
                 cmd += ["--file", file_arg]
             if strike != "":
                 cmd += ["--strike", strike]
+            if model_arg != "":
+                cmd += ["--model", model_arg]
             subprocess.run(cmd, cwd=PROJECT_ROOT)
             self._send_json({"ok": True})
             return
