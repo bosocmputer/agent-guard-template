@@ -15,6 +15,7 @@
 | 💸 **เปลืองโควต้าฟรี:** สั่งแก้บั๊กนิดเดียว แต่ AI เดาแก้แล้วรันเทสต์พังวนไป 10 รอบจนโควต้าหมด | 🛑 **หยุดเมื่อตัน (2-Strike Limit):** ถ้า AI ลองแก้ 2 ครั้งแล้วยังไม่ผ่าน ระบบจะบังคับหยุด คืนค่าไฟล์เดิม แล้วสรุปทางเลือกมาถามคุณทันที |
 | 🤯 **คิดเองเออเอง:** สั่งทำฟีเจอร์สั้นๆ AI ดันคิดสูตรธุรกิจเองมั่วๆ พอทำเสร็จต้องสั่งรื้อใหม่หมด | 🤝 **ถามก่อนมั่ว (`common-ground` & `0-Strike`):** ถ้าข้อมูลสำคัญขาดหาย AI จะสรุปสิ่งที่มันเข้าใจ 3–4 ข้อมาถามคุณสั้นๆ ก่อนลงมือเขียนโค้ด |
 | 🐘 **โค้ดบวมเกินสั่ง:** สั่งแก้ปุ่มเดียว แต่ AI แถมเปลี่ยนชื่อตัวแปรและรื้อไฟล์ข้างเคียงมาให้เพียบ | ✂️ **แก้เฉพาะจุด (Surgical Edit):** แก้เฉพาะบรรทัดที่สั่ง ไม่แตะโค้ดส่วนอื่นที่ไม่ได้ขอ (จากการทดสอบจริงช่วยลดโค้ดส่วนเกินลง 40–65%) |
+| 🎨 **หน้าเว็บ/แอปดูเป็น AI ราคาถูก:** ชอบใช้สีม่วงไล่เฉด วาด `<svg>` เบี้ยวๆ เอง หรือเอา Emoji มาแปะแทนไอคอน | ✨ **สวยระดับ Production ในรอบเดียว (`ui-anti-slop`):** บังคับเกณฑ์ออกแบบ 9 ด้านอัตโนมัติเมื่อแตะไฟล์เว็บ/Flutter (ใช้ `lucide-react` / `lucide_icons` ห้ามวาด SVG เอง) |
 | 🔄 **รีวิวไม่รู้จบ:** พอสั่งให้ตรวจโค้ด ก็จับผิดเรื่องจุกจิก (เช่น ชื่อตัวแปร/ย่อหน้า) แก้ไปมาไม่จบสักที | ✅ **ตรวจเฉพาะจุดตาย (Blocker-Only):** ตรวจเฉพาะบั๊กที่ทำให้ระบบพังหรือรั่วไหล พอแก้เสร็จและเทสต์ผ่านจะอนุมัติ (`APPROVE`) จบงานใน 2 รอบ |
 | 🔌 **โควต้าตัดกลางอากาศ:** กำลังทำค้างไว้ใน Claude Code แล้วโควต้าหมด ต้องมานั่งพิมพ์เล่าใหม่ใน VS Code | 🏃 **ส่งไม้ต่ออัตโนมัติ (Auto-Handoff):** บันทึกจุดที่แก้ค้างไว้ทุกครั้งอัตโนมัติ พอเปิดอีกโปรแกรมขึ้นมา แค่พิมพ์ว่า *"ทำต่อเลย"* ก็ลุยต่อได้ทันที |
 
@@ -86,7 +87,7 @@ chmod +x .claude/hooks/*.sh
 
 ---
 
-## 💬 5 ตัวอย่างการใช้งานจริง (Use Cases)
+## 💬 6 ตัวอย่างการใช้งานจริง (Use Cases)
 
 คุณ**ไม่ต้องจำคำสั่งลัดใดๆ** แค่พิมพ์บอกความต้องการตามปกติ ระบบจะเลือกโหมดทำงานให้เองอัตโนมัติ:
 
@@ -159,13 +160,71 @@ chmod +x .claude/hooks/*.sh
 
 ---
 
-## 🛡️ ระบบป้องกันอัตโนมัติเบื้องหลัง (รองรับ JS/TS, Go, Flutter/Dart, Python, Rust ทันที)
+### Use Case ที่ 6: สั่งสร้างหน้าเว็บหรือแอป Flutter (ป้องกันหน้าตาแบบ "AI Slop" อัตโนมัติ)
+เวลาสั่ง AI สร้างหน้า Dashboard หรือฟอร์มสมัครสมาชิก มักจะได้หน้าเว็บสีม่วงไล่เฉด มี Emoji แปะหน้าปุ่ม และวาด `<svg>` เบี้ยวๆ เอง:
 
-Template นี้ตั้งค่าให้ตรวจจับภาษาของโปรเจกต์อัตโนมัติ (`package.json`, `go.mod`, `pubspec.yaml`, `pyproject.toml`, `Cargo.toml`) พร้อมสคริปต์ยามรักษาความปลอดภัยใน `.claude/hooks/`:
-* **`validate-bash.sh`** — บล็อกคำสั่งอันตราย เช่น `rm -rf`, `git push --force`, `git restore` / `git checkout .` และบล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`)
-* **`protect-sensitive-files.sh`** — บล็อกไม่ให้ AI แอบอ่านหรือแก้ไขไฟล์ความลับ (`.env`, `.pem`, `.key`, `.keystore`, `.jks`, `.p12`) หรือแก้ไฟล์ Lockfile โดยตรง (`package-lock.json`, `pubspec.lock`, `go.sum`, `poetry.lock`, `Cargo.lock`)
-* **`post-edit-format.sh`** — จัด Format โค้ดอัตโนมัติตามภาษา (`prettier`, `gofmt`, `dart format`, `ruff format`, `rustfmt`) และบันทึกจุด Checkpoint ล่าสุดลง `.agent-last-state.log`
-* **`loop-circuit-breaker.sh`** — นับจำนวนครั้งที่ AI รันคำสั่งเดิมซ้ำๆ หากรันเทสต์เดิมซ้ำเกิน 3 ครั้ง ระบบจะตัดเบรกเกอร์และสั่งให้ AI หยุดทันที
+> 💬 **คุณพิมพ์แค่:**
+> *"สร้างหน้า Dashboard แสดงยอดขายรายวันและตารางรายการคำสั่งซื้อล่าสุด"*
+
+**สิ่งที่ระบบทำให้อัตโนมัติ:**
+1. ทันทีที่ AI แตะไฟล์หน้าบ้าน (`*.tsx`, `*.jsx`, `*.vue`, `*.dart`, `*.css`) ระบบจะโหลดกฎ **`ui-anti-slop.md`** (สกัดจาก [`heydamir/unslop`](https://github.com/heydamir/unslop)) ขึ้นมาทำงานอัตโนมัติในรอบเดียว (ส่วนตอนทำไฟล์ Backend กฎนี้จะปิดตัวเองเพื่อไม่ให้เปลืองโควต้า)
+2. บังคับใช้ไอคอนจาก `lucide-react` / `simple-icons` (เว็บ) หรือ `lucide_icons` (Flutter) เท่านั้น ห้ามวาด `<svg>` เอง และห้ามใช้ Emoji แทนไอคอน
+3. บังคับใช้โทนสีสะอาดตา ระยะห่างสเกล `4px/8px` ตัวเลขตารางตรงหลัก (`tabular-nums`) และใส่สถานะ `Loading / Empty / Error` ให้ครบตั้งแต่รอบแรก
+
+---
+
+## 🧠 อธิบายแนวคิดและหน้าที่ของทุกส่วนใน Template (ครบทุก Concept)
+
+Template นี้ออกแบบตามหลัก **3-Layer Graph Engineering** (*Harness ➔ Bounded Agent Loop ➔ Graph State-Delta*) โดยแบ่งไฟล์ออกเป็น **6 ส่วนหลัก** ที่ทำงานประสานกันดังนี้ครับ:
+
+### 1. สมองสั่งการหลัก (`CLAUDE.md` และ `AGENTS.md`)
+* **ทำหน้าที่เป็น Auto-Router (ตัวคัดแยกงานอัตโนมัติ):** วิเคราะห์ประโยคที่คุณพิมพ์ว่าควรทำเองทันที (งานแก้ 1–2 ไฟล์) หรือควรส่งให้ลูกมือเฉพาะทางทำ (งานใหญ่ >3 ไฟล์ / งานแก้บั๊ก / งานรีวิว)
+* **ตาราง Auto-Detect 5 ภาษาหลัก:** ตรวจจับจากไฟล์ในโปรเจกต์อัตโนมัติว่าเป็น **Node.js/TypeScript** (`package.json`), **Go** (`go.mod`), **Flutter/Dart** (`pubspec.yaml`), **Python** (`pyproject.toml`), หรือ **Rust** (`Cargo.toml`) เพื่อเลือกคำสั่งรันเทสต์เฉพาะไฟล์ให้ถูกต้องโดยที่คุณไม่ต้องตั้งค่าเอง
+
+### 2. กฎเหล็กที่โหลดตามชนิดไฟล์ (`rules/*.md` — 4 ไฟล์)
+อยู่ใน `.claude/rules/` และ `.agents/rules/` จะถูกดึงมาใช้เฉพาะเมื่อ AI กำลังแก้ไฟล์ที่ตรงกับงานนั้น:
+* **`code-simplicity.md` (Karpathy 4 Principles):** บังคับ *Think Before Coding* (คิดก่อนทำ), *Simplicity First* (ทำวิธีที่ง่ายที่สุด ห้ามสร้าง Class/Helper เผื่ออนาคต), *Surgical Changes* (แก้เฉพาะบรรทัดที่สั่ง), และ *Goal-Driven Execution* (ตั้งเป้าหมายการเทสต์ก่อนจบงาน)
+* **`execution-discipline.md` (Context Hygiene & Graph `State-Delta`):**
+  * ห้ามกวาดอ่านไฟล์ทั้งโปรเจกต์เข้าหน้าแชทหลัก
+  * **Graph `State-Delta` Handoff:** เวลาลูกมือส่งงานต่อกัน (`explorer` ➔ `implementer` ➔ `reviewer`) ห้ามก๊อปปี้ประวัติแชทยาวๆ ส่งต่อ ให้ส่งเฉพาะก้อนข้อมูลสั้นๆ ไม่เกิน 8 บรรทัด (*ชื่อไฟล์:บรรทัด + เงื่อนไข + คำสั่งเทสต์*)
+  * **Safe Rollback:** เวลาแก้บั๊กไม่ผ่านแล้วต้องย้อนโค้ด บังคับใช้เครื่องมือ `Edit` แก้กลับเฉพาะบรรทัดเดิม ห้ามรัน `git checkout .` หรือ `git reset --hard` ทับโค้ดของคุณ
+* **`testing-and-api.md` (`obra/superpowers` TDD & OWASP API Security):** โหลดเฉพาะตอนแก้ไฟล์เทสต์หรือ API บังคับเทสต์กับโค้ดจริง (ห้าม Mock ฟังก์ชันที่กำลังเทสต์), แก้บั๊กต้องเห็นเทสต์พังก่อนแก้จริง (*Verify RED*), และบังคับตรวจสิทธิ์เข้าถึงข้อมูล (ป้องกันช่องโหว่ IDOR/BOLA)
+* **`ui-anti-slop.md` (`heydamir/unslop` 1-Pass UI):** โหลดเฉพาะตอนแก้ไฟล์หน้าบ้าน บังคับเกณฑ์ออกแบบ UI 9 ด้านตั้งแต่การเขียนโค้ดรอบแรก
+
+### 3. ตำราเฉพาะทางที่เปิดอ่านเมื่อถึงจังหวะใช้งาน (`skills/*/SKILL.md` — 7 ไฟล์)
+ใช้เทคนิค **Progressive Disclosure** (ปกติจะซ่อนเนื้อหาไว้เพื่อประหยัดโควต้า และจะเปิดอ่านเฉพาะเมื่อคำสั่งของคุณตรงกับเรื่องนั้น):
+* **`common-ground`:** สกัดสมมติฐานที่ซ่อนอยู่ 3–4 ข้อพร้อมระบุขอบเขตที่จะไม่ทำ (*YAGNI Out of Scope*) มาถามคุณก่อนเริ่มเขียนฟีเจอร์ใหม่
+* **`root-cause-debug`:** บังคับ 4 ขั้นตอนหาต้นตอบั๊ก พร้อมเบรกเกอร์ **`0-Strike`** (ถ้าขาดสูตรธุรกิจให้หยุดถามทันที ห้ามเดาเลข) และ **`2-Strike`** (ลองแก้ไม่เกิน 2 ครั้ง ถ้ายังพังให้คืนค่าไฟล์เดิมแล้วสรุปทางเลือก A/B มาถามคุณ)
+* **`pragmatic-review`:** ตรวจโค้ดเฉพาะจุดที่เป็นอันตราย (**Blocker-Only**) ห้ามติเรื่องความสวยงาม และบังคับจบภายในไม่เกิน **2 รอบ (`MAX_ROUNDS = 2`)** โดยรอบที่ 2 ห้ามขุดเรื่องใหม่มาติเพิ่ม (*No Moving Goalposts*)
+* **`verification-before-completion`:** กฎเหล็กห้ามพูดว่า *"เสร็จแล้ว"* หรือ *"น่าจะใช้ได้แล้ว"* ถ้ายังไม่ได้รันคำสั่งเทสต์สดในเทิร์นนั้น พร้อมตารางดักข้ออ้างของ AI และบังคับระบุส่วนที่ยังไม่ได้เทสต์ตรงๆ
+* **`db-migration`:** กฎแก้ไขฐานข้อมูลแบบ Zero-Downtime (*Expand & Contract*), ห้ามแก้ไฟล์ Migration เก่า, บังคับใส่ Index ที่ Foreign Key, ห้ามยิง Query ในลูป (N+1), และบังคับใช้ Transaction
+* **`auto-resume-handoff`:** ขั้นตอนกู้คืนงานค้าง 3 จังหวะ (อ่าน `.agent-last-state.log` ➔ เช็ก `git diff` ➔ รันเทสต์เช็กสถานะปัจจุบัน) เมื่อสลับโปรแกรมหลังโควต้าหมด
+* **`tech-stack-skills`:** ตารางจับคู่และวิธีดึงคู่มือภาษาเฉพาะทาง (เช่น `react-expert`, `nestjs-expert`, `golang-pro`, `flutter-expert`, `unslop`) มาลงเฉพาะตัวที่ใช้จริง (2–4 ตัวต่อโปรเจกต์)
+
+### 4. ลูกมือเฉพาะทาง 4 ตัว (`.claude/agents/*.md` — Bounded Agent Loops)
+ทำหน้าที่แยกงานหนักออกไปทำข้างนอกเพื่อไม่ให้หน้าแชทหลักรก พร้อมล็อกเพดานรอบ (`maxTurns`), ล็อกเครื่องมือ (`disallowedTools`), และผูกตำรา (`skills` preload) ไว้ล่วงหน้า:
+* **`explorer.md` (`model: haiku`, สูงสุด 6 รอบ):** ค้นหาไฟล์และจุดเชื่อมต่อแบบอ่านอย่างเดียว (ห้ามแก้ไฟล์) ใช้โมเดล `haiku` ที่เร็วและประหยัดโควต้ากว่า 10–20 เท่า
+* **`implementer.md` (`model: sonnet`, สูงสุด 15 รอบ):** คนลงมือเขียนและแก้โค้ดแบบ Surgical Edit พร้อมผูกตำรา `verification-before-completion` และ `db-migration`
+* **`debugger.md` (`model: sonnet`, สูงสุด 10 รอบ):** คนวิเคราะห์และแก้บั๊กตามกฎ `0-Strike` / `2-Strike` พร้อมผูกตำรา `root-cause-debug`
+* **`reviewer.md` (`model: sonnet`, สูงสุด 8 รอบ):** คนตรวจโค้ดแบบอ่านอย่างเดียว (ห้ามแอบแก้ไฟล์เอง) พร้อมผูกตำรา `pragmatic-review`
+
+### 5. คำสั่งลัดเมื่อต้องการสั่งตรง (`.claude/commands/*.md` — 6 คำสั่ง)
+ถึงแม้ระบบจะเลือกโหมดให้อัตโนมัติอยู่แล้ว แต่ถ้าคุณอยากสั่งบังคับโหมดเองใน Claude Code ก็พิมพ์คำสั่งลัดเหล่านี้ได้ทันที:
+* `/plan` — สำรวจและวางแผนงานใหญ่ไม่เกิน 12 บรรทัดก่อนเขียนโค้ด
+* `/common-ground` — สรุปสมมติฐานและขอบเขตงานให้ตรงกันก่อนทำฟีเจอร์ใหม่
+* `/fix` — วิเคราะห์และแก้บั๊กด้วยกฎ `0-Strike` / `2-Strike`
+* `/review` — ตรวจรีวิวโค้ดเฉพาะ `[BLOCKER]` ไม่เกิน 2 รอบ
+* `/verify` — รันเทสต์ + ตรวจ Type/Analyze + เช็กพอร์ตยืนยันผลจริง
+* `/handoff` — บันทึกสถานะงานค้างลง `TASK_STATE.md` ก่อนล้างแชท (`/clear`) หรือก่อนสลับโปรแกรม
+
+### 6. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh` — Deterministic Function Nodes)
+แทนที่จะเปลืองโควต้าให้ AI คอยระวังเอง งานที่ตายตัวจะถูกควบคุมด้วยสคริปต์ Bash ที่ทำงานอัตโนมัติทั้งใน Claude Code (`.claude/settings.json`) และ Antigravity (`.agents/hooks.json`) โดย**ไม่เสียโควต้า AI แม้แต่ Token เดียว**:
+* **`validate-bash.sh`:** บล็อกคำสั่งอันตราย (`rm -rf`, `git push --force`, `git restore` / `git checkout .`) และบล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`)
+* **`protect-sensitive-files.sh`:** บล็อกการอ่านหรือแก้ไขไฟล์ความลับ (`.env`, `.pem`, `.key`, `.keystore`, `.jks`, `.p12`) และห้ามแก้ไฟล์ Lockfile โดยตรง (`package-lock.json`, `pubspec.lock`, `go.sum`, `poetry.lock`, `Cargo.lock`)
+* **`post-edit-format.sh`:** จัด Format โค้ดอัตโนมัติตามภาษา (`prettier`, `gofmt`, `dart format`, `ruff format`, `rustfmt`) และบันทึกจุดแก้ล่าสุดลง `.agent-last-state.log` ทุกครั้ง
+* **`loop-circuit-breaker.sh`:** นับจำนวนครั้งที่ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำๆ ถ้าเกิน 3 ครั้งจะตัดเบรกเกอร์บังคับหยุดทันที
+* **`auto-resume.sh`:** ตรวจหาไฟล์ `.agent-last-state.log` และ `git status` ตอนเปิดแชทใหม่ เพื่อส่งต่องานค้างให้อัตโนมัติ
+* **`install-skill.sh`:** ดึงเฉพาะโฟลเดอร์ Skill ที่สั่งจาก `jeffallan/claude-skills` หรือ `heydamir/unslop` มาติดตั้งให้ทั้ง 2 โปรแกรมพร้อมกันภายในไม่กี่วินาที
 
 ---
 
@@ -182,7 +241,7 @@ project-root/
 │   ├── hooks.json                              # ผูก SessionStart, PreToolUse, PostToolUse
 │   ├── rules/
 │   │   ├── code-simplicity.md                  # Karpathy 4 Principles (Think, Simplicity, Surgical, Goal-Driven)
-│   │   ├── execution-discipline.md             # Context Hygiene (trailofbits/claude-code-config) & Safe Rollback
+│   │   ├── execution-discipline.md             # Context Hygiene (trailofbits) + Graph State-Delta (ADK 2) & Safe Rollback
 │   │   ├── testing-and-api.md                  # Real Testing (obra/superpowers TDD) & OWASP API Security
 │   │   └── ui-anti-slop.md                     # กฎออกแบบ UI 9 ด้านแบบ Auto 1-Pass (heydamir/unslop)
 │   └── skills/
@@ -221,6 +280,6 @@ project-root/
 * **Antigravity Customization System (`.agents/`):** รองรับ Progressive Disclosure ของ Rules/Skills และ JSON Lifecycle Hooks (`hooks.json`)
 * **[`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills):** กฎ 4 ข้อของ Karpathy (*Think Before Coding*, *Simplicity First*, *Surgical Changes*, *Goal-Driven Execution*)
 * **[`obra/superpowers`](https://github.com/obra/superpowers):** โปรโตคอล *Verification Before Completion*, *4-Phase Systematic Debugging*, *Socratic Brainstorming*, *Code Review Convergence*, และ *Real-Code TDD*
-* **[`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config):** สถาปัตยกรรม *Two-Layer Context Hygiene* และการแยกขอบเขตการส่งงานเข้า Sub-agent เพื่อรักษาขนาด Context Window
+* **[`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) & Google ADK 2.0 Graph Engineering:** สถาปัตยกรรม 3 ชั้น (*Harness ➔ Bounded Loop ➔ Graph*), *Two-Layer Context Hygiene*, และการส่งต่อข้อมูลระหว่าง Sub-agent แบบบีบอัด (`State-Delta` Handoff ไม่เกิน 8 บรรทัด)
 * **[`supabase/agent-skills`](https://github.com/supabase/agent-skills) & [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills):** กฎ *Zero-Downtime Postgres Migration / RLS* และระบบดึงทักษะเฉพาะทางตาม Tech Stack จริงแบบ Sparse Checkout (`install-skill.sh`)
 * **[`heydamir/unslop`](https://github.com/heydamir/unslop):** สกัดเกณฑ์ตรวจสอบ UI 9 ด้าน (*Spacing, Color, Icons, Copy, Type, Layout, Details, Visuals, Motion*) มาเป็นกฎ `ui-anti-slop.md` ที่ทำงานอัตโนมัติในรอบเดียวเมื่อแก้ไขไฟล์หน้าบ้าน และรองรับการดึง Skill ตัวเต็มผ่าน `install-skill.sh unslop`
