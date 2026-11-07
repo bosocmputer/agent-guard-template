@@ -12,7 +12,7 @@ else
 fi
 
 if echo "$FILE_PATH" | grep -qE '(^|/)(\.env($|\.)|.*\.(pem|key|p12|keystore|jks|sqlite|db)$|(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb|go\.sum|pubspec\.lock|poetry\.lock|uv\.lock|Cargo\.lock)$)'; then
-  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "blocked" --detail "🛡️ Blocked sensitive file: $FILE_PATH" >/dev/null 2>&1 || true
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "blocked" --detail "🛡️ Blocked sensitive file: $FILE_PATH" --hook ".claude/hooks/protect-sensitive-files.sh" --rule "CLAUDE.md (Secrets Guard)" >/dev/null 2>&1 || true
   if [ "$MODE" = "antigravity" ]; then
     printf '{"decision":"deny","reason":"ไม่อนุญาตให้แก้ไขไฟล์ความลับ Keystore หรือ Lockfile โดยตรง (%s)"}\n' "$FILE_PATH"
     exit 0

@@ -14,7 +14,7 @@ fi
 
 block_action() {
   local REASON="$1"
-  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "blocked" --detail "🛡️ Shield Blocked: $REASON" >/dev/null 2>&1 || true
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "blocked" --detail "🛡️ Shield Blocked: $REASON" --hook ".claude/hooks/validate-bash.sh" --rule "CLAUDE.md (OS Shield)" >/dev/null 2>&1 || true
   if [ "$MODE" = "antigravity" ]; then
     printf '{"decision":"deny","reason":"%s"}\n' "$REASON"
     exit 0

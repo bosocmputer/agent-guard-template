@@ -322,6 +322,23 @@ class HudHandler(BaseHTTPRequestHandler):
             self._send_json(fetch_live_quotas(force=force))
             return
 
+        if parsed.path == "/api/file":
+            qs = parse_qs(parsed.query)
+            rel = (qs.get("path", [""])[0] or "").strip().lstrip("/")
+            if not rel or ".." in rel or re.search(r"(^|/)(\.env($|\.)|.*\.(pem|key|p12|keystore|jks|sqlite|db)$)", rel):
+                self._send_json({"ok": False, "error": "ไม่อนุญาตให้อ่านไฟล์นี้"}, 403)
+                return
+            abs_p = os.path.realpath(os.path.join(PROJECT_ROOT, rel))
+            if not abs_p.startswith(os.path.realpath(PROJECT_ROOT)) or not os.path.isfile(abs_p):
+                self._send_json({"ok": False, "error": f"ไม่พบไฟล์ {rel}"}, 404)
+                return
+            try:
+                content = open(abs_p, encoding="utf-8", errors="ignore").read()[:24000]
+                self._send_json({"ok": True, "path": rel, "content": content})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+            return
+
         self.send_error(404, "Not found")
 
     def do_POST(self):
@@ -341,6 +358,11 @@ class HudHandler(BaseHTTPRequestHandler):
             file_arg = data.get("file", "")
             strike = str(data.get("strike", ""))
             model_arg = str(data.get("model", ""))
+            skill_arg = str(data.get("skill", ""))
+            cmd_arg = str(data.get("command", ""))
+            rule_arg = str(data.get("rule", ""))
+            hook_arg = str(data.get("hook", ""))
+            prompt_arg = str(data.get("prompt", ""))
             cmd = [
                 "bash",
                 os.path.join(PROJECT_ROOT, ".claude", "hooks", "telemetry-tracker.sh"),
@@ -355,6 +377,16 @@ class HudHandler(BaseHTTPRequestHandler):
                 cmd += ["--strike", strike]
             if model_arg != "":
                 cmd += ["--model", model_arg]
+            if skill_arg != "":
+                cmd += ["--skill", skill_arg]
+            if cmd_arg != "":
+                cmd += ["--command", cmd_arg]
+            if rule_arg != "":
+                cmd += ["--rule", rule_arg]
+            if hook_arg != "":
+                cmd += ["--hook", hook_arg]
+            if prompt_arg != "":
+                cmd += ["--prompt", prompt_arg]
             subprocess.run(cmd, cwd=PROJECT_ROOT)
             self._send_json({"ok": True})
             return
