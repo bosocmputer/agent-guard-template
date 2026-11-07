@@ -99,8 +99,9 @@
     }
     .section-title {
       font-size: 11px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--accent-cyan);
+      letter-spacing: 0.05em; color: var(--accent-cyan);
       display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; white-space: nowrap;
       border-bottom: 1px solid rgba(148, 163, 184, 0.14);
       padding-bottom: 6px;
     }
@@ -113,11 +114,11 @@
     .label-muted { font-size: 11px; color: var(--text-muted); }
     .val-text {
       font-size: 12.5px; font-weight: 500; line-height: 1.4;
-      word-break: break-word; user-select: text;
+      overflow-wrap: break-word; word-break: break-word; user-select: text;
     }
     .mono-val {
       font-family: var(--font-mono); font-size: 11.5px;
-      color: #38bdf8; word-break: break-all; user-select: text;
+      color: #38bdf8; overflow-wrap: break-word; word-break: break-word; user-select: text;
       font-variant-numeric: tabular-nums;
     }
 
@@ -170,13 +171,15 @@
     }
     .event-list {
       display: flex; flex-direction: column; gap: 6px;
-      max-height: 220px; overflow-y: auto;
+      max-height: 220px; overflow-y: auto; padding-right: 2px;
     }
     .event-item {
+      flex-shrink: 0;
       font-size: 11.5px; padding: 6px 8px; border-radius: 6px;
       background: rgba(15, 23, 42, 0.65);
       border-left: 3px solid var(--accent-cyan);
       display: flex; flex-direction: column; gap: 2px;
+      overflow-wrap: break-word; word-break: break-word;
     }
     .event-item.warning { border-left-color: var(--status-warn); }
     .event-item.blocked { border-left-color: var(--status-block); }
@@ -673,6 +676,15 @@
         item.mat.emissiveIntensity = isCurrent ? 1.5 : 0.35;
         item.beamMat.opacity = isCurrent ? 0.9 : 0.18;
         item.div.classList.toggle('active', isCurrent);
+        if (isCurrent) {
+          item.div.style.borderColor = palette.css;
+          item.div.style.color = '#f8fafc';
+          item.div.style.boxShadow = `0 0 10px ${palette.css}`;
+        } else {
+          item.div.style.borderColor = '';
+          item.div.style.color = '';
+          item.div.style.boxShadow = '';
+        }
       });
 
       // Top Badges
@@ -716,7 +728,7 @@
       // Right Panel Events
       const stats = data.stats || {};
       document.getElementById('stat-counters').textContent =
-        `Claude: ${stats.claudeCalls || 0} | AGY: ${stats.antigravityCalls || 0} | Blocked: ${stats.blockedCount || 0}`;
+        `C:${stats.claudeCalls || 0} · A:${stats.antigravityCalls || 0} · BLK:${stats.blockedCount || 0}`;
 
       const evList = document.getElementById('event-list');
       const events = data.events || [];
@@ -785,12 +797,16 @@
         const ac5 = a.claude5h && a.claude5h !== '-' ? `5h: ${a.claude5h}% | 7d: ${a.claude7d || '-'}%` : 'พร้อมใช้งาน';
         document.getElementById('q-agy-gemini').textContent = ag5;
         document.getElementById('q-agy-claude').textContent = ac5;
-        updateQuotaBar('bar-agy-gemini', a.gemini5h);
-        updateQuotaBar('bar-agy-claude', a.claude5h);
+        const gMin = Math.min(parseInt(a.gemini5h, 10) || 100, parseInt(a.gemini7d, 10) || 100);
+        const cMin = Math.min(parseInt(a.claude5h, 10) || 100, parseInt(a.claude7d, 10) || 100);
+        updateQuotaBar('bar-agy-gemini', isNaN(parseInt(a.gemini5h, 10)) ? '-' : String(gMin));
+        updateQuotaBar('bar-agy-claude', isNaN(parseInt(a.claude5h, 10)) ? '-' : String(cMin));
         const aBadge = document.getElementById('q-agy-badge');
         if (!a.installed) { aBadge.textContent = 'NOT INSTALLED'; aBadge.className = 'badge warning'; }
-        else if (parseInt(a.gemini5h, 10) === 0 && parseInt(a.claude5h, 10) === 0) {
+        else if (gMin === 0 && cMin === 0) {
           aBadge.textContent = 'QUOTA 0%'; aBadge.className = 'badge blocked';
+        } else if (Math.min(gMin, cMin) <= 20) {
+          aBadge.textContent = 'LOW 7D'; aBadge.className = 'badge warning';
         } else {
           aBadge.textContent = 'READY'; aBadge.className = 'badge ready';
         }
