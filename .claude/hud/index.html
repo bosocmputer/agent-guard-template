@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ออฟฟิศทีม AI 3 มิติ — ศูนย์สั่งงานและตรวจโควต้า (Agent Guard Studio)</title>
+  <title>ออฟฟิศทีม AI 3 มิติ — Agent Guard Studio</title>
   <link rel="icon" href="data:," />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,32 +19,33 @@
   </script>
 
   <style>
+    /* ==========================================================================
+       Achromatic Dark Graphite Studio Shell (Threejs-Awesome-Graphics Standard)
+       - The 3D viewport is the undisputed Hero (80%+ screen area).
+       - Chrome uses neutral dark graphite (#0b0c0e, #111318, #171a21) so human
+         vision stays calibrated to the 3D studio lighting and colors.
+       ========================================================================== */
     :root {
-      --bg-studio: #e9eef5;
-      --surface-card: rgba(255, 255, 255, 0.93);
-      --surface-soft: #f8fafc;
-      --surface-muted: #f1f5f9;
-      --border-card: rgba(148, 163, 184, 0.32);
-      --border-strong: rgba(100, 116, 139, 0.42);
-      --text-main: #0f172a;
-      --text-sec: #334155;
-      --text-muted: #64748b;
+      --bg-frame: #0b0c0f;
+      --bg-panel: #111318;
+      --bg-panel-elevated: #171a21;
+      --bg-card: #1b1f27;
+      --bg-glass: rgba(17, 19, 24, 0.84);
+      --border-hairline: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.15);
 
-      --role-opus: #7c3aed;
-      --role-opus-bg: #f3e8ff;
-      --role-haiku: #0d9488;
-      --role-haiku-bg: #ccfbf1;
-      --role-sonnet: #2563eb;
-      --role-sonnet-bg: #dbeafe;
-      --role-debug: #d97706;
-      --role-debug-bg: #fef3c7;
-      --role-review: #16a34a;
-      --role-review-bg: #dcfce7;
-      --role-danger: #dc2626;
-      --role-danger-bg: #fee2e2;
+      --text-primary: #edeae3;
+      --text-secondary: #a5a29c;
+      --text-muted: #6e6c67;
 
-      --shadow-soft: 0 10px 30px -6px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
-      --font-thai: 'IBM Plex Sans Thai', 'Plus Jakarta Sans', sans-serif;
+      --accent-opus: #a855f7;
+      --accent-haiku: #14b8a6;
+      --accent-sonnet: #3b82f6;
+      --accent-debug: #f59e0b;
+      --accent-review: #22c55e;
+      --accent-danger: #ef4444;
+
+      --font-sans: 'IBM Plex Sans Thai', 'Plus Jakarta Sans', sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
     }
 
@@ -59,1240 +60,1617 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: var(--bg-studio);
-      color: var(--text-main);
-      font-family: var(--font-thai);
+      background: var(--bg-frame);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
       -webkit-font-smoothing: antialiased;
     }
 
+    /* โครงสร้างหลัก: แถบบน 52px + พื้นที่หลัก (ซ้าย: 3D Hero Stage 1fr | ขวา: แผงควบคุมเดี่ยว 330px) */
+    .studio-app {
+      display: grid;
+      grid-template-rows: 52px minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) 336px;
+      width: 100vw;
+      height: 100vh;
+      transition: grid-template-columns 0.25s ease;
+    }
+    .studio-app.inspector-collapsed {
+      grid-template-columns: minmax(0, 1fr) 0px;
+    }
+
+    /* ==================== 1. MICRO-TOPBAR (52px) ==================== */
+    .studio-topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 16px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-hairline);
+      z-index: 20;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #27272a, #3f3f46);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .brand-text {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .brand-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .brand-proj {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* แถบขั้นตอน 1 -> 2 -> 3 -> 4 -> 5 แบบสลิม */
+    .pipeline-stepper {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-frame);
+      padding: 3px 5px;
+      border-radius: 9px;
+      border: 1px solid var(--border-hairline);
+      overflow-x: auto;
+    }
+    .step-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 9px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.16s ease;
+    }
+    .step-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .step-btn.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+      font-weight: 600;
+    }
+    .step-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .step-sep {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .status-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      background: rgba(34, 197, 94, 0.12);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.28);
+      white-space: nowrap;
+    }
+    .status-chip .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .tool-btn {
+      background: var(--bg-panel-elevated);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-secondary);
+      padding: 5px 9px;
+      border-radius: 7px;
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .tool-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+      background: var(--bg-card);
+    }
+    .fps-pill {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      padding: 4px 7px;
+      border-radius: 6px;
+      background: var(--bg-frame);
+      border: 1px solid var(--border-hairline);
+    }
+
+    /* ==================== 2. HERO 3D VIEWPORT STAGE ==================== */
+    .viewport-stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #14171f;
+    }
+
     #canvas-container {
-      position: fixed;
+      position: absolute;
       inset: 0;
-      z-index: 1;
+      width: 100%;
+      height: 100%;
       cursor: grab;
     }
     #canvas-container:active {
       cursor: grabbing;
     }
 
-    /* ป้ายชื่อลอยเหนือโต๊ะทำงาน 3D */
+    /* ป้ายชื่อโต๊ะทำงาน 3D (Minimalist Studio Tags ไม่บังตัวละคร) */
     #labels-layer {
-      position: fixed;
+      position: absolute;
       inset: 0;
-      z-index: 2;
       pointer-events: none;
       overflow: hidden;
+      z-index: 5;
     }
 
-    .desk-label {
+    .desk-tag {
       position: absolute;
       transform: translate(-50%, -100%);
-      background: rgba(255, 255, 255, 0.95);
-      border: 2px solid #cbd5e1;
-      border-radius: 12px;
-      padding: 6px 11px;
-      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+      background: rgba(15, 17, 23, 0.84);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      padding: 4px 10px;
       pointer-events: auto;
       cursor: pointer;
-      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-      min-width: 155px;
-      text-align: center;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
     }
-    .desk-label:hover {
-      transform: translate(-50%, -105%) scale(1.04);
-      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+    .desk-tag:hover {
+      transform: translate(-50%, -106%) scale(1.04);
+      border-color: rgba(255, 255, 255, 0.35);
     }
-    .desk-label.active {
-      border-width: 2.5px;
-      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
+    .desk-tag.active {
+      border-color: #f59e0b;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(245, 158, 11, 0.35);
       transform: translate(-50%, -108%) scale(1.06);
     }
-    .desk-label .dl-role {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text-main);
+    .desk-tag .dt-top {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 4px;
+      gap: 5px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-primary);
       white-space: nowrap;
     }
-    .desk-label .dl-model {
-      display: inline-block;
-      margin-top: 2px;
-      padding: 1px 7px;
+    .desk-tag .dt-sub {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .folder-badge-3d {
+      position: absolute;
+      transform: translate(-50%, -130%);
+      background: rgba(245, 158, 11, 0.94);
+      color: #0b0c0f;
+      padding: 2px 8px;
       border-radius: 999px;
       font-size: 10.5px;
       font-weight: 700;
-      letter-spacing: 0.01em;
-    }
-    .desk-label .dl-status {
-      margin-top: 3px;
-      font-size: 10.5px;
-      color: var(--text-sec);
-      font-weight: 500;
       white-space: nowrap;
-      max-width: 190px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    /* แถบสถานะลอยมุมซ้ายบนของฉาก 3D (บางเบา ไม่บังฉาก) */
+    .stage-hud-top {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 8;
+    }
+    .live-banner {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-strong);
+      border-radius: 11px;
+      padding: 7px 13px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+      max-width: 620px;
+    }
+    .lb-badge {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(168, 85, 247, 0.2);
+      color: #d8b4fe;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      white-space: nowrap;
+    }
+    .lb-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    /* ป้ายแฟ้มงาน 3D ที่กำลังวิ่งส่งต่อ */
-    .folder-floating-tag {
-      position: absolute;
-      transform: translate(-50%, -130%);
-      background: #1e293b;
-      color: #ffffff;
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 10.5px;
-      font-weight: 600;
-      white-space: nowrap;
-      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.22);
-      border: 1.5px solid #fbbf24;
-    }
-
-    /* โครงสร้างหลักของหน้าจอ */
-    .hud-shell {
-      position: fixed;
-      inset: 0;
-      z-index: 3;
-      pointer-events: none;
-      display: grid;
-      grid-template-columns: 340px 1fr 340px;
-      grid-template-rows: auto 1fr auto;
-      gap: 12px;
-      padding: 12px 14px;
-    }
-
-    .card {
-      background: var(--surface-card);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--border-card);
-      border-radius: 16px;
-      box-shadow: var(--shadow-soft);
+    .camera-pills {
       pointer-events: auto;
-    }
-
-    /* แถบด้านบน (Top Bar + Step Progress) */
-    .topbar {
-      grid-column: 1 / -1;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 10px 16px;
-      flex-wrap: wrap;
-    }
-
-    .brand-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .brand-logo {
-      width: 38px;
-      height: 38px;
-      border-radius: 11px;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 19px;
-      font-weight: 800;
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-    }
-    .brand-titles h1 {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text-main);
-      line-height: 1.2;
-    }
-    .brand-titles p {
-      font-size: 11.5px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-
-    /* แถบขั้นตอนการทำงาน 1 -> 2 -> 3 -> 4 -> 5 */
-    .stepper-bar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--surface-muted);
-      padding: 5px 8px;
-      border-radius: 12px;
-      border: 1px solid var(--border-card);
-      overflow-x: auto;
-    }
-    .step-pill {
       display: flex;
       align-items: center;
       gap: 5px;
-      padding: 5px 10px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-hairline);
+      padding: 4px;
       border-radius: 9px;
-      font-size: 11.5px;
-      font-weight: 600;
-      color: var(--text-sec);
+    }
+    .cam-pill {
       background: transparent;
-      border: 1px solid transparent;
-      cursor: pointer;
-      transition: all 0.18s ease;
-      white-space: nowrap;
-    }
-    .step-pill:hover {
-      background: #ffffff;
-      border-color: #cbd5e1;
-    }
-    .step-pill.active-core {
-      background: var(--role-opus-bg);
-      color: var(--role-opus);
-      border-color: #c084fc;
-      font-weight: 700;
-    }
-    .step-pill.active-explorer {
-      background: var(--role-haiku-bg);
-      color: var(--role-haiku);
-      border-color: #5eead4;
-      font-weight: 700;
-    }
-    .step-pill.active-implementer {
-      background: var(--role-sonnet-bg);
-      color: var(--role-sonnet);
-      border-color: #93c5fd;
-      font-weight: 700;
-    }
-    .step-pill.active-debugger {
-      background: var(--role-debug-bg);
-      color: var(--role-debug);
-      border-color: #fcd34d;
-      font-weight: 700;
-    }
-    .step-pill.active-reviewer {
-      background: var(--role-review-bg);
-      color: var(--role-review);
-      border-color: #86efac;
-      font-weight: 700;
-    }
-    .step-arrow {
-      color: #94a3b8;
+      border: none;
+      color: var(--text-secondary);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-family: var(--font-sans);
       font-size: 11px;
-      font-weight: 700;
-    }
-
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .status-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-      background: #dcfce7;
-      color: #15803d;
-      border: 1px solid #86efac;
-    }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-    .icon-btn {
-      background: var(--surface-soft);
-      border: 1px solid var(--border-card);
-      color: var(--text-sec);
-      padding: 6px 10px;
-      border-radius: 9px;
-      font-family: var(--font-thai);
-      font-size: 11.5px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease;
     }
-    .icon-btn:hover {
-      background: #ffffff;
-      border-color: var(--border-strong);
-      color: var(--text-main);
+    .cam-pill:hover, .cam-pill.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
     }
 
-    /* แผงด้านซ้ายและขวา */
-    .side-col {
+    /* แผงสั่งงานและปุ่มจำลองลอยอยู่ด้านล่างตรงกลาง (Floating Bottom Command Dock) */
+    .stage-dock-bottom {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(980px, calc(100% - 24px));
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      padding: 9px 12px;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48);
+      z-index: 10;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 7px;
+    }
+
+    .dock-form {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .dock-select {
+      background: var(--bg-panel-elevated);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      padding: 7px 9px;
+      border-radius: 8px;
+      font-family: var(--font-sans);
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .dock-input {
+      flex: 1;
+      min-width: 180px;
+      background: rgba(11, 12, 15, 0.75);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      user-select: text;
+    }
+    .dock-input::placeholder {
+      color: var(--text-muted);
+    }
+    .dock-input:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+    .dock-submit {
+      background: #edeae3;
+      color: #0b0c0f;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .dock-submit:hover {
+      background: #ffffff;
+      transform: translateY(-1px);
+    }
+    .dock-submit:disabled {
+      opacity: 0.5;
+      cursor: wait;
+    }
+
+    .dock-sim-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .dock-sim-bar::-webkit-scrollbar {
+      height: 0px;
+    }
+    .sim-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      margin-right: 3px;
+    }
+    .sim-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-secondary);
+      padding: 4px 9px;
+      border-radius: 7px;
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .sim-chip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .sim-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* ==================== 3. SLIM RIGHT STUDIO INSPECTOR (336px) ==================== */
+    .studio-inspector {
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border-hairline);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      z-index: 15;
+    }
+
+    .inspector-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 8px 10px;
+      background: var(--bg-frame);
+      border-bottom: 1px solid var(--border-hairline);
+    }
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      padding: 6px 4px;
+      border-radius: 7px;
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+    .tab-btn.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    .tab-pane {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
       overflow-y: auto;
-      max-height: 100%;
-      padding-right: 2px;
+      flex: 1;
     }
-    .side-col::-webkit-scrollbar {
-      width: 5px;
+    .tab-pane.active {
+      display: flex;
     }
-    .side-col::-webkit-scrollbar-thumb {
-      background: rgba(100, 116, 139, 0.28);
+    .tab-pane::-webkit-scrollbar {
+      width: 4px;
+    }
+    .tab-pane::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
       border-radius: 999px;
     }
 
-    .section-card {
-      padding: 12px 14px;
+    .insp-block {
+      background: var(--bg-panel-elevated);
+      border: 1px solid var(--border-hairline);
+      border-radius: 11px;
+      padding: 11px 12px;
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
-    .section-header {
+    .ib-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 6px;
     }
-    .section-title {
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--text-main);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .section-sub {
-      font-size: 11px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-
-    /* การ์ดงานปัจจุบัน + โมเดลที่รับผิดชอบ */
-    .task-box {
-      background: var(--surface-soft);
-      border: 1px solid var(--border-card);
-      border-radius: 11px;
-      padding: 9px 11px;
-    }
-    .task-label {
-      font-size: 10.5px;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 3px;
-    }
-    .task-value {
-      font-size: 12.5px;
-      font-weight: 600;
-      color: var(--text-main);
-      line-height: 1.4;
-      word-break: break-word;
-      user-select: text;
-    }
-
-    .worker-pill-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 7px;
-    }
-    .mini-info-box {
-      background: var(--surface-soft);
-      border: 1px solid var(--border-card);
-      border-radius: 10px;
-      padding: 7px 9px;
-    }
-    .mini-info-box .mi-lbl {
-      font-size: 10px;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-    .mini-info-box .mi-val {
+    .ib-title {
       font-size: 12px;
       font-weight: 700;
-      color: var(--text-main);
+      color: var(--text-primary);
+    }
+    .ib-meta {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .kv-box {
+      background: var(--bg-frame);
+      border: 1px solid var(--border-hairline);
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+    .kv-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+    .kv-val {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-primary);
       margin-top: 2px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    /* เบรกเกอร์ 2-Strike เข้าใจง่าย */
-    .strike-grid {
+    .task-readout {
+      background: var(--bg-frame);
+      border: 1px solid var(--border-hairline);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      user-select: text;
+    }
+
+    /* เบรกเกอร์ 2-Strike */
+    .strike-bars {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 6px;
     }
-    .strike-item {
-      background: var(--surface-soft);
-      border: 1.5px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 7px 6px;
+    .strike-cell {
+      background: var(--bg-frame);
+      border: 1px solid var(--border-hairline);
+      border-radius: 8px;
+      padding: 6px 5px;
       text-align: center;
-      transition: all 0.2s ease;
     }
-    .strike-item .st-num {
-      font-size: 11px;
+    .strike-cell .sc-top {
+      font-size: 10.5px;
       font-weight: 700;
-      color: var(--text-sec);
+      color: var(--text-secondary);
     }
-    .strike-item .st-desc {
-      font-size: 9.8px;
+    .strike-cell .sc-sub {
+      font-size: 9.5px;
       color: var(--text-muted);
-      margin-top: 2px;
+      margin-top: 1px;
     }
-    .strike-item.warn-active {
-      background: #fef3c7;
-      border-color: #f59e0b;
+    .strike-cell.warn {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: rgba(245, 158, 11, 0.45);
     }
-    .strike-item.warn-active .st-num {
-      color: #b45309;
+    .strike-cell.warn .sc-top { color: #fbbf24; }
+    .strike-cell.danger {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(239, 68, 68, 0.55);
     }
-    .strike-item.danger-active {
-      background: #fee2e2;
-      border-color: #ef4444;
-    }
-    .strike-item.danger-active .st-num {
-      color: #b91c1c;
-    }
+    .strike-cell.danger .sc-top { color: #f87171; }
 
-    /* แบตเตอรี่โควต้าแยกหลอดชัดเจน */
-    .quota-provider-block {
-      background: var(--surface-soft);
-      border: 1px solid var(--border-card);
-      border-radius: 11px;
-      padding: 9px 10px;
+    /* แบตเตอรี่โควต้า */
+    .quota-group {
+      background: var(--bg-frame);
+      border: 1px solid var(--border-hairline);
+      border-radius: 9px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
-      gap: 7px;
+      gap: 6px;
     }
-    .qp-head {
+    .qg-title {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      font-size: 11.5px;
+      align-items: center;
+      font-size: 11px;
       font-weight: 700;
-      color: var(--text-main);
+      color: var(--text-primary);
     }
-    .qp-badge {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 1px 7px;
-      border-radius: 999px;
-      background: #e2e8f0;
-      color: #334155;
-    }
-    .quota-meter {
+    .q-row {
       display: flex;
       flex-direction: column;
       gap: 3px;
     }
-    .qm-top {
+    .q-lbl-line {
       display: flex;
       justify-content: space-between;
-      align-items: center;
       font-size: 10.5px;
-      color: var(--text-sec);
-      font-weight: 600;
+      color: var(--text-secondary);
     }
-    .qm-pct {
+    .q-pct {
       font-family: var(--font-mono);
       font-weight: 700;
-      font-size: 11px;
+      color: var(--text-primary);
     }
-    .qm-track {
-      height: 7px;
-      width: 100%;
-      background: #e2e8f0;
+    .q-bar-bg {
+      height: 5px;
+      background: rgba(255, 255, 255, 0.08);
       border-radius: 999px;
       overflow: hidden;
     }
-    .qm-fill {
+    .q-bar-fill {
       height: 100%;
       width: 0%;
       border-radius: 999px;
-      background: #10b981;
+      background: #22c55e;
       transition: width 0.35s ease, background-color 0.25s ease;
     }
-    .quota-advice {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 7px 9px;
-      border-radius: 9px;
-      background: #ecfdf5;
-      color: #047857;
-      border: 1px solid #a7f3d0;
-      line-height: 1.35;
-    }
 
-    /* รายชื่อไฟล์ที่แก้ไข */
-    .file-list {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      max-height: 115px;
-      overflow-y: auto;
-    }
-    .file-chip {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--surface-soft);
-      border: 1px solid var(--border-card);
+    .advice-banner {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      color: #86efac;
       border-radius: 8px;
-      padding: 5px 8px;
+      padding: 7px 9px;
       font-size: 11px;
-      font-family: var(--font-mono);
-      color: var(--text-sec);
-    }
-
-    /* พื้นที่ตรงกลางสำหรับการ์ดอธิบายโต๊ะเมื่อคลิกใน 3D */
-    .center-stage {
-      position: relative;
-      pointer-events: none;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px;
-    }
-    .camera-hint {
-      background: rgba(255, 255, 255, 0.92);
-      border: 1px solid var(--border-card);
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 11.5px;
-      font-weight: 600;
-      color: var(--text-sec);
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-      pointer-events: auto;
-    }
-
-    .inspector-popup {
-      pointer-events: auto;
-      background: rgba(255, 255, 255, 0.97);
-      border: 2px solid #94a3b8;
-      border-radius: 16px;
-      padding: 13px 16px;
-      max-width: 440px;
-      width: 100%;
-      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
-      display: none;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-    .inspector-popup.show {
-      display: flex;
-    }
-    .insp-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .insp-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-    .insp-desc {
-      font-size: 12px;
-      color: var(--text-sec);
-      line-height: 1.45;
-    }
-    .insp-why {
-      background: var(--surface-muted);
-      border-radius: 10px;
-      padding: 8px 10px;
-      font-size: 11.5px;
-      color: var(--text-main);
       line-height: 1.4;
     }
-    .insp-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
 
-    /* สมุดบันทึกการทำงานสด (ขวา) */
-    .timeline-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-height: 230px;
-      overflow-y: auto;
-      padding-right: 2px;
-    }
-    .tl-item {
-      background: var(--surface-soft);
-      border-left: 3.5px solid #64748b;
+    .switch-engine-btn {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      padding: 8px 10px;
       border-radius: 8px;
-      padding: 6px 9px;
+      font-family: var(--font-sans);
       font-size: 11.5px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
     }
-    .tl-item.node-core { border-left-color: var(--role-opus); }
-    .tl-item.node-explorer { border-left-color: var(--role-haiku); }
-    .tl-item.node-implementer { border-left-color: var(--role-sonnet); }
-    .tl-item.node-debugger { border-left-color: var(--role-debug); }
-    .tl-item.node-reviewer { border-left-color: var(--role-review); }
-    .tl-item.status-blocked { border-left-color: var(--role-danger); background: #fef2f2; }
+    .switch-engine-btn:hover {
+      background: #272b36;
+      border-color: rgba(255, 255, 255, 0.28);
+    }
 
-    .tl-meta {
+    /* แท็บ 2: ข้อมูลโต๊ะที่เลือก & ไฟล์ */
+    .desk-why-box {
+      background: var(--bg-frame);
+      border-left: 3px solid #a855f7;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+
+    .file-item {
       display: flex;
       justify-content: space-between;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--text-muted);
-    }
-    .tl-msg {
-      color: var(--text-main);
-      font-weight: 500;
-      line-height: 1.35;
-      word-break: break-word;
-      user-select: text;
+      align-items: center;
+      padding: 6px 8px;
+      background: var(--bg-frame);
+      border: 1px solid var(--border-hairline);
+      border-radius: 7px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-secondary);
     }
 
-    /* กล่องคำตอบจาก AI */
-    .reply-box {
-      background: var(--surface-soft);
-      border: 1px solid var(--border-card);
-      border-radius: 10px;
-      padding: 9px 10px;
-      font-size: 11.5px;
-      line-height: 1.45;
-      color: var(--text-main);
-      max-height: 170px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-      user-select: text;
-    }
-
-    .handover-btn {
-      width: 100%;
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 1px solid #c084fc;
-      background: linear-gradient(135deg, #f3e8ff, #e0e7ff);
-      color: #5b21b6;
-      font-family: var(--font-thai);
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .handover-btn:hover {
-      background: linear-gradient(135deg, #e9d5ff, #c7d2fe);
-      transform: translateY(-1px);
-    }
-
-    /* แถบสั่งงานและปุ่มทดลองด้านล่าง */
-    .bottombar {
-      grid-column: 1 / -1;
-      padding: 10px 14px;
+    /* แท็บ 3: สมุดบันทึกสด & คำตอบ */
+    .log-feed {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
+    .log-entry {
+      background: var(--bg-frame);
+      border-left: 3px solid #52525b;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11px;
+    }
+    .log-entry.core { border-left-color: var(--accent-opus); }
+    .log-entry.explorer { border-left-color: var(--accent-haiku); }
+    .log-entry.implementer { border-left-color: var(--accent-sonnet); }
+    .log-entry.debugger { border-left-color: var(--accent-debug); }
+    .log-entry.reviewer { border-left-color: var(--accent-review); }
+    .log-entry.blocked { border-left-color: var(--accent-danger); background: rgba(239, 68, 68, 0.08); }
 
-    .cmd-form {
+    .le-head {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      font-size: 9.8px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
     }
-    .cmd-select {
-      background: var(--surface-soft);
-      border: 1px solid var(--border-strong);
-      border-radius: 10px;
-      padding: 8px 10px;
-      font-family: var(--font-thai);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-main);
-      cursor: pointer;
-    }
-    .cmd-input {
-      flex: 1;
-      min-width: 240px;
-      background: #ffffff;
-      border: 1.5px solid #cbd5e1;
-      border-radius: 10px;
-      padding: 8px 12px;
-      font-family: var(--font-thai);
-      font-size: 12.5px;
-      color: var(--text-main);
+    .le-body {
+      color: var(--text-primary);
+      line-height: 1.35;
       user-select: text;
     }
-    .cmd-input:focus {
-      outline: none;
-      border-color: #4f46e5;
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.14);
-    }
-    .cmd-send-btn {
-      background: linear-gradient(135deg, #4f46e5, #2563eb);
-      color: #ffffff;
-      border: none;
-      border-radius: 10px;
-      padding: 8px 16px;
-      font-family: var(--font-thai);
-      font-size: 12.5px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-      transition: all 0.15s ease;
-    }
-    .cmd-send-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
-    }
-    .cmd-send-btn:disabled {
-      opacity: 0.6;
-      cursor: wait;
-    }
 
-    .sim-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .sim-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text-sec);
-      margin-right: 2px;
-    }
-    .sim-btn {
-      background: var(--surface-soft);
-      border: 1px solid var(--border-card);
-      color: var(--text-sec);
-      padding: 5px 10px;
+    .ai-output-box {
+      background: var(--bg-frame);
+      border: 1px solid var(--border-hairline);
       border-radius: 8px;
-      font-family: var(--font-thai);
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
+      padding: 9px 10px;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 240px;
+      overflow-y: auto;
+      user-select: text;
     }
-    .sim-btn:hover {
-      background: #ffffff;
-      border-color: var(--border-strong);
-      color: var(--text-main);
-      transform: translateY(-1px);
-    }
-    .sim-btn.opus { background: #f3e8ff; border-color: #d8b4fe; color: #6b21a8; }
-    .sim-btn.haiku { background: #ccfbf1; border-color: #5eead4; color: #0f766e; }
-    .sim-btn.sonnet { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
-    .sim-btn.warn { background: #fef3c7; border-color: #fcd34d; color: #b45309; }
-    .sim-btn.danger { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
-    .sim-btn.ok { background: #dcfce7; border-color: #86efac; color: #15803d; }
 
-    @media (max-width: 1180px) {
-      .hud-shell {
-        grid-template-columns: 300px 1fr 300px;
+    @media (max-width: 1024px) {
+      .pipeline-stepper {
+        display: none;
       }
     }
   </style>
 </head>
 <body>
-  <!-- ฉาก 3 มิติของห้องออฟฟิศทีม AI -->
-  <div id="canvas-container"></div>
-
-  <!-- ป้ายชื่อโต๊ะทำงาน 3 มิติ (อัปเดตตำแหน่งตามกล้อง) -->
-  <div id="labels-layer">
-    <div id="label-core" class="desk-label" onclick="window.inspectDesk('core')">
-      <div class="dl-role">👑 หัวหน้าสถาปนิก & คุมกฎ</div>
-      <div class="dl-model" style="background:#f3e8ff;color:#6b21a8;">โมเดล Opus (สมองใหญ่สุด)</div>
-      <div class="dl-status" id="dl-status-core">คอยรับโจทย์ • วางแผน • เฝ้ายาม</div>
-    </div>
-
-    <div id="label-explorer" class="desk-label" onclick="window.inspectDesk('explorer')">
-      <div class="dl-role">🔍 ฝ่ายสำรวจหาไฟล์</div>
-      <div class="dl-model" style="background:#ccfbf1;color:#0f766e;">โมเดล Haiku (เร็ว • ประหยัด 15x)</div>
-      <div class="dl-status" id="dl-status-explorer">ค้นหาไฟล์โดยไม่ผลาญโควต้า</div>
-    </div>
-
-    <div id="label-implementer" class="desk-label" onclick="window.inspectDesk('implementer')">
-      <div class="dl-role">💻 ฝ่ายลงมือเขียนโค้ด</div>
-      <div class="dl-model" style="background:#dbeafe;color:#1d4ed8;">โมเดล Sonnet (แก้เฉพาะจุด)</div>
-      <div class="dl-status" id="dl-status-implementer">เขียนโค้ดตามใบสั่งงาน</div>
-    </div>
-
-    <div id="label-debugger" class="desk-label" onclick="window.inspectDesk('debugger')">
-      <div class="dl-role">🔧 ช่างซ่อมบั๊กเมื่อเทสต์พัง</div>
-      <div class="dl-model" style="background:#fef3c7;color:#b45309;">โมเดล Sonnet (กฎ 2-Strike)</div>
-      <div class="dl-status" id="dl-status-debugger">ซ่อมบั๊กไม่เดาสุ่มเกิน 2 ครั้ง</div>
-    </div>
-
-    <div id="label-reviewer" class="desk-label" onclick="window.inspectDesk('reviewer')">
-      <div class="dl-role">✅ ฝ่ายตรวจรับงานก่อนส่ง</div>
-      <div class="dl-model" style="background:#dcfce7;color:#15803d;">โมเดล Sonnet (ตรวจเทสต์จริง)</div>
-      <div class="dl-status" id="dl-status-reviewer">รันเทสต์ผ่านจริงก่อนส่งมอบ</div>
-    </div>
-
-    <div id="folder-tag" class="folder-floating-tag">📁 แฟ้มงานปัจจุบัน</div>
-  </div>
-
-  <!-- แผงควบคุมภาษาไทยเข้าใจง่าย -->
-  <div class="hud-shell">
-    <!-- แถบด้านบน -->
-    <header class="card topbar">
-      <div class="brand-group">
-        <div class="brand-logo">🏢</div>
-        <div class="brand-titles">
-          <h1>ออฟฟิศทีม AI อัจฉริยะ <span id="proj-name-badge" style="font-size:12px;color:#4f46e5;font-weight:700;">(agent-guard-template)</span></h1>
-          <p>เห็นภาพการทำงานจริงว่าพนักงาน AI โต๊ะไหน และโมเดลใด (Opus / Sonnet / Haiku / Gemini) กำลังทำงานให้คุณ</p>
+  <div class="studio-app" id="studio-app">
+    <!-- ==================== 1. MICRO-TOPBAR (52px) ==================== -->
+    <header class="studio-topbar">
+      <div class="brand-cluster">
+        <div class="brand-mark">🏢</div>
+        <div class="brand-text">
+          <span class="brand-title">ออฟฟิศทีม AI 3 มิติ</span>
+          <span class="brand-proj" id="proj-name-badge">agent-guard-template</span>
         </div>
       </div>
 
-      <!-- แถบขั้นตอน 1 -> 2 -> 3 -> 4 -> 5 -->
-      <nav class="stepper-bar" aria-label="ขั้นตอนการทำงานของทีม AI">
-        <button class="step-pill active-core" id="step-core" onclick="window.inspectDesk('core')">
+      <!-- แถบขั้นตอน 1 -> 2 -> 3 -> 4 -> 5 (คลิกเพื่อซูมดูโต๊ะนั้นได้ทันที) -->
+      <nav class="pipeline-stepper" aria-label="ขั้นตอนการทำงานของทีม AI">
+        <button class="step-btn active" id="step-core" onclick="window.focusDesk('core')">
+          <span class="step-dot" style="color:var(--accent-opus)"></span>
           ① 👑 หัวหน้าวางแผน (Opus)
         </button>
-        <span class="step-arrow">➔</span>
-        <button class="step-pill" id="step-explorer" onclick="window.inspectDesk('explorer')">
+        <span class="step-sep">›</span>
+        <button class="step-btn" id="step-explorer" onclick="window.focusDesk('explorer')">
+          <span class="step-dot" style="color:var(--accent-haiku)"></span>
           ② 🔍 สำรวจไฟล์ (Haiku)
         </button>
-        <span class="step-arrow">➔</span>
-        <button class="step-pill" id="step-implementer" onclick="window.inspectDesk('implementer')">
+        <span class="step-sep">›</span>
+        <button class="step-btn" id="step-implementer" onclick="window.focusDesk('implementer')">
+          <span class="step-dot" style="color:var(--accent-sonnet)"></span>
           ③ 💻 เขียนโค้ด (Sonnet)
         </button>
-        <span class="step-arrow">➔</span>
-        <button class="step-pill" id="step-debugger" onclick="window.inspectDesk('debugger')">
+        <span class="step-sep">›</span>
+        <button class="step-btn" id="step-debugger" onclick="window.focusDesk('debugger')">
+          <span class="step-dot" style="color:var(--accent-debug)"></span>
           ④ 🔧 ซ่อมบั๊ก (Sonnet)
         </button>
-        <span class="step-arrow">➔</span>
-        <button class="step-pill" id="step-reviewer" onclick="window.inspectDesk('reviewer')">
+        <span class="step-sep">›</span>
+        <button class="step-btn" id="step-reviewer" onclick="window.focusDesk('reviewer')">
+          <span class="step-dot" style="color:var(--accent-review)"></span>
           ⑤ ✅ ตรวจรับงาน (Sonnet)
         </button>
       </nav>
 
-      <div class="topbar-right">
-        <div id="overall-status-pill" class="status-badge">
-          <span class="status-dot"></span>
+      <div class="topbar-controls">
+        <div class="status-chip" id="overall-status-pill">
+          <span class="pulse-dot"></span>
           <span id="overall-status-text">ออฟฟิศพร้อมรับงาน</span>
         </div>
-        <button class="icon-btn" id="btn-reset-cam" title="รีเซ็ตมุมกล้อง 3 มิติ">🎥 มุมกล้องมาตรฐาน</button>
-        <button class="icon-btn" id="btn-sound" title="เปิด/ปิดเสียงแจ้งเตือน">🔔 เสียง: ปิด</button>
-        <span class="icon-btn" id="fps-badge" style="cursor:default;font-family:var(--font-mono);">60 FPS</span>
+        <button class="tool-btn" id="btn-diag-mode" title="สลับโหมดตรวจสอบกราฟิก (PBR / โครงสร้าง / แสงเงา)">
+          🔬 โหมดภาพ: สตูดิโอจริง
+        </button>
+        <button class="tool-btn" id="btn-sound" title="เปิด/ปิดเสียงแจ้งเตือน">🔔 เสียง: ปิด</button>
+        <span class="fps-pill" id="fps-badge">60 FPS</span>
+        <button class="tool-btn" id="btn-toggle-inspector" title="ซ่อน/แสดงแผงด้านขวา">แผงข้อมูล ▸</button>
       </div>
     </header>
 
-    <!-- คอลัมน์ซ้าย: งานปัจจุบัน + เบรกเกอร์ + แบตเตอรี่โควต้า -->
-    <aside class="side-col">
-      <!-- 1. งานที่กำลังทำ -->
-      <section class="card section-card">
-        <div class="section-header">
-          <div class="section-title">📋 งานที่สั่ง & โต๊ะที่กำลังรับผิดชอบ</div>
-          <span class="section-sub" id="updated-time-label">อัปเดตสด</span>
-        </div>
-        <div class="task-box">
-          <div class="task-label">คำสั่งล่าสุดจากคุณ:</div>
-          <div class="task-value" id="current-task-txt">รอรับคำสั่งใหม่จากคุณ...</div>
-        </div>
-        <div class="task-box" style="background:#f1f5f9;">
-          <div class="task-label">สิ่งที่พนักงานกำลังทำตอนนี้:</div>
-          <div class="task-value" id="current-action-txt" style="color:#1e40af;">พนักงานทุกโต๊ะสแตนด์บายพร้อมทำงาน</div>
-        </div>
-        <div class="worker-pill-row">
-          <div class="mini-info-box">
-            <div class="mi-lbl">ค่าย AI ที่ใช้งานอยู่</div>
-            <div class="mi-val" id="active-engine-txt">🟣 Claude Code</div>
-          </div>
-          <div class="mini-info-box">
-            <div class="mi-lbl">โมเดลสมองที่ใช้ตอนนี้</div>
-            <div class="mi-val" id="active-model-txt">👑 Opus (หัวหน้าทีม)</div>
-          </div>
-        </div>
-      </section>
+    <!-- ==================== 2. HERO 3D VIEWPORT STAGE ==================== -->
+    <main class="viewport-stage">
+      <div id="canvas-container"></div>
 
-      <!-- 2. เบรกเกอร์ป้องกัน AI วนลูปผลาญโควต้า -->
-      <section class="card section-card">
-        <div class="section-header">
-          <div class="section-title">🛑 เบรกเกอร์กัน AI วนลูป (กฎ 2-Strike)</div>
-          <span class="section-sub" id="strike-badge-txt">ปกติ (0/3)</span>
-        </div>
-        <p style="font-size:11px;color:var(--text-sec);line-height:1.35;">
-          ถ้า AI แก้โค้ดแล้วเทสต์พังซ้ำๆ ระบบจะสั่งเบรกอัตโนมัติเพื่อไม่ให้ AI เดาไปเรื่อยๆ จนโควต้าคุณหมดฟรี
-        </p>
-        <div class="strike-grid">
-          <div class="strike-item" id="strike-box-1">
-            <div class="st-num">ครั้งที่ 1</div>
-            <div class="st-desc">วิเคราะห์ต้นตอ</div>
-          </div>
-          <div class="strike-item" id="strike-box-2">
-            <div class="st-num">ครั้งที่ 2</div>
-            <div class="st-desc">ซ่อมครั้งสุดท้าย</div>
-          </div>
-          <div class="strike-item" id="strike-box-3">
-            <div class="st-num">ครบ 3 ครั้ง!</div>
-            <div class="st-desc">สั่งหยุดทันที</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 3. แบตเตอรี่โควต้าคงเหลือจริง -->
-      <section class="card section-card">
-        <div class="section-header">
-          <div class="section-title">🔋 แบตเตอรี่โควต้าคงเหลือจริง</div>
-          <button class="icon-btn" id="btn-refresh-quota" style="padding:3px 8px;font-size:10.5px;">🔄 เช็คโควต้าสด</button>
+      <!-- ป้ายชื่อลอยเหนือโต๊ะในฉาก 3D -->
+      <div id="labels-layer">
+        <div id="label-core" class="desk-tag active" onclick="window.focusDesk('core')">
+          <div class="dt-top"><span style="color:#c084fc">👑</span> หัวหน้าสถาปนิก & คุมกฎ</div>
+          <div class="dt-sub">โมเดล Opus • วางแผน & เฝ้ายาม</div>
         </div>
 
-        <!-- Claude Code -->
-        <div class="quota-provider-block">
-          <div class="qp-head">
-            <span>🟣 ค่าย Claude Code (Opus / Sonnet / Haiku)</span>
-            <span class="qp-badge" id="q-claude-plan">Pro</span>
-          </div>
-          <div class="quota-meter">
-            <div class="qm-top">
-              <span>โควต้ารอบ 5 ชั่วโมง <small id="q-claude-5h-reset" style="color:#64748b;"></small></span>
-              <span class="qm-pct" id="q-claude-5h-pct">--%</span>
-            </div>
-            <div class="qm-track"><div class="qm-fill" id="q-claude-5h-bar"></div></div>
-          </div>
-          <div class="quota-meter">
-            <div class="qm-top">
-              <span>โควต้ารอบ 7 วัน (รายสัปดาห์) <small id="q-claude-7d-reset" style="color:#64748b;"></small></span>
-              <span class="qm-pct" id="q-claude-7d-pct">--%</span>
-            </div>
-            <div class="qm-track"><div class="qm-fill" id="q-claude-7d-bar"></div></div>
-          </div>
+        <div id="label-explorer" class="desk-tag" onclick="window.focusDesk('explorer')">
+          <div class="dt-top"><span style="color:#2dd4bf">🔍</span> ฝ่ายสำรวจหาไฟล์</div>
+          <div class="dt-sub">โมเดล Haiku • ประหยัดโควต้า 15x</div>
         </div>
 
-        <!-- Antigravity -->
-        <div class="quota-provider-block">
-          <div class="qp-head">
-            <span>🔵 ค่าย Antigravity IDE</span>
-            <span class="qp-badge" id="q-agy-status">เชื่อมต่อแล้ว</span>
-          </div>
-          <div class="quota-meter">
-            <div class="qm-top">
-              <span>Gemini (รอบ 5 ชม. / รอบ 7 วัน)</span>
-              <span class="qm-pct" id="q-agy-gemini-pct">--% / --%</span>
-            </div>
-            <div class="qm-track"><div class="qm-fill" id="q-agy-gemini-bar"></div></div>
-          </div>
-          <div class="quota-meter">
-            <div class="qm-top">
-              <span>Claude & GPT ใน AGY (5 ชม. / 7 วัน)</span>
-              <span class="qm-pct" id="q-agy-claude-pct">--% / --%</span>
-            </div>
-            <div class="qm-track"><div class="qm-fill" id="q-agy-claude-bar"></div></div>
-          </div>
+        <div id="label-implementer" class="desk-tag" onclick="window.focusDesk('implementer')">
+          <div class="dt-top"><span style="color:#60a5fa">💻</span> ฝ่ายลงมือเขียนโค้ด</div>
+          <div class="dt-sub">โมเดล Sonnet • แก้เฉพาะจุด</div>
         </div>
 
-        <div class="quota-advice" id="quota-advice-box">
-          💡 ระบบกำลังตรวจสอบโควต้าจริงจากเซิร์ฟเวอร์...
+        <div id="label-debugger" class="desk-tag" onclick="window.focusDesk('debugger')">
+          <div class="dt-top"><span style="color:#fbbf24">🔧</span> ช่างซ่อมบั๊ก (2-Strike)</div>
+          <div class="dt-sub">โมเดล Sonnet • ห้ามเดาเกิน 2 ครั้ง</div>
         </div>
-      </section>
 
-      <!-- 4. แฟ้มไฟล์ที่ถูกแก้ไข -->
-      <section class="card section-card">
-        <div class="section-header">
-          <div class="section-title">📁 ไฟล์ที่เพิ่งแก้ไขในห้องทำงาน</div>
-          <span class="section-sub" id="files-count-label">0 ไฟล์</span>
+        <div id="label-reviewer" class="desk-tag" onclick="window.focusDesk('reviewer')">
+          <div class="dt-top"><span style="color:#4ade80">✅</span> ฝ่ายตรวจรับงานก่อนส่ง</div>
+          <div class="dt-sub">โมเดล Sonnet • รันเทสต์จริง</div>
         </div>
-        <div class="file-list" id="touched-files-list">
-          <div class="file-chip"><span>ยังไม่มีไฟล์ที่ถูกแก้ไขในรอบนี้</span><span>✓</span></div>
-        </div>
-      </section>
-    </aside>
 
-    <!-- พื้นที่ตรงกลางเหนือฉาก 3D -->
-    <main class="center-stage">
-      <div class="camera-hint">
-        🖱️ ลากเมาส์เพื่อหมุนดูรอบออฟฟิศ 3 มิติ • เลื่อนล้อเมาส์เพื่อซูม • <b>คลิกที่โต๊ะทำงานเพื่อดูหน้าที่ของแต่ละโมเดล</b>
+        <div id="folder-tag" class="folder-badge-3d">📁 แฟ้มงานอยู่ที่โต๊ะหัวหน้า (Opus)</div>
       </div>
 
-      <!-- การ์ดอธิบายรายละเอียดโต๊ะเมื่อคลิก -->
-      <div class="inspector-popup" id="desk-inspector">
-        <div class="insp-head">
-          <div class="insp-title" id="insp-title">👑 โต๊ะหัวหน้าสถาปนิก & คุมกฎ (โมเดล Opus)</div>
-          <button class="icon-btn" onclick="window.closeInspector()" style="padding:2px 8px;">✕ ปิด</button>
+      <!-- แถบสถานะย่อยมุมบนของฉาก 3D + ปุ่มสลับมุมกล้อง -->
+      <div class="stage-hud-top">
+        <div class="live-banner">
+          <span class="lb-badge" id="hud-active-badge">👑 โต๊ะหัวหน้า (Opus)</span>
+          <span class="lb-text" id="hud-action-text">พร้อมรับคำสั่งวางแผนและควบคุมงานในออฟฟิศ</span>
         </div>
-        <div class="insp-desc" id="insp-desc">
-          ทำหน้าที่รับโจทย์จากคุณ วางแผนโครงสร้างระบบที่ซับซ้อน และคอยเฝ้าระวังไม่ให้ลูกทีมรันคำสั่งอันตรายหรือวนลูปผลาญโควต้า
-        </div>
-        <div class="insp-why" id="insp-why">
-          <b>ทำไมโต๊ะนี้ถึงใช้โมเดล Opus:</b> เพราะ Opus มีความฉลาดในการคิดวิเคราะห์เชิงลึกและวางแผนสถาปัตยกรรมสูงสุด จึงเหมาะเป็นหัวหน้าทีมคอยตัดสินใจเรื่องยากๆ
-        </div>
-        <div class="insp-actions">
-          <button class="sim-btn opus" id="insp-try-btn">▶ ทดลองสั่งให้โต๊ะนี้ทำงานดู</button>
+
+        <div class="camera-pills">
+          <button class="cam-pill active" id="cam-overview" onclick="window.setCameraShot('overview')">
+            🎥 มุมมองทั้งออฟฟิศ
+          </button>
+          <button class="cam-pill" id="cam-boss" onclick="window.focusDesk('core')">
+            👑 ซูมโต๊ะ Opus
+          </button>
+          <button class="cam-pill" id="cam-code" onclick="window.focusDesk('implementer')">
+            💻 ซูมโต๊ะเขียนโค้ด
+          </button>
         </div>
       </div>
+
+      <!-- แผงสั่งงานและปุ่มจำลองด้านล่างกลางจอ (Floating Dock) -->
+      <section class="stage-dock-bottom" aria-label="ศูนย์สั่งงานและจำลองสถานการณ์">
+        <form class="dock-form" id="prompt-form">
+          <select class="dock-select" id="select-engine" aria-label="เลือกค่าย AI">
+            <option value="claude">🟣 Claude Code</option>
+            <option value="antigravity">🔵 Antigravity</option>
+          </select>
+
+          <select class="dock-select" id="select-model" aria-label="เลือกโมเดลสมอง AI">
+            <option value="opus">👑 Opus (หัวหน้าวางแผน/งานยาก)</option>
+            <option value="sonnet" selected>⚡ Sonnet (เขียนโค้ดไว/คุ้มโควต้า)</option>
+            <option value="haiku">🍃 Haiku (สำรวจไฟล์ประหยัด 15x)</option>
+            <option value="gemini-4-argon">✨ Gemini 4 Argon (AGY)</option>
+          </select>
+
+          <input
+            type="text"
+            class="dock-input"
+            id="prompt-input"
+            placeholder="พิมพ์สั่งงานทีม AI เป็นภาษาไทยได้เลย หรือคลิกที่โต๊ะทำงานในฉาก 3 มิติ..."
+          />
+
+          <button type="submit" class="dock-submit" id="btn-send-prompt">
+            🚀 ส่งคำสั่งงาน
+          </button>
+        </form>
+
+        <div class="dock-sim-bar">
+          <span class="sim-label">ทดลองดูการทำงาน:</span>
+          <button type="button" class="sim-chip" onclick="window.runSim('opus_plan')">
+            <span class="sim-dot" style="background:var(--accent-opus)"></span>👑 Opus วางแผน
+          </button>
+          <button type="button" class="sim-chip" onclick="window.runSim('haiku_explore')">
+            <span class="sim-dot" style="background:var(--accent-haiku)"></span>🔍 Haiku สำรวจไฟล์
+          </button>
+          <button type="button" class="sim-chip" onclick="window.runSim('sonnet_code')">
+            <span class="sim-dot" style="background:var(--accent-sonnet)"></span>💻 Sonnet เขียนโค้ด
+          </button>
+          <button type="button" class="sim-chip" onclick="window.runSim('strike_1')">
+            <span class="sim-dot" style="background:var(--accent-debug)"></span>⚠️ เทสต์พัง 1/3
+          </button>
+          <button type="button" class="sim-chip" onclick="window.runSim('strike_3')">
+            <span class="sim-dot" style="background:var(--accent-danger)"></span>🛑 ติดเบรกเกอร์ 3/3
+          </button>
+          <button type="button" class="sim-chip" onclick="window.runSim('os_shield')">
+            <span class="sim-dot" style="background:var(--accent-danger)"></span>🛡️ บล็อกคำสั่งอันตราย
+          </button>
+          <button type="button" class="sim-chip" onclick="window.runSim('agy_takeover')">
+            <span class="sim-dot" style="background:var(--accent-sonnet)"></span>🔄 สลับค่าย AGY
+          </button>
+          <button type="button" class="sim-chip" onclick="window.runSim('review_done')">
+            <span class="sim-dot" style="background:var(--accent-review)"></span>✅ ตรวจรับงานผ่าน
+          </button>
+        </div>
+      </section>
     </main>
 
-    <!-- คอลัมน์ขวา: สมุดบันทึกการทำงานสด + คำตอบจาก AI -->
-    <aside class="side-col">
-      <!-- สมุดบันทึกการทำงานสด -->
-      <section class="card section-card">
-        <div class="section-header">
-          <div class="section-title">🕒 สมุดบันทึกการทำงานของทีม AI (สด)</div>
-          <span class="section-sub" id="calls-counter-txt">เรียกใช้ 0 ครั้ง</span>
-        </div>
-        <div class="timeline-list" id="events-timeline">
-          <div class="tl-item node-core">
-            <div class="tl-meta"><span>เมื่อสักครู่</span><span>👑 โต๊ะหัวหน้า (Opus)</span></div>
-            <div class="tl-msg">เปิดห้องออฟฟิศ 3 มิติ พร้อมรับคำสั่งงาน</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- คำตอบและผลลัพธ์จาก AI -->
-      <section class="card section-card" style="flex:1;">
-        <div class="section-header">
-          <div class="section-title">💬 คำตอบและรายงานผลจาก AI</div>
-          <span class="section-sub" id="reply-status-txt">พร้อมรับคำสั่ง</span>
-        </div>
-        <div class="reply-box" id="ai-reply-box">คุณสามารถพิมพ์สั่งงาน AI ได้จากช่องด้านล่าง หรือกดปุ่ม "ทดลองดูการทำงาน" เพื่อดูการส่งแฟ้มงานระหว่างโต๊ะ Opus, Haiku และ Sonnet ในออฟฟิศ 3 มิติได้ทันทีครับ</div>
-
-        <button class="handover-btn" id="btn-handover-now">
-          🔄 สลับค่าย AI แล้วทำต่อจากจุดเดิมทันที (เมื่อโควต้าค่ายเดิมใกล้หมด)
+    <!-- ==================== 3. SLIM RIGHT STUDIO INSPECTOR ==================== -->
+    <aside class="studio-inspector" id="studio-inspector">
+      <div class="inspector-tabs">
+        <button class="tab-btn active" data-tab="tab-overview" onclick="window.switchTab('tab-overview')">
+          📊 สถานะ & โควต้า
         </button>
-      </section>
-    </aside>
-
-    <!-- แถบด้านล่าง: สั่งงาน AI จริง + ปุ่มจำลองการทำงานภาษาไทย -->
-    <footer class="card bottombar">
-      <form class="cmd-form" id="prompt-form">
-        <select class="cmd-select" id="select-engine" aria-label="เลือกค่าย AI">
-          <option value="claude">🟣 สั่งค่าย Claude Code</option>
-          <option value="antigravity">🔵 สั่งค่าย Antigravity (agy)</option>
-        </select>
-
-        <select class="cmd-select" id="select-model" aria-label="เลือกโมเดลสมอง AI">
-          <option value="opus">👑 โมเดล Opus (หัวหน้าวางแผน / งานซับซ้อน)</option>
-          <option value="sonnet" selected>⚡ โมเดล Sonnet (เขียนโค้ดไว / คุ้มโควต้า)</option>
-          <option value="haiku">🍃 โมเดล Haiku (สำรวจไฟล์ประหยัดโควต้า 15 เท่า)</option>
-          <option value="gemini-4-argon">✨ โมเดล Gemini 4 Argon (Antigravity)</option>
-        </select>
-
-        <input
-          type="text"
-          class="cmd-input"
-          id="prompt-input"
-          placeholder="พิมพ์สั่งงานทีม AI เป็นภาษาไทยได้เลย เช่น 'ช่วยวางแผนระบบล็อกอิน' หรือ 'ตรวจสอบบั๊กในโปรเจกต์'..."
-        />
-
-        <button type="submit" class="cmd-send-btn" id="btn-send-prompt">
-          🚀 ส่งคำสั่งให้ทีม AI ทำงาน
+        <button class="tab-btn" data-tab="tab-desk" onclick="window.switchTab('tab-desk')">
+          🏢 ข้อมูลโต๊ะ & ไฟล์
         </button>
-      </form>
-
-      <div class="sim-row">
-        <span class="sim-label">🎮 กดทดลองดูการทำงานแต่ละโต๊ะ:</span>
-        <button type="button" class="sim-btn opus" onclick="window.runSim('opus_plan')">
-          👑 ลองให้หัวหน้า Opus วางแผน
-        </button>
-        <button type="button" class="sim-btn haiku" onclick="window.runSim('haiku_explore')">
-          🔍 ลองให้ Haiku สำรวจไฟล์
-        </button>
-        <button type="button" class="sim-btn sonnet" onclick="window.runSim('sonnet_code')">
-          💻 ลองให้ Sonnet เขียนโค้ด
-        </button>
-        <button type="button" class="sim-btn warn" onclick="window.runSim('strike_1')">
-          ⚠️ ลองทำเทสต์พังครั้งที่ 1
-        </button>
-        <button type="button" class="sim-btn danger" onclick="window.runSim('strike_3')">
-          🛑 ลองติดเบรกเกอร์หยุดวนลูป
-        </button>
-        <button type="button" class="sim-btn danger" onclick="window.runSim('os_shield')">
-          🛡️ ลองบล็อกคำสั่งอันตราย
-        </button>
-        <button type="button" class="sim-btn sonnet" onclick="window.runSim('agy_takeover')">
-          🔄 ลองสลับค่าย Antigravity รับไม้ต่อ
-        </button>
-        <button type="button" class="sim-btn ok" onclick="window.runSim('review_done')">
-          ✅ ตรวจรับงานผ่าน & พร้อมรับงานใหม่
+        <button class="tab-btn" data-tab="tab-logs" onclick="window.switchTab('tab-logs')">
+          🕒 บันทึก & คำตอบ
         </button>
       </div>
-    </footer>
+
+      <!-- แท็บที่ 1: ภาพรวมงาน + เบรกเกอร์ + แบตเตอรี่โควต้า -->
+      <div class="tab-pane active" id="tab-overview">
+        <div class="insp-block">
+          <div class="ib-head">
+            <span class="ib-title">📋 งานปัจจุบัน & โมเดลที่ทำงาน</span>
+            <span class="ib-meta" id="calls-counter-txt">0 ครั้ง</span>
+          </div>
+          <div class="kv-grid">
+            <div class="kv-box">
+              <div class="kv-lbl">ค่าย AI ที่ทำงาน</div>
+              <div class="kv-val" id="active-engine-txt">🟣 Claude Code</div>
+            </div>
+            <div class="kv-box">
+              <div class="kv-lbl">สมองที่ใช้ตอนนี้</div>
+              <div class="kv-val" id="active-model-txt">👑 Opus (หัวหน้า)</div>
+            </div>
+          </div>
+          <div class="task-readout" id="current-action-txt">
+            👑 หัวหน้าสถาปนิก (Opus) พร้อมรับโจทย์และวางแผนระบบ
+          </div>
+        </div>
+
+        <div class="insp-block">
+          <div class="ib-head">
+            <span class="ib-title">🛑 เบรกเกอร์กันวนลูป (กฎ 2-Strike)</span>
+            <span class="ib-meta" id="strike-badge-txt">ปกติ 0/3</span>
+          </div>
+          <div class="strike-bars">
+            <div class="strike-cell" id="strike-box-1">
+              <div class="sc-top">พังครั้งที่ 1</div>
+              <div class="sc-sub">หาต้นตอ</div>
+            </div>
+            <div class="strike-cell" id="strike-box-2">
+              <div class="sc-top">พังครั้งที่ 2</div>
+              <div class="sc-sub">ซ่อมรอบสุดท้าย</div>
+            </div>
+            <div class="strike-cell" id="strike-box-3">
+              <div class="sc-top">ครบ 3 ครั้ง!</div>
+              <div class="sc-sub">สั่งหยุดทันที</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="insp-block">
+          <div class="ib-head">
+            <span class="ib-title">🔋 แบตเตอรี่โควต้าคงเหลือจริง</span>
+            <button class="tool-btn" id="btn-refresh-quota" style="padding:2px 7px;font-size:10px;">
+              🔄 เช็คสด
+            </button>
+          </div>
+
+          <div class="quota-group">
+            <div class="qg-title">
+              <span>🟣 Claude Code (Opus / Sonnet / Haiku)</span>
+              <span class="ib-meta" id="q-claude-plan">Pro</span>
+            </div>
+            <div class="q-row">
+              <div class="q-lbl-line">
+                <span>รอบ 5 ชั่วโมง <small id="q-claude-5h-reset"></small></span>
+                <span class="q-pct" id="q-claude-5h-pct">--%</span>
+              </div>
+              <div class="q-bar-bg"><div class="q-bar-fill" id="q-claude-5h-bar"></div></div>
+            </div>
+            <div class="q-row">
+              <div class="q-lbl-line">
+                <span>รอบ 7 วัน <small id="q-claude-7d-reset"></small></span>
+                <span class="q-pct" id="q-claude-7d-pct">--%</span>
+              </div>
+              <div class="q-bar-bg"><div class="q-bar-fill" id="q-claude-7d-bar"></div></div>
+            </div>
+          </div>
+
+          <div class="quota-group">
+            <div class="qg-title">
+              <span>🔵 Antigravity IDE</span>
+              <span class="ib-meta">เชื่อมต่อแล้ว</span>
+            </div>
+            <div class="q-row">
+              <div class="q-lbl-line">
+                <span>Gemini (5 ชม. / 7 วัน)</span>
+                <span class="q-pct" id="q-agy-gemini-pct">--% / --%</span>
+              </div>
+              <div class="q-bar-bg"><div class="q-bar-fill" id="q-agy-gemini-bar"></div></div>
+            </div>
+            <div class="q-row">
+              <div class="q-lbl-line">
+                <span>Claude & GPT ใน AGY (5 ชม. / 7 วัน)</span>
+                <span class="q-pct" id="q-agy-claude-pct">--% / --%</span>
+              </div>
+              <div class="q-bar-bg"><div class="q-bar-fill" id="q-agy-claude-bar"></div></div>
+            </div>
+          </div>
+
+          <div class="advice-banner" id="quota-advice-box">
+            💡 กำลังตรวจสอบสถานะโควต้าจริงจากเซิร์ฟเวอร์...
+          </div>
+
+          <button class="switch-engine-btn" id="btn-handover-now">
+            🔄 สลับค่าย AI แล้วทำต่อจากจุดเดิมทันที
+          </button>
+        </div>
+      </div>
+
+      <!-- แท็บที่ 2: ข้อมูลเจาะลึกของโต๊ะที่คลิก + รายชื่อไฟล์ -->
+      <div class="tab-pane" id="tab-desk">
+        <div class="insp-block">
+          <div class="ib-head">
+            <span class="ib-title" id="insp-title">👑 โต๊ะหัวหน้าสถาปนิก & คุมกฎ (Opus)</span>
+          </div>
+          <div class="task-readout" id="insp-desc">
+            โต๊ะประธานกลางออฟฟิศ ทำหน้าที่รับคำสั่งจากคุณ วางแผนงานใหญ่ (/plan) แจกจ่ายแฟ้มงานให้ลูกทีม และคอยเฝ้าระวังความปลอดภัย (OS Shield)
+          </div>
+          <div class="desk-why-box" id="insp-why">
+            💡 ทำไมต้องใช้โมเดล Opus ที่โต๊ะนี้: เพราะ Opus ฉลาดที่สุดในการวางแผนระบบที่ซับซ้อน เราจึงใช้เฉพาะตอนวางแผนและตัดสินใจเรื่องสำคัญเพื่อประหยัดโควต้า
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="switch-engine-btn" id="insp-try-btn">▶ ทดลองสั่งให้โต๊ะนี้ทำงาน</button>
+            <button class="tool-btn" onclick="window.setCameraShot('overview')">🎥 มุมมองรวม</button>
+          </div>
+        </div>
+
+        <div class="insp-block">
+          <div class="ib-head">
+            <span class="ib-title">📁 ไฟล์ที่เพิ่งแก้ไขในโปรเจกต์</span>
+            <span class="ib-meta" id="files-count-label">0 ไฟล์</span>
+          </div>
+          <div id="touched-files-list" style="display:flex;flex-direction:column;gap:5px;">
+            <div class="file-item"><span>ยังไม่มีไฟล์ที่แก้ไขในรอบนี้</span><span>✓</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- แท็บที่ 3: สมุดบันทึกสด + คำตอบจาก AI -->
+      <div class="tab-pane" id="tab-logs">
+        <div class="insp-block">
+          <div class="ib-head">
+            <span class="ib-title">💬 คำตอบและรายงานผลจาก AI</span>
+            <span class="ib-meta" id="reply-status-txt">พร้อมรับงาน</span>
+          </div>
+          <div class="ai-output-box" id="ai-reply-box">สามารถพิมพ์สั่งงาน AI จากแท่นพิมพ์ด้านล่าง หรือคลิกที่โต๊ะทำงานในฉาก 3 มิติเพื่อดูหน้าที่ของพนักงานแต่ละแผนกได้เลยครับ</div>
+        </div>
+
+        <div class="insp-block">
+          <div class="ib-head">
+            <span class="ib-title">🕒 สมุดบันทึกการส่งงานในออฟฟิศ (สด)</span>
+          </div>
+          <div class="log-feed" id="events-timeline"></div>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-    // ข้อมูลอธิบายแต่ละโต๊ะเป็นภาษาไทยเข้าใจง่าย
+    // =========================================================================
+    // 1. ข้อมูลประจำโต๊ะทำงานทั้ง 5 แผนกในออฟฟิศ 3 มิติ
+    // =========================================================================
     const DESK_INFO = {
       core: {
-        title: '👑 โต๊ะที่ 1 (กลางห้อง): หัวหน้าสถาปนิก & ผู้คุมกฎความปลอดภัย',
-        modelBadge: '👑 โมเดล Claude Opus / Gemini Pro',
+        title: '👑 โต๊ะที่ 1 (กลางห้อง): หัวหน้าสถาปนิก & ผู้คุมกฎ (Opus)',
+        shortName: '👑 โต๊ะหัวหน้า (Opus)',
         desc: 'โต๊ะประธานกลางออฟฟิศ ทำหน้าที่รับคำสั่งจากคุณ วางแผนงานใหญ่ (/plan) แจกจ่ายแฟ้มงานให้ลูกทีม และคอยเฝ้าระวังความปลอดภัย (OS Shield) รวมถึงกดกริ่งเบรกเมื่อลูกทีมแก้บั๊กวนลูป',
         why: '💡 ทำไมต้องใช้โมเดล Opus ที่โต๊ะนี้: เพราะ Opus เป็นโมเดลที่ฉลาดที่สุด คิดวิเคราะห์งานซับซ้อนและวางโครงสร้างระบบได้รอบคอบที่สุด เราจึงใช้เฉพาะตอนวางแผนและตัดสินใจเรื่องสำคัญ เพื่อไม่ให้เปลืองโควต้าโดยใช่เหตุ',
         simKey: 'opus_plan',
-        pos: new THREE.Vector3(0, 0, 0),
-        accent: 0x7c3aed,
+        pos: new THREE.Vector3(0, 0.18, 0),
+        camPos: new THREE.Vector3(0, 6.2, 7.2),
+        camTarget: new THREE.Vector3(0, 1.1, 0),
+        accent: 0xa855f7,
+        suitColor: 0x6b21a8,
+        screenTitle: 'OPUS // SYSTEM ARCHITECT',
       },
       explorer: {
-        title: '🔍 โต๊ะที่ 2 (ซ้ายบน): ฝ่ายสำรวจและค้นหาไฟล์ความเร็วสูง',
-        modelBadge: '🍃 โมเดล Claude Haiku',
+        title: '🔍 โต๊ะที่ 2 (ซ้ายบน): ฝ่ายสำรวจหาไฟล์ความเร็วสูง (Haiku)',
+        shortName: '🔍 โต๊ะสำรวจไฟล์ (Haiku)',
         desc: 'ทำหน้าที่วิ่งค้นหาไฟล์ อ่านโครงสร้างโฟลเดอร์ และสรุปพิกัดโค้ดส่งกลับมาให้โต๊ะหัวหน้าและโต๊ะเขียนโค้ด',
         why: '💡 ทำไมต้องใช้โมเดล Haiku ที่โต๊ะนี้: การค้นหาและเปิดอ่านไฟล์จำนวนมากไม่ต้องใช้สมองระดับ Opus การใช้ Haiku ช่วยประหยัดโควต้าของคุณได้ถึง 10–20 เท่า และทำงานเสร็จไวภายในไม่กี่วินาที!',
         simKey: 'haiku_explore',
-        pos: new THREE.Vector3(-3.8, 0, -3.3),
-        accent: 0x0d9488,
+        pos: new THREE.Vector3(-4.5, 0, -3.4),
+        camPos: new THREE.Vector3(-4.5, 5.2, 2.2),
+        camTarget: new THREE.Vector3(-4.5, 1.0, -3.4),
+        accent: 0x14b8a6,
+        suitColor: 0x0f766e,
+        screenTitle: 'HAIKU // FAST FILE RADAR',
       },
       implementer: {
-        title: '💻 โต๊ะที่ 3 (ซ้ายล่าง): ฝ่ายลงมือเขียนและแก้ไขโค้ด',
-        modelBadge: '⚡ โมเดล Claude Sonnet',
+        title: '💻 โต๊ะที่ 3 (ซ้ายล่าง): ฝ่ายลงมือเขียนและแก้ไขโค้ด (Sonnet)',
+        shortName: '💻 โต๊ะเขียนโค้ด (Sonnet)',
         desc: 'รับแฟ้มงานที่ระบุพิกัดไฟล์ชัดเจนแล้วมาลงมือเขียนโค้ด แก้ไขเฉพาะจุด (Surgical Edit) และจัดระเบียบโค้ดให้อัตโนมัติ พร้อมวางแฟ้มไฟล์ที่แก้เสร็จแล้วไว้บนโต๊ะ',
         why: '💡 ทำไมต้องใช้โมเดล Sonnet ที่โต๊ะนี้: Sonnet เป็นโมเดลที่เขียนโค้ดแม่นยำ รวดเร็ว และกินโควต้าน้อยกว่า Opus หลายเท่า เหมาะเป็นสายลุยงานหลักประจำออฟฟิศ',
         simKey: 'sonnet_code',
-        pos: new THREE.Vector3(-4.2, 0, 3.5),
-        accent: 0x2563eb,
+        pos: new THREE.Vector3(-4.5, 0, 3.4),
+        camPos: new THREE.Vector3(-4.5, 5.2, 9.0),
+        camTarget: new THREE.Vector3(-4.5, 1.0, 3.4),
+        accent: 0x3b82f6,
+        suitColor: 0x1d4ed8,
+        screenTitle: 'SONNET // SURGICAL CODER',
       },
       debugger: {
-        title: '🔧 โต๊ะที่ 4 (ขวาบน): ช่างซ่อมบั๊กเมื่อผลเทสต์ไม่ผ่าน',
-        modelBadge: '🔧 โมเดล Claude Sonnet (คุมด้วยกฎ 2-Strike)',
+        title: '🔧 โต๊ะที่ 4 (ขวาบน): ช่างซ่อมบั๊กภายใต้กฎ 2-Strike (Sonnet)',
+        shortName: '🔧 โต๊ะซ่อมบั๊ก (Sonnet)',
         desc: 'เมื่อรันเทสต์แล้วพัง แฟ้มงานจะถูกส่งมาที่โต๊ะช่างซ่อมบั๊กเพื่อหาต้นตอ (Root Cause) โดยได้รับอนุญาตให้ลองซ่อมได้ไม่เกิน 2 ครั้ง หากพังครั้งที่ 3 หัวหน้า Opus จะสั่งเบรกทันที',
         why: '💡 ทำไมต้องมีกฎ 2-Strike ที่โต๊ะนี้: ปัญหาใหญ่ที่สุดของคนใช้ AI คือปล่อยให้ AI เดาแก้บั๊กซ้ำๆ 10 รอบจนโควต้าหมดเกลี้ยง โต๊ะนี้จึงมีตัวนับครั้งชัดเจนเพื่อปกป้องโควต้าของคุณ',
         simKey: 'strike_1',
-        pos: new THREE.Vector3(3.8, 0, -3.3),
-        accent: 0xd97706,
+        pos: new THREE.Vector3(4.5, 0, -3.4),
+        camPos: new THREE.Vector3(4.5, 5.2, 2.2),
+        camTarget: new THREE.Vector3(4.5, 1.0, -3.4),
+        accent: 0xf59e0b,
+        suitColor: 0xb45309,
+        screenTitle: 'DEBUG // 2-STRIKE GUARD',
       },
       reviewer: {
-        title: '✅ โต๊ะที่ 5 (ขวาล่าง): ฝ่ายตรวจรับงานและรันเทสต์จริง',
-        modelBadge: '✅ โมเดล Claude Sonnet (Blocker-Only QA)',
+        title: '✅ โต๊ะที่ 5 (ขวาล่าง): ฝ่ายตรวจรับงานและรันเทสต์จริง (Sonnet)',
+        shortName: '✅ โต๊ะตรวจรับงาน (Sonnet)',
         desc: 'ตรวจสอบว่ามีการรันเทสต์จริง (ห้ามผ่านทิพย์) และตรวจเฉพาะจุดตายสำคัญ (ช่องโหว่ความปลอดภัย ข้อมูลรั่วไหล หรือโค้ดพัง) ก่อนประทับตราส่งงานให้คุณ',
         why: '💡 ทำไมโต๊ะนี้ไม่จู้จี้เรื่องเล็กน้อย: เราตั้งกฎให้ตรวจเฉพาะเรื่องคอขาดบาดตาย (Blocker-Only) ไม่เสียโควต้าเถียงเรื่องการตั้งชื่อตัวแปรหรือย่อหน้า',
         simKey: 'review_done',
-        pos: new THREE.Vector3(4.2, 0, 3.5),
-        accent: 0x16a34a,
+        pos: new THREE.Vector3(4.5, 0, 3.4),
+        camPos: new THREE.Vector3(4.5, 5.2, 9.0),
+        camTarget: new THREE.Vector3(4.5, 1.0, 3.4),
+        accent: 0x22c55e,
+        suitColor: 0x15803d,
+        screenTitle: 'QA // REAL TEST VERIFIER',
       },
     };
 
-    // ตั้งค่าฉาก 3 มิติ (Three.js r187 — Warm Architectural Studio)
+    // =========================================================================
+    // 2. ตั้งค่า Renderer, AgX Tone Mapping & Procedural Softbox HDR Environment
+    //    (ตามมาตรฐาน Threejs-Awesome-Graphics-Agent-Skills)
+    // =========================================================================
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xe8eef5);
-    scene.fog = new THREE.FogExp2(0xe8eef5, 0.018);
+    scene.background = new THREE.Color(0x161922);
+    scene.fog = new THREE.FogExp2(0x161922, 0.016);
 
-    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 120);
-    const DEFAULT_CAM_POS = new THREE.Vector3(0, 14.2, 16.8);
-    camera.position.copy(DEFAULT_CAM_POS);
+    const camera = new THREE.PerspectiveCamera(
+      38,
+      container.clientWidth / container.clientHeight,
+      0.1,
+      120
+    );
+    const OVERVIEW_CAM_POS = new THREE.Vector3(0, 8.2, 13.8);
+    const OVERVIEW_CAM_TARGET = new THREE.Vector3(0, 0.9, -0.6);
+    camera.position.copy(OVERVIEW_CAM_POS);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+    });
+    renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.AgXToneMapping;
+    renderer.toneMappingExposure = 1.16;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.maxPolarAngle = Math.PI / 2.15;
-    controls.minDistance = 8;
-    controls.maxDistance = 30;
-    controls.target.set(0, 0.6, 0.3);
+    controls.maxPolarAngle = Math.PI / 2.12;
+    controls.minDistance = 4.5;
+    controls.maxDistance = 28;
+    controls.target.copy(OVERVIEW_CAM_TARGET);
 
-    // แสงสว่างสไตล์สตูดิโอธรรมชาติ (Warm Daylight Studio)
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 1.15);
-    hemiLight.position.set(0, 25, 0);
-    scene.add(hemiLight);
+    // สร้าง Procedural Studio Softbox Environment (5 Calibrated HDR Softboxes)
+    function buildStudioSoftboxEnvironment() {
+      const width = 256;
+      const height = 128;
+      const data = new Float32Array(width * height * 4);
+      const softboxes = [
+        { dir: new THREE.Vector3(0.45, 0.85, 0.35).normalize(), intensity: 5.0, exp: 16, col: [1.0, 0.98, 0.94] },
+        { dir: new THREE.Vector3(-0.85, 0.25, 0.15).normalize(), intensity: 1.6, exp: 7, col: [0.82, 0.9, 1.0] },
+        { dir: new THREE.Vector3(0.15, 0.35, -0.95).normalize(), intensity: 2.5, exp: 12, col: [1.0, 0.86, 0.66] },
+        { dir: new THREE.Vector3(0.95, 0.05, 0.3).normalize(), intensity: 0.9, exp: 9, col: [1.0, 0.95, 0.85] },
+        { dir: new THREE.Vector3(0, -1, 0).normalize(), intensity: 0.45, exp: 4, col: [0.95, 0.9, 0.82] },
+      ];
+      const ray = new THREE.Vector3();
 
-    const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.65);
-    sunLight.position.set(12, 22, 14);
-    sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.camera.near = 2;
-    sunLight.shadow.camera.far = 50;
-    const d = 14;
-    sunLight.shadow.camera.left = -d;
-    sunLight.shadow.camera.right = d;
-    sunLight.shadow.camera.top = d;
-    sunLight.shadow.camera.bottom = -d;
-    sunLight.shadow.bias = -0.0005;
-    scene.add(sunLight);
+      for (let y = 0; y < height; y++) {
+        const v = (y + 0.5) / height;
+        const theta = (1.0 - v) * Math.PI;
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+        const up01 = Math.max(0, Math.min(1, cosTheta * 0.5 + 0.5));
+        const baseAmb = 0.28 + 0.72 * (up01 * up01 * (3 - 2 * up01));
 
-    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.55);
-    fillLight.position.set(-14, 12, -10);
+        for (let x = 0; x < width; x++) {
+          const u = (x + 0.5) / width;
+          const phi = u * Math.PI * 2.0;
+          ray.set(sinTheta * Math.cos(phi), cosTheta, sinTheta * Math.sin(phi));
+
+          let r = baseAmb * 0.92;
+          let g = baseAmb * 0.95;
+          let b = baseAmb * 1.02;
+
+          for (const sb of softboxes) {
+            const dot = Math.max(0, ray.dot(sb.dir));
+            if (dot > 0) {
+              const w = Math.pow(dot, sb.exp) * sb.intensity;
+              r += w * sb.col[0];
+              g += w * sb.col[1];
+              b += w * sb.col[2];
+            }
+          }
+
+          const idx = (y * width + x) * 4;
+          data[idx] = r;
+          data[idx + 1] = g;
+          data[idx + 2] = b;
+          data[idx + 3] = 1.0;
+        }
+      }
+
+      const tex = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.FloatType);
+      tex.mapping = THREE.EquirectangularReflectionMapping;
+      tex.magFilter = THREE.LinearFilter;
+      tex.minFilter = THREE.LinearFilter;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    const studioEnv = buildStudioSoftboxEnvironment();
+    scene.environment = studioEnv;
+    scene.environmentIntensity = 0.45;
+
+    // Three-Point Calibrated Directional Rig
+    const keyLight = new THREE.DirectionalLight(0xffead4, 2.05);
+    keyLight.position.set(11, 19, 12);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 2;
+    keyLight.shadow.camera.far = 42;
+    const shadowBound = 12.5;
+    keyLight.shadow.camera.left = -shadowBound;
+    keyLight.shadow.camera.right = shadowBound;
+    keyLight.shadow.camera.top = shadowBound;
+    keyLight.shadow.camera.bottom = -shadowBound;
+    keyLight.shadow.bias = -0.00025;
+    keyLight.shadow.normalBias = 0.02;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xcadcf2, 0.52);
+    fillLight.position.set(-13, 10, 8);
     scene.add(fillLight);
 
-    // สร้างพื้นห้องออฟฟิศ 3 มิติ
+    const rimLight = new THREE.DirectionalLight(0xffc98f, 0.68);
+    rimLight.position.set(-6, 9, -14);
+    scene.add(rimLight);
+
+    // =========================================================================
+    // 3. Procedural Textures (Contact Blush AO, Wood Parquet, Code Screens)
+    // =========================================================================
+    function createContactBlushTexture() {
+      const c = document.createElement('canvas');
+      c.width = 128;
+      c.height = 128;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 62);
+      grad.addColorStop(0, 'rgba(38, 28, 18, 0.46)');
+      grad.addColorStop(0.55, 'rgba(38, 28, 18, 0.18)');
+      grad.addColorStop(1, 'rgba(38, 28, 18, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 128, 128);
+      const t = new THREE.CanvasTexture(c);
+      return t;
+    }
+    const contactBlushTex = createContactBlushTexture();
+
+    function createStudioFloorTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#e7dfd3';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // ลายไม้โอ๊คสถาปัตยกรรมแบบนุ่มนวล
+      for (let y = 0; y < 512; y += 32) {
+        for (let x = 0; x < 512; x += 128) {
+          const offset = (y / 32) % 2 === 0 ? 0 : 64;
+          const tone = 224 + ((x + y) % 11) - 5;
+          ctx.fillStyle = `rgb(${tone}, ${tone - 8}, ${tone - 19})`;
+          ctx.fillRect((x + offset) % 512, y, 126, 30);
+          ctx.strokeStyle = 'rgba(120, 100, 80, 0.14)';
+          ctx.strokeRect((x + offset) % 512, y, 126, 30);
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(4, 3);
+      return tex;
+    }
+
+    function createMonitorCodeTexture(title, hexAccent) {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#0d1117';
+      ctx.fillRect(0, 0, 256, 128);
+
+      const accentCss = '#' + hexAccent.toString(16).padStart(6, '0');
+      ctx.fillStyle = accentCss;
+      ctx.fillRect(0, 0, 256, 18);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(title, 8, 13);
+
+      const widths = [140, 95, 175, 120, 160, 80, 130];
+      widths.forEach((w, i) => {
+        ctx.fillStyle = i % 3 === 0 ? accentCss : i % 2 === 0 ? '#94a3b8' : '#475569';
+        ctx.fillRect(14 + (i % 2) * 12, 28 + i * 12, w, 6);
+      });
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    // =========================================================================
+    // 4. Calibrated MeshPhysicalMaterial Bundles (Walnut, Brass, Oak, Plaster)
+    // =========================================================================
+    const MAT = {
+      walnutWood: new THREE.MeshPhysicalMaterial({
+        color: 0x5c3a21,
+        roughness: 0.42,
+        metalness: 0.04,
+        clearcoat: 0.62,
+        clearcoatRoughness: 0.28,
+      }),
+      nordicOak: new THREE.MeshPhysicalMaterial({
+        color: 0xdcc7aa,
+        roughness: 0.44,
+        metalness: 0.02,
+        clearcoat: 0.46,
+        clearcoatRoughness: 0.3,
+      }),
+      antiqueBrass: new THREE.MeshPhysicalMaterial({
+        color: 0xd4af37,
+        roughness: 0.24,
+        metalness: 0.78,
+        clearcoat: 0.24,
+        clearcoatRoughness: 0.2,
+      }),
+      anodizedMetal: new THREE.MeshPhysicalMaterial({
+        color: 0x27272a,
+        roughness: 0.34,
+        metalness: 0.82,
+        clearcoat: 0.18,
+      }),
+      mattePlaster: new THREE.MeshPhysicalMaterial({
+        color: 0xf4f1ea,
+        roughness: 0.92,
+        metalness: 0.0,
+      }),
+      darkSlatePlinth: new THREE.MeshPhysicalMaterial({
+        color: 0x1e222d,
+        roughness: 0.55,
+        metalness: 0.15,
+        clearcoat: 0.2,
+      }),
+    };
+
+    // =========================================================================
+    // 5. สร้างห้องออฟฟิศ Architectural Cutaway Diorama
+    // =========================================================================
     const officeGroup = new THREE.Group();
     scene.add(officeGroup);
 
-    // ฐานพื้นห้องหลัก
-    const floorGeo = new THREE.BoxGeometry(20.5, 0.4, 15.5);
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.85, metalness: 0.05 });
-    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-    floorMesh.position.y = -0.2;
-    floorMesh.receiveShadow = true;
-    officeGroup.add(floorMesh);
+    // ฐาน Diorama ชั้นล่าง (Dark Slate Plinth + Brass Trim)
+    const plinthBase = new THREE.Mesh(
+      new RoundedBoxGeometry(16.6, 0.42, 12.6, 4, 0.08),
+      MAT.darkSlatePlinth
+    );
+    plinthBase.position.y = -0.32;
+    plinthBase.receiveShadow = true;
+    officeGroup.add(plinthBase);
 
-    // ขอบไม้รอบพื้นออฟฟิศ
-    const borderGeo = new THREE.BoxGeometry(20.9, 0.36, 15.9);
-    const borderMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.7 });
-    const borderMesh = new THREE.Mesh(borderGeo, borderMat);
-    borderMesh.position.y = -0.22;
-    officeGroup.add(borderMesh);
+    const brassTrim = new THREE.Mesh(
+      new RoundedBoxGeometry(16.2, 0.08, 12.2, 4, 0.03),
+      MAT.antiqueBrass
+    );
+    brassTrim.position.y = -0.09;
+    officeGroup.add(brassTrim);
 
-    // ตารางพื้นออฟฟิศแบบบางเบา
-    const gridHelper = new THREE.GridHelper(20, 20, 0xcbd5e1, 0xe2e8f0);
-    gridHelper.position.y = 0.01;
-    officeGroup.add(gridHelper);
+    // พื้นไม้โอ๊คของห้องทำงาน
+    const studioFloorMat = new THREE.MeshPhysicalMaterial({
+      map: createStudioFloorTexture(),
+      roughness: 0.52,
+      metalness: 0.02,
+      clearcoat: 0.28,
+      clearcoatRoughness: 0.35,
+    });
+    const studioFloor = new THREE.Mesh(
+      new RoundedBoxGeometry(16.0, 0.14, 12.0, 4, 0.04),
+      studioFloorMat
+    );
+    studioFloor.position.y = -0.05;
+    studioFloor.receiveShadow = true;
+    officeGroup.add(studioFloor);
 
-    // สร้างเส้นทางเดินส่งแฟ้มงานเชื่อมจากโต๊ะหัวหน้า (0,0,0) ไปยังโต๊ะลูกทีมทั้ง 4
+    // ผนังด้านหลังสไตล์ Cutaway Studio Diorama + ระแนงไม้ Walnut + ป้ายไฟสตูดิโอ
+    const backWall = new THREE.Mesh(
+      new RoundedBoxGeometry(16.0, 3.6, 0.28, 3, 0.05),
+      MAT.mattePlaster
+    );
+    backWall.position.set(0, 1.8, -5.9);
+    backWall.castShadow = true;
+    backWall.receiveShadow = true;
+    officeGroup.add(backWall);
+
+    // ระแนงไม้ Walnut ประดับผนังหลัง
+    for (let i = -18; i <= 18; i++) {
+      if (Math.abs(i) < 5) continue; // เว้นตรงกลางไว้ติดป้ายสตูดิโอ
+      const slat = new THREE.Mesh(
+        new RoundedBoxGeometry(0.12, 3.3, 0.08, 2, 0.02),
+        MAT.walnutWood
+      );
+      slat.position.set(i * 0.4, 1.8, -5.73);
+      slat.castShadow = true;
+      officeGroup.add(slat);
+    }
+
+    // ป้ายชื่อสตูดิโอบนผนังหลัง
+    function createWallSignTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#18181b';
+      ctx.fillRect(0, 0, 512, 128);
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(6, 6, 500, 116);
+      ctx.fillStyle = '#f4f1ea';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('AGENT GUARD AI STUDIO', 256, 56);
+      ctx.fillStyle = '#d4af37';
+      ctx.font = 'bold 18px monospace';
+      ctx.fillText('👑 OPUS   •   ⚡ SONNET   •   🍃 HAIKU', 256, 94);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    const wallSign = new THREE.Mesh(
+      new RoundedBoxGeometry(3.5, 0.88, 0.08, 3, 0.02),
+      new THREE.MeshPhysicalMaterial({ map: createWallSignTexture(), roughness: 0.3, clearcoat: 0.5 })
+    );
+    wallSign.position.set(0, 2.55, -5.72);
+    wallSign.castShadow = true;
+    officeGroup.add(wallSign);
+
+    // ตู้ Server Rack มุมห้องด้านหลังพร้อมไฟกระพริบ
+    function createServerRack(x, z) {
+      const rack = new THREE.Group();
+      rack.position.set(x, 0, z);
+      const body = new THREE.Mesh(
+        new RoundedBoxGeometry(1.1, 2.3, 0.85, 3, 0.04),
+        MAT.anodizedMetal
+      );
+      body.position.y = 1.15;
+      body.castShadow = true;
+      rack.add(body);
+
+      for (let i = 0; i < 5; i++) {
+        const led = new THREE.Mesh(
+          new THREE.BoxGeometry(0.75, 0.05, 0.02),
+          new THREE.MeshStandardMaterial({
+            color: i % 2 === 0 ? 0x38bdf8 : 0xa855f7,
+            emissive: i % 2 === 0 ? 0x38bdf8 : 0xa855f7,
+            emissiveIntensity: 0.85,
+          })
+        );
+        led.position.set(0, 0.55 + i * 0.34, 0.43);
+        rack.add(led);
+      }
+      officeGroup.add(rack);
+    }
+    createServerRack(-6.8, -5.1);
+    createServerRack(6.8, -5.1);
+
+    // กระถางต้นไม้ประดับออฟฟิศ (Procedural Designer Planters)
+    function createStudioPlant(x, z) {
+      const g = new THREE.Group();
+      g.position.set(x, 0, z);
+
+      const blush = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.4, 1.4),
+        new THREE.MeshBasicMaterial({ map: contactBlushTex, transparent: true, depthWrite: false })
+      );
+      blush.rotation.x = -Math.PI / 2;
+      blush.position.y = 0.025;
+      g.add(blush);
+
+      const pot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.36, 0.28, 0.58, 24),
+        MAT.mattePlaster
+      );
+      pot.position.y = 0.29;
+      pot.castShadow = true;
+      g.add(pot);
+
+      const leafMat = new THREE.MeshPhysicalMaterial({
+        color: 0x15803d,
+        roughness: 0.55,
+        clearcoat: 0.2,
+      });
+      [
+        [0, 0.82, 0, 0.42],
+        [0.2, 1.08, 0.12, 0.31],
+        [-0.18, 1.02, -0.1, 0.28],
+      ].forEach(([lx, ly, lz, r]) => {
+        const s = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 20), leafMat);
+        s.position.set(lx, ly, lz);
+        s.castShadow = true;
+        g.add(s);
+      });
+      officeGroup.add(g);
+    }
+    createStudioPlant(-7.1, 5.0);
+    createStudioPlant(7.1, 5.0);
+
+    // ยกพื้นเวทีกลมตรงกลางสำหรับโต๊ะหัวหน้าสถาปนิก Opus
+    const bossPodium = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.55, 2.7, 0.18, 48),
+      MAT.walnutWood
+    );
+    bossPodium.position.set(0, 0.09, 0);
+    bossPodium.receiveShadow = true;
+    bossPodium.castShadow = true;
+    officeGroup.add(bossPodium);
+
+    const bossBrassRing = new THREE.Mesh(
+      new THREE.RingGeometry(2.52, 2.66, 48),
+      MAT.antiqueBrass
+    );
+    bossBrassRing.rotation.x = -Math.PI / 2;
+    bossBrassRing.position.y = 0.185;
+    officeGroup.add(bossBrassRing);
+
+    // เส้นทางส่งแฟ้มงานฝังพื้น (Illuminated Floor Conduits)
     const pathwayMap = {};
     ['explorer', 'implementer', 'debugger', 'reviewer'].forEach((key) => {
       const targetPos = DESK_INFO[key].pos;
       const pts = [
-        new THREE.Vector3(0, 0.03, 0),
-        new THREE.Vector3(targetPos.x * 0.5, 0.03, targetPos.z * 0.5),
-        new THREE.Vector3(targetPos.x, 0.03, targetPos.z),
+        new THREE.Vector3(0, 0.04, 0),
+        new THREE.Vector3(targetPos.x * 0.5, 0.04, targetPos.z * 0.5),
+        new THREE.Vector3(targetPos.x, 0.04, targetPos.z),
       ];
       const curve = new THREE.CatmullRomCurve3(pts);
-      const tubeGeo = new THREE.TubeGeometry(curve, 24, 0.08, 8, false);
+      const tubeGeo = new THREE.TubeGeometry(curve, 32, 0.055, 10, false);
       const tubeMat = new THREE.MeshStandardMaterial({
-        color: 0xcbd5e1,
+        color: 0x64748b,
         emissive: DESK_INFO[key].accent,
-        emissiveIntensity: 0.05,
-        roughness: 0.5,
+        emissiveIntensity: 0.12,
+        roughness: 0.35,
       });
       const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
       officeGroup.add(tubeMesh);
       pathwayMap[key] = { curve, mat: tubeMat, accent: DESK_INFO[key].accent };
     });
 
-    // ฟังก์ชันสร้างต้นไม้ประดับมุมห้องออฟฟิศให้ดูอบอุ่นเหมือนสตูดิโอจริง
-    function createOfficePlant(x, z) {
-      const g = new THREE.Group();
-      g.position.set(x, 0, z);
-      const pot = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.38, 0.28, 0.55, 16),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 })
-      );
-      pot.position.y = 0.275;
-      pot.castShadow = true;
-      g.add(pot);
-
-      const foliageMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.75 });
-      const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), foliageMat);
-      b1.position.set(0, 0.78, 0);
-      b1.castShadow = true;
-      g.add(b1);
-
-      const b2 = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), foliageMat);
-      b2.position.set(0.22, 1.05, 0.12);
-      b2.castShadow = true;
-      g.add(b2);
-      officeGroup.add(g);
-    }
-    createOfficePlant(-9.1, -6.5);
-    createOfficePlant(9.1, -6.5);
-    createOfficePlant(-9.1, 6.5);
-    createOfficePlant(9.1, 6.5);
-
-    // สร้างชุดโต๊ะทำงาน + เก้าอี้ + จอคอม + ตัวละครพนักงาน 3D
+    // =========================================================================
+    // 6. สร้างชุดโต๊ะทำงาน 3D (RoundedBoxGeometry + PBR + ตัวละครพนักงาน 3D)
+    // =========================================================================
     const workstations = {};
     const clickableMeshes = [];
 
@@ -1304,201 +1682,262 @@
 
       const isBoss = key === 'core';
 
-      // พรมประจำโต๊ะ
-      const rugGeo = isBoss
-        ? new THREE.CylinderGeometry(2.55, 2.55, 0.04, 32)
-        : new THREE.BoxGeometry(3.8, 0.04, 2.9);
-      const rugMat = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        emissive: cfg.accent,
-        emissiveIntensity: 0.12,
-        roughness: 0.85,
-      });
-      const rug = new THREE.Mesh(rugGeo, rugMat);
-      rug.position.y = 0.02;
+      // 1. Analytic Contact Blush (เงาสัมผัสพื้นใต้โต๊ะตามมาตรฐาน Threejs-Awesome-Graphics)
+      const blushQuad = new THREE.Mesh(
+        new THREE.PlaneGeometry(4.2, 3.4),
+        new THREE.MeshBasicMaterial({
+          map: contactBlushTex,
+          transparent: true,
+          depthWrite: false,
+        })
+      );
+      blushQuad.rotation.x = -Math.PI / 2;
+      blushQuad.position.y = 0.008;
+      group.add(blushQuad);
+
+      // 2. พรมโซนทำงาน + วงแหวนไฟสถานะ
+      const rug = new THREE.Mesh(
+        new RoundedBoxGeometry(isBoss ? 3.5 : 3.1, 0.03, isBoss ? 2.6 : 2.3, 3, 0.01),
+        new THREE.MeshPhysicalMaterial({
+          color: 0xf8fafc,
+          roughness: 0.88,
+          clearcoat: 0.0,
+        })
+      );
+      rug.position.y = 0.015;
       rug.receiveShadow = true;
       rug.userData = { deskKey: key };
       group.add(rug);
       clickableMeshes.push(rug);
 
-      // วงแหวนไฟแสดงสถานะรอบโต๊ะ
-      const ringGeo = new THREE.RingGeometry(isBoss ? 2.45 : 2.0, isBoss ? 2.62 : 2.15, 40);
       const ringMat = new THREE.MeshBasicMaterial({
         color: cfg.accent,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.25,
       });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(isBoss ? 2.15 : 1.72, isBoss ? 2.3 : 1.85, 48),
+        ringMat
+      );
       ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.05;
+      ring.position.y = 0.035;
       group.add(ring);
 
-      // ท็อปโต๊ะไม้โมเดิร์น
-      const deskW = isBoss ? 2.7 : 2.2;
-      const deskD = isBoss ? 1.45 : 1.25;
-      const deskTopMat = new THREE.MeshStandardMaterial({
-        color: isBoss ? 0xd9b38c : 0xf1f5f9,
-        roughness: 0.55,
-      });
-      const deskTop = new THREE.Mesh(new THREE.BoxGeometry(deskW, 0.12, deskD), deskTopMat);
-      deskTop.position.y = 0.95;
+      // 3. ท็อปโต๊ะไม้ขอบมน (Walnut สำหรับหัวหน้า Opus / Nordic Oak สำหรับลูกทีม)
+      const deskW = isBoss ? 2.45 : 2.05;
+      const deskD = isBoss ? 1.25 : 1.08;
+      const deskTop = new THREE.Mesh(
+        new RoundedBoxGeometry(deskW, 0.1, deskD, 4, 0.03),
+        isBoss ? MAT.walnutWood : MAT.nordicOak
+      );
+      deskTop.position.y = 0.88;
       deskTop.castShadow = true;
       deskTop.receiveShadow = true;
       deskTop.userData = { deskKey: key };
       group.add(deskTop);
       clickableMeshes.push(deskTop);
 
-      // ขาโต๊ะ 4 ขา
-      const legMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.3 });
-      const legOffsets = [
+      // ขอบทองเหลืองประดับโต๊ะหัวหน้า Opus
+      if (isBoss) {
+        const brassInlay = new THREE.Mesh(
+          new RoundedBoxGeometry(deskW + 0.03, 0.03, deskD + 0.03, 3, 0.01),
+          MAT.antiqueBrass
+        );
+        brassInlay.position.y = 0.86;
+        group.add(brassInlay);
+      }
+
+      // ขาโต๊ะอะลูมิเนียมพ่นทราย
+      const legPositions = [
         [-deskW / 2 + 0.14, -deskD / 2 + 0.14],
         [deskW / 2 - 0.14, -deskD / 2 + 0.14],
         [-deskW / 2 + 0.14, deskD / 2 - 0.14],
         [deskW / 2 - 0.14, deskD / 2 - 0.14],
       ];
-      legOffsets.forEach(([lx, lz]) => {
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.92, 10), legMat);
-        leg.position.set(lx, 0.46, lz);
+      legPositions.forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.045, 0.045, 0.86, 14),
+          isBoss ? MAT.antiqueBrass : MAT.anodizedMetal
+        );
+        leg.position.set(lx, 0.43, lz);
         leg.castShadow = true;
         group.add(leg);
       });
 
-      // จอมอนิเตอร์บนโต๊ะ
+      // 4. จอมอนิเตอร์ขอบมนพร้อมหน้าจอโค้ดจริง
+      const screenTex = createMonitorCodeTexture(cfg.screenTitle, cfg.accent);
       const screenMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
+        map: screenTex,
         emissive: cfg.accent,
-        emissiveIntensity: 0.35,
-        roughness: 0.3,
+        emissiveMap: screenTex,
+        emissiveIntensity: 0.45,
+        roughness: 0.25,
       });
-      const monFrame = new THREE.Mesh(
-        new THREE.BoxGeometry(isBoss ? 1.25 : 0.95, 0.58, 0.06),
-        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 })
+
+      const monW = isBoss ? 1.25 : 0.92;
+      const monH = 0.52;
+      const monStand = new THREE.Mesh(
+        new RoundedBoxGeometry(0.16, 0.28, 0.12, 2, 0.02),
+        MAT.anodizedMetal
       );
-      monFrame.position.set(0, 1.36, 0.22);
-      monFrame.castShadow = true;
-      monFrame.userData = { deskKey: key };
-      group.add(monFrame);
-      clickableMeshes.push(monFrame);
+      monStand.position.set(0, 1.02, 0.22);
+      group.add(monStand);
 
-      const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(isBoss ? 1.15 : 0.86, 0.48), screenMat);
-      screenMesh.position.set(0, 1.36, 0.185);
-      screenMesh.rotation.y = Math.PI;
-      group.add(screenMesh);
+      const monBezel = new THREE.Mesh(
+        new RoundedBoxGeometry(monW, monH, 0.05, 3, 0.015),
+        MAT.anodizedMetal
+      );
+      monBezel.position.set(0, 1.25, 0.22);
+      monBezel.castShadow = true;
+      monBezel.userData = { deskKey: key };
+      group.add(monBezel);
+      clickableMeshes.push(monBezel);
 
-      // โคมไฟตั้งโต๊ะ (สว่างขึ้นเมื่อโต๊ะนั้นกำลังทำงาน)
+      const monScreen = new THREE.Mesh(new THREE.PlaneGeometry(monW - 0.06, monH - 0.06), screenMat);
+      monScreen.position.set(0, 1.25, 0.192);
+      monScreen.rotation.y = Math.PI;
+      group.add(monScreen);
+
+      // คีย์บอร์ดและแก้วกาแฟบนโต๊ะ
+      const keyboard = new THREE.Mesh(
+        new RoundedBoxGeometry(0.46, 0.025, 0.16, 2, 0.008),
+        MAT.anodizedMetal
+      );
+      keyboard.position.set(0, 0.94, -0.14);
+      group.add(keyboard);
+
+      const mug = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.055, 0.13, 16),
+        MAT.mattePlaster
+      );
+      mug.position.set(-deskW / 2 + 0.26, 0.99, 0.12);
+      mug.castShadow = true;
+      group.add(mug);
+
+      // โคมไฟตั้งโต๊ะทองเหลือง
       const lampBulbMat = new THREE.MeshStandardMaterial({
         color: 0xfef08a,
         emissive: cfg.accent,
-        emissiveIntensity: 0.2,
+        emissiveIntensity: 0.25,
       });
-      const lampBulb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 14), lampBulbMat);
-      lampBulb.position.set(deskW / 2 - 0.28, 1.35, 0.25);
+      const lampStem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.05, 0.34, 12),
+        MAT.antiqueBrass
+      );
+      lampStem.position.set(deskW / 2 - 0.24, 1.1, 0.2);
+      group.add(lampStem);
+
+      const lampBulb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), lampBulbMat);
+      lampBulb.position.set(deskW / 2 - 0.24, 1.3, 0.2);
       group.add(lampBulb);
 
-      // เสาไฟไซเรนแจ้งเตือนความปลอดภัยเฉพาะโต๊ะหัวหน้า Opus
+      // เสาไฟไซเรนแจ้งเตือนความปลอดภัย + เกราะเลเซอร์สีแดงเฉพาะโต๊ะหัวหน้า Opus
       let sirenMesh = null;
       let shieldCage = null;
       if (isBoss) {
         const sirenMat = new THREE.MeshStandardMaterial({
           color: 0xef4444,
           emissive: 0xef4444,
-          emissiveIntensity: 0.1,
+          emissiveIntensity: 0.15,
         });
-        sirenMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.28, 16), sirenMat);
-        sirenMesh.position.set(-deskW / 2 + 0.3, 1.16, 0.25);
+        sirenMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.24, 18), sirenMat);
+        sirenMesh.position.set(-deskW / 2 + 0.28, 1.05, 0.24);
         group.add(sirenMesh);
 
-        // รั้วกั้นสีแดงเมื่อสั่งเบรกงานฉุกเฉิน
-        const cageGeo = new THREE.CylinderGeometry(2.35, 2.35, 1.9, 20, 1, true);
-        const cageMat = new THREE.MeshBasicMaterial({
-          color: 0xdc2626,
-          wireframe: true,
-          transparent: true,
-          opacity: 0.0,
-        });
-        shieldCage = new THREE.Mesh(cageGeo, cageMat);
+        shieldCage = new THREE.Mesh(
+          new THREE.CylinderGeometry(2.15, 2.15, 1.85, 24, 1, true),
+          new THREE.MeshBasicMaterial({
+            color: 0xef4444,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.0,
+          })
+        );
         shieldCage.position.y = 0.95;
         group.add(shieldCage);
       }
 
-      // กองแฟ้มเอกสาร 3D บนโต๊ะเขียนโค้ด (แสดงจำนวนไฟล์ที่แก้ไขจริง)
+      // กองแฟ้มเอกสาร 3D บนโต๊ะเขียนโค้ด
       const fileStackGroup = new THREE.Group();
-      fileStackGroup.position.set(-deskW / 2 + 0.36, 1.04, -0.15);
+      fileStackGroup.position.set(-deskW / 2 + 0.34, 0.96, -0.18);
       group.add(fileStackGroup);
 
-      // ตัวละครพนักงาน AI 3 มิติ (นั่งอยู่ฝั่งหลังโต๊ะ)
+      // 5. เก้าอี้ทำงาน + ตัวละครพนักงาน AI 3D
       const charGroup = new THREE.Group();
-      charGroup.position.set(0, 0, -0.78);
+      charGroup.position.set(0, 0, -0.68);
       group.add(charGroup);
 
-      // เก้าอี้ทำงาน
       const chairSeat = new THREE.Mesh(
-        new THREE.BoxGeometry(0.65, 0.1, 0.65),
-        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 })
+        new RoundedBoxGeometry(0.62, 0.09, 0.62, 3, 0.025),
+        MAT.anodizedMetal
       );
-      chairSeat.position.y = 0.56;
+      chairSeat.position.y = 0.52;
       chairSeat.castShadow = true;
       charGroup.add(chairSeat);
 
       const chairBack = new THREE.Mesh(
-        new THREE.BoxGeometry(0.65, 0.68, 0.1),
-        new THREE.MeshStandardMaterial({ color: cfg.accent, roughness: 0.6 })
+        new RoundedBoxGeometry(0.6, 0.66, 0.09, 3, 0.025),
+        new THREE.MeshPhysicalMaterial({
+          color: cfg.suitColor,
+          roughness: 0.48,
+          clearcoat: 0.22,
+        })
       );
-      chairBack.position.set(0, 0.95, -0.28);
+      chairBack.position.set(0, 0.9, -0.26);
       chairBack.castShadow = true;
       charGroup.add(chairBack);
 
-      // ลำตัวและศีรษะพนักงาน
       const workerRig = new THREE.Group();
-      workerRig.position.y = 0.65;
+      workerRig.position.y = 0.58;
       charGroup.add(workerRig);
 
-      const torso = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.24, 0.36, 8, 16),
-        new THREE.MeshStandardMaterial({ color: cfg.accent, roughness: 0.45 })
-      );
-      torso.position.y = 0.34;
+      const suitMat = new THREE.MeshPhysicalMaterial({
+        color: cfg.suitColor,
+        roughness: 0.45,
+        clearcoat: 0.25,
+      });
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.34, 10, 18), suitMat);
+      torso.position.y = 0.32;
       torso.castShadow = true;
       torso.userData = { deskKey: key };
       workerRig.add(torso);
       clickableMeshes.push(torso);
 
       const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.23, 20, 20),
-        new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.5 })
+        new THREE.SphereGeometry(0.22, 24, 24),
+        new THREE.MeshPhysicalMaterial({
+          color: 0xfde68a,
+          roughness: 0.42,
+          clearcoat: 0.15,
+        })
       );
-      head.position.y = 0.82;
+      head.position.y = 0.78;
       head.castShadow = true;
       head.userData = { deskKey: key };
       workerRig.add(head);
       clickableMeshes.push(head);
 
-      // มงกุฎสีทองสำหรับหัวหน้าสถาปนิก Opus
+      // มงกุฎทองเหลืองสำหรับหัวหน้าสถาปนิก Opus
       if (isBoss) {
-        const crown = new THREE.Mesh(
-          new THREE.ConeGeometry(0.18, 0.22, 6),
-          new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.6, roughness: 0.25 })
-        );
-        crown.position.y = 1.12;
+        const crown = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.22, 6), MAT.antiqueBrass);
+        crown.position.y = 1.08;
+        crown.castShadow = true;
         workerRig.add(crown);
       }
 
-      // แขนซ้าย-ขวา (ขยับพิมพ์คีย์บอร์ดเมื่อโต๊ะนี้กำลังทำงาน)
-      const armMat = new THREE.MeshStandardMaterial({ color: cfg.accent, roughness: 0.5 });
-      const leftArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.32, 6, 12), armMat);
-      leftArm.position.set(-0.3, 0.38, 0.25);
+      const leftArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.3, 8, 12), suitMat);
+      leftArm.position.set(-0.27, 0.36, 0.22);
       leftArm.rotation.x = Math.PI / 2.6;
       workerRig.add(leftArm);
 
-      const rightArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.32, 6, 12), armMat);
-      rightArm.position.set(0.3, 0.38, 0.25);
+      const rightArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.3, 8, 12), suitMat);
+      rightArm.position.set(0.27, 0.36, 0.22);
       rightArm.rotation.x = Math.PI / 2.6;
       workerRig.add(rightArm);
 
       workstations[key] = {
         group,
-        rugMat,
         ringMat,
         screenMat,
         lampBulbMat,
@@ -1508,37 +1947,31 @@
         sirenMesh,
         shieldCage,
         fileStackGroup,
-        labelAnchor: new THREE.Vector3(cfg.pos.x, 2.35, cfg.pos.z),
+        labelAnchor: new THREE.Vector3(cfg.pos.x, cfg.pos.y + 2.05, cfg.pos.z),
       };
     }
 
     Object.entries(DESK_INFO).forEach(([key, cfg]) => createWorkstation(key, cfg));
 
-    // สร้างแฟ้มงาน 3 มิติ (3D Work Folder) ที่วิ่งส่งต่อระหว่างโต๊ะหัวหน้ากับโต๊ะลูกทีม
+    // แฟ้มงาน 3D สีทองที่วิ่งส่งต่อระหว่างโต๊ะหัวหน้า (Opus) กับโต๊ะลูกทีม
     const workFolderGroup = new THREE.Group();
-    const folderBody = new THREE.Mesh(
-      new THREE.BoxGeometry(0.58, 0.08, 0.42),
-      new THREE.MeshStandardMaterial({
-        color: 0xfbbf24,
-        emissive: 0xf59e0b,
-        emissiveIntensity: 0.35,
-        roughness: 0.35,
-      })
+    const folderOuter = new THREE.Mesh(
+      new RoundedBoxGeometry(0.52, 0.06, 0.38, 3, 0.015),
+      MAT.antiqueBrass
     );
-    folderBody.castShadow = true;
-    workFolderGroup.add(folderBody);
+    folderOuter.castShadow = true;
+    workFolderGroup.add(folderOuter);
 
-    const paperSheet = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 0.09, 0.34),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 })
+    const folderPaper = new THREE.Mesh(
+      new RoundedBoxGeometry(0.45, 0.068, 0.31, 2, 0.01),
+      MAT.mattePlaster
     );
-    paperSheet.position.y = 0.02;
-    workFolderGroup.add(paperSheet);
-
-    workFolderGroup.position.set(0, 1.55, 0);
+    folderPaper.position.y = 0.015;
+    workFolderGroup.add(folderPaper);
+    workFolderGroup.position.set(0, 1.5, 0);
     officeGroup.add(workFolderGroup);
 
-    // อัปเดตกองแฟ้มเอกสารบนโต๊ะเขียนโค้ดตามจำนวนไฟล์ที่แก้จริง
+    // อัปเดตกองแฟ้มเอกสาร 3D บนโต๊ะเขียนโค้ดตามจำนวนไฟล์จริง
     let lastRenderedFilesCount = -1;
     function syncDeskFileStack(filesList) {
       const count = Math.min((filesList || []).length, 6);
@@ -1546,28 +1979,140 @@
       lastRenderedFilesCount = count;
 
       const stack = workstations.implementer.fileStackGroup;
-      while (stack.children.length > 0) {
-        stack.remove(stack.children[0]);
-      }
+      while (stack.children.length > 0) stack.remove(stack.children[0]);
+
       for (let i = 0; i < count; i++) {
         const doc = new THREE.Mesh(
-          new THREE.BoxGeometry(0.42, 0.06, 0.32),
-          new THREE.MeshStandardMaterial({
-            color: i % 2 === 0 ? 0x60a5fa : 0x38bdf8,
-            roughness: 0.4,
+          new RoundedBoxGeometry(0.38, 0.05, 0.28, 2, 0.01),
+          new THREE.MeshPhysicalMaterial({
+            color: i % 2 === 0 ? 0x3b82f6 : 0x38bdf8,
+            roughness: 0.35,
+            clearcoat: 0.3,
           })
         );
-        doc.position.set(0, i * 0.075, 0);
+        doc.position.set(0, i * 0.06, 0);
         doc.rotation.y = (i % 2 === 0 ? 1 : -1) * 0.08;
         doc.castShadow = true;
         stack.add(doc);
       }
     }
 
-    // ระบบเสียงแจ้งเตือนเบาๆ (เปิด/ปิดได้)
+    // =========================================================================
+    // 7. Frame-Rate-Independent Camera Rig & Diagnostic View Modes
+    // =========================================================================
+    const desiredCamPos = OVERVIEW_CAM_POS.clone();
+    const desiredCamTarget = OVERVIEW_CAM_TARGET.clone();
+    let isCameraTransitioning = false;
+
+    window.setCameraShot = function (shot) {
+      document.querySelectorAll('.cam-pill').forEach((b) => b.classList.remove('active'));
+      if (shot === 'overview') {
+        document.getElementById('cam-overview')?.classList.add('active');
+        desiredCamPos.copy(OVERVIEW_CAM_POS);
+        desiredCamTarget.copy(OVERVIEW_CAM_TARGET);
+        isCameraTransitioning = true;
+      }
+    };
+
+    window.focusDesk = function (deskKey) {
+      const info = DESK_INFO[deskKey];
+      if (!info) return;
+      playPing(620);
+
+      // เลื่อนกล้องไปยังโต๊ะที่เลือกอย่างนุ่มนวล
+      desiredCamPos.copy(info.camPos);
+      desiredCamTarget.copy(info.camTarget);
+      isCameraTransitioning = true;
+
+      document.querySelectorAll('.cam-pill').forEach((b) => b.classList.remove('active'));
+      if (deskKey === 'core') document.getElementById('cam-boss')?.classList.add('active');
+      if (deskKey === 'implementer') document.getElementById('cam-code')?.classList.add('active');
+
+      // อัปเดตข้อมูลในแท็บ "ข้อมูลโต๊ะ & ไฟล์"
+      document.getElementById('insp-title').textContent = info.title;
+      document.getElementById('insp-desc').textContent = info.desc;
+      document.getElementById('insp-why').textContent = info.why;
+      document.getElementById('insp-try-btn').onclick = () => window.runSim(info.simKey);
+      window.switchTab('tab-desk');
+    };
+
+    // เมื่อผู้ใช้ลากเมาส์หมุนกล้องเอง ให้หยุดการบังคับเลื่อนกล้องอัตโนมัติทันที
+    renderer.domElement.addEventListener('pointerdown', () => {
+      isCameraTransitioning = false;
+    });
+
+    // สลับแท็บในแผงขวา
+    window.switchTab = function (tabId) {
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+      });
+      document.querySelectorAll('.tab-pane').forEach((pane) => {
+        pane.classList.toggle('active', pane.id === tabId);
+      });
+    };
+
+    // ปุ่มซ่อน/ขยายแผงด้านขวาเพื่อให้ฉาก 3D กว้างเต็มจอ 100%
+    document.getElementById('btn-toggle-inspector').addEventListener('click', (e) => {
+      const app = document.getElementById('studio-app');
+      const collapsed = app.classList.toggle('inspector-collapsed');
+      e.currentTarget.textContent = collapsed ? '◂ เปิดแผงข้อมูล' : 'แผงข้อมูล ▸';
+      setTimeout(handleResize, 260);
+    });
+
+    // โหมดตรวจสอบกราฟิก (Diagnostic Output Modes ตามมาตรฐาน Threejs-Awesome-Graphics)
+    let diagModeIndex = 0;
+    const clayOverrideMat = new THREE.MeshPhysicalMaterial({
+      color: 0xd6d3cd,
+      roughness: 0.58,
+      metalness: 0.0,
+      clearcoat: 0.15,
+    });
+
+    document.getElementById('btn-diag-mode').addEventListener('click', (e) => {
+      diagModeIndex = (diagModeIndex + 1) % 3;
+      if (diagModeIndex === 0) {
+        scene.overrideMaterial = null;
+        officeGroup.traverse((o) => {
+          if (o.isMesh && o.material) o.material.wireframe = false;
+        });
+        e.currentTarget.textContent = '🔬 โหมดภาพ: สตูดิโอจริง';
+      } else if (diagModeIndex === 1) {
+        scene.overrideMaterial = clayOverrideMat;
+        e.currentTarget.textContent = '🔬 โหมดภาพ: ตรวจแสงเงา (Clay)';
+      } else {
+        scene.overrideMaterial = null;
+        officeGroup.traverse((o) => {
+          if (o.isMesh && o.material) o.material.wireframe = true;
+        });
+        e.currentTarget.textContent = '🔬 โหมดภาพ: โครงสร้าง 3D (Wireframe)';
+      }
+    });
+
+    // คลิกที่โต๊ะในฉาก 3D ด้วย Raycaster
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let downPt = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      downPt = { x: e.clientX, y: e.clientY };
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      if (Math.hypot(e.clientX - downPt.x, e.clientY - downPt.y) > 6) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(clickableMeshes, false);
+      if (hits.length > 0 && hits[0].object.userData.deskKey) {
+        window.focusDesk(hits[0].object.userData.deskKey);
+      }
+    });
+
+    // ระบบเสียงแจ้งเตือน
     let soundEnabled = false;
     let audioCtx = null;
-    function playPing(freq = 520, type = 'sine') {
+    function playPing(freq = 540, type = 'sine') {
       if (!soundEnabled) return;
       try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1575,12 +2120,12 @@
         const gain = audioCtx.createGain();
         osc.type = type;
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.07, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.16);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.19);
+        osc.stop(audioCtx.currentTime + 0.17);
       } catch (_) {}
     }
 
@@ -1590,79 +2135,24 @@
       if (soundEnabled) playPing(660);
     });
 
-    document.getElementById('btn-reset-cam').addEventListener('click', () => {
-      camera.position.copy(DEFAULT_CAM_POS);
-      controls.target.set(0, 0.6, 0.3);
-      controls.update();
-    });
-
-    // คลิกที่โต๊ะในฉาก 3D ด้วยเมาส์ (Raycaster)
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    let pointerDownPos = { x: 0, y: 0 };
-
-    renderer.domElement.addEventListener('pointerdown', (e) => {
-      pointerDownPos = { x: e.clientX, y: e.clientY };
-    });
-
-    renderer.domElement.addEventListener('pointerup', (e) => {
-      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
-      if (dist > 6) return;
-      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(clickableMeshes, false);
-      if (hits.length > 0 && hits[0].object.userData.deskKey) {
-        window.inspectDesk(hits[0].object.userData.deskKey);
-      }
-    });
-
-    // เปิดการ์ดอธิบายหน้าที่ของโต๊ะที่คลิก
-    window.inspectDesk = function (deskKey) {
-      const info = DESK_INFO[deskKey];
-      if (!info) return;
-      playPing(600);
-      document.getElementById('insp-title').textContent = info.title;
-      document.getElementById('insp-desc').textContent = info.desc;
-      document.getElementById('insp-why').innerHTML = info.why;
-      const tryBtn = document.getElementById('insp-try-btn');
-      tryBtn.onclick = () => window.runSim(info.simKey);
-      document.getElementById('desk-inspector').classList.add('show');
-    };
-
-    window.closeInspector = function () {
-      document.getElementById('desk-inspector').classList.remove('show');
-    };
-
-    // สถานะปัจจุบันของออฟฟิศ
+    // =========================================================================
+    // 8. เชื่อมต่อข้อมูล Telemetry และโควต้าจริงจากเซิร์ฟเวอร์
+    // =========================================================================
     let activeDeskKey = 'core';
     let currentSystemStatus = 'ready';
     let lastEventEpoch = 0;
 
-    // ฟังก์ชันแปลงชื่อโมเดลให้คนทั่วไปเข้าใจง่าย
     function formatModelFriendly(modelRaw, nodeKey, engine) {
       const m = String(modelRaw || '').toLowerCase();
       if (m.includes('opus')) return '👑 Opus (หัวหน้าวางแผน)';
-      if (m.includes('haiku')) return '🍃 Haiku (สำรวจไฟล์ประหยัดงบ)';
+      if (m.includes('haiku')) return '🍃 Haiku (สำรวจประหยัดงบ)';
       if (m.includes('sonnet')) return '⚡ Sonnet (สายลุยเขียนโค้ด)';
-      if (m.includes('gemini') || engine === 'antigravity') return '✨ Gemini 4 Argon (Antigravity)';
+      if (m.includes('gemini') || engine === 'antigravity') return '✨ Gemini 4 Argon';
       if (nodeKey === 'core') return '👑 Opus (หัวหน้าวางแผน)';
       if (nodeKey === 'explorer') return '🍃 Haiku (สำรวจไฟล์)';
       return '⚡ Sonnet (เขียนโค้ด)';
     }
 
-    function formatNodeFriendly(nodeKey) {
-      switch (nodeKey) {
-        case 'core': return '👑 โต๊ะหัวหน้า (Opus)';
-        case 'explorer': return '🔍 โต๊ะสำรวจไฟล์ (Haiku)';
-        case 'implementer': return '💻 โต๊ะเขียนโค้ด (Sonnet)';
-        case 'debugger': return '🔧 โต๊ะซ่อมบั๊ก (Sonnet)';
-        case 'reviewer': return '✅ โต๊ะตรวจรับงาน (Sonnet)';
-        default: return '👑 โต๊ะหัวหน้า (Opus)';
-      }
-    }
-
-    // อัปเดต UI จากข้อมูล Telemetry จริง
     async function pollTelemetry() {
       try {
         const res = await fetch('/api/telemetry', { cache: 'no-store' });
@@ -1676,7 +2166,7 @@
 
         if (data.updatedEpochMs && data.updatedEpochMs !== lastEventEpoch) {
           if (lastEventEpoch !== 0) {
-            playPing(status === 'blocked' ? 280 : 540, status === 'blocked' ? 'sawtooth' : 'sine');
+            playPing(status === 'blocked' ? 280 : 560, status === 'blocked' ? 'sawtooth' : 'sine');
           }
           lastEventEpoch = data.updatedEpochMs;
         }
@@ -1685,90 +2175,81 @@
         currentSystemStatus = status;
 
         if (data.projectName) {
-          document.getElementById('proj-name-badge').textContent = `(${data.projectName})`;
+          document.getElementById('proj-name-badge').textContent = data.projectName;
         }
 
-        document.getElementById('current-task-txt').textContent =
-          data.currentTask || 'รอรับคำสั่งใหม่จากคุณ...';
-        document.getElementById('current-action-txt').textContent =
-          data.currentAction || 'พร้อมรับงาน';
+        const actionText = data.currentAction || 'พร้อมรับคำสั่งงาน';
+        document.getElementById('current-action-txt').textContent = actionText;
+        document.getElementById('hud-active-badge').textContent = DESK_INFO[node].shortName;
+        document.getElementById('hud-action-text').textContent = actionText;
 
         document.getElementById('active-engine-txt').textContent =
-          engine === 'antigravity' ? '🔵 Antigravity IDE' : '🟣 Claude Code';
+          engine === 'antigravity' ? '🔵 Antigravity' : '🟣 Claude Code';
         document.getElementById('active-model-txt').textContent =
           formatModelFriendly(data.activeModel, node, engine);
 
-        // อัปเดตป้ายสถานะมุมขวาบน
-        const statusPill = document.getElementById('overall-status-pill');
-        const statusTxt = document.getElementById('overall-status-text');
+        // สถานะมุมขวาบน
+        const pill = document.getElementById('overall-status-pill');
+        const pillTxt = document.getElementById('overall-status-text');
         if (status === 'blocked') {
-          statusPill.style.background = '#fee2e2';
-          statusPill.style.color = '#b91c1c';
-          statusPill.style.borderColor = '#fca5a5';
-          statusTxt.textContent = '🛑 สั่งเบรกฉุกเฉิน (ปกป้องโควต้า/ความปลอดภัย)';
+          pill.style.background = 'rgba(239, 68, 68, 0.16)';
+          pill.style.color = '#f87171';
+          pill.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          pillTxt.textContent = '🛑 สั่งเบรกฉุกเฉิน';
         } else if (status === 'warning') {
-          statusPill.style.background = '#fef3c7';
-          statusPill.style.color = '#b45309';
-          statusPill.style.borderColor = '#fcd34d';
-          statusTxt.textContent = '⚠️ กำลังซ่อมบั๊ก (ระวังวนลูป)';
+          pill.style.background = 'rgba(245, 158, 11, 0.16)';
+          pill.style.color = '#fbbf24';
+          pill.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+          pillTxt.textContent = '⚠️ กำลังซ่อมบั๊ก';
         } else if (status === 'working') {
-          statusPill.style.background = '#dbeafe';
-          statusPill.style.color = '#1d4ed8';
-          statusPill.style.borderColor = '#93c5fd';
-          statusTxt.textContent = `⚡ กำลังทำงานที่ ${formatNodeFriendly(node)}`;
+          pill.style.background = 'rgba(59, 130, 246, 0.16)';
+          pill.style.color = '#60a5fa';
+          pill.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+          pillTxt.textContent = `⚡ ${DESK_INFO[node].shortName}`;
         } else {
-          statusPill.style.background = '#dcfce7';
-          statusPill.style.color = '#15803d';
-          statusPill.style.borderColor = '#86efac';
-          statusTxt.textContent = '🟢 ออฟฟิศพร้อมรับงาน';
+          pill.style.background = 'rgba(34, 197, 94, 0.14)';
+          pill.style.color = '#4ade80';
+          pill.style.borderColor = 'rgba(34, 197, 94, 0.35)';
+          pillTxt.textContent = '🟢 พร้อมรับงาน';
         }
 
-        // อัปเดตแถบขั้นตอน 1 -> 2 -> 3 -> 4 -> 5 ด้านบน
+        // ไฮไลต์ขั้นตอนด้านบนและป้ายชื่อเหนือโต๊ะ 3D
         ['core', 'explorer', 'implementer', 'debugger', 'reviewer'].forEach((k) => {
-          const pill = document.getElementById(`step-${k}`);
-          pill.className = 'step-pill' + (k === node ? ` active-${k}` : '');
-          const lbl = document.getElementById(`label-${k}`);
-          if (lbl) lbl.classList.toggle('active', k === node);
+          document.getElementById(`step-${k}`)?.classList.toggle('active', k === node);
+          document.getElementById(`label-${k}`)?.classList.toggle('active', k === node);
         });
 
-        // อัปเดตข้อความสถานะย่อยบนป้ายเหนือโต๊ะที่กำลังทำงาน
-        const activeDeskStatusEl = document.getElementById(`dl-status-${node}`);
-        if (activeDeskStatusEl && data.currentAction) {
-          activeDeskStatusEl.textContent = data.currentAction;
-        }
-
-        // อัปเดตเบรกเกอร์ 2-Strike
+        // เบรกเกอร์ 2-Strike
         document.getElementById('strike-badge-txt').textContent =
-          strike >= 3 ? `🛑 สั่งเบรกแล้ว (${strike}/3)` : `พังสะสม ${strike}/3 ครั้ง`;
+          strike >= 3 ? `เบรกทำงาน (${strike}/3)` : `พังสะสม ${strike}/3`;
         document.getElementById('strike-box-1').className =
-          'strike-item' + (strike >= 1 ? ' warn-active' : '');
+          'strike-cell' + (strike >= 1 ? ' warn' : '');
         document.getElementById('strike-box-2').className =
-          'strike-item' + (strike >= 2 ? ' warn-active' : '');
+          'strike-cell' + (strike >= 2 ? ' warn' : '');
         document.getElementById('strike-box-3').className =
-          'strike-item' + (strike >= 3 ? ' danger-active' : '');
+          'strike-cell' + (strike >= 3 ? ' danger' : '');
 
-        // อัปเดตรายชื่อไฟล์ที่แก้ไข
+        // รายชื่อไฟล์ที่แก้ไข
         const touched = data.touchedFiles || [];
         const dirty = data.gitDirty || [];
-        const combinedFiles = touched.length > 0 ? touched : dirty;
-        syncDeskFileStack(combinedFiles);
+        const files = touched.length > 0 ? touched : dirty;
+        syncDeskFileStack(files);
 
-        document.getElementById('files-count-label').textContent = `${combinedFiles.length} ไฟล์`;
-        const fileListEl = document.getElementById('touched-files-list');
-        if (combinedFiles.length === 0) {
-          fileListEl.innerHTML =
-            '<div class="file-chip"><span>ยังไม่มีไฟล์ที่ถูกแก้ไขในรอบนี้</span><span>✓</span></div>';
+        document.getElementById('files-count-label').textContent = `${files.length} ไฟล์`;
+        const fList = document.getElementById('touched-files-list');
+        if (files.length === 0) {
+          fList.innerHTML = '<div class="file-item"><span>ยังไม่มีไฟล์ที่แก้ไขในรอบนี้</span><span>✓</span></div>';
         } else {
-          fileListEl.innerHTML = combinedFiles
+          fList.innerHTML = files
             .slice(0, 6)
-            .map((f) => `<div class="file-chip"><span>📄 ${escapeHtml(f)}</span><span style="color:#2563eb;font-weight:700;">แก้ไขแล้ว</span></div>`)
+            .map((f) => `<div class="file-item"><span>📄 ${escapeHtml(f)}</span><span style="color:#60a5fa">แก้ไขแล้ว</span></div>`)
             .join('');
         }
 
-        // อัปเดตสมุดบันทึกการทำงานด้านขวา
+        // สมุดบันทึกการทำงานสด
         const stats = data.stats || {};
         const totalCalls = Number(stats.claudeCalls || 0) + Number(stats.antigravityCalls || 0);
-        document.getElementById('calls-counter-txt').textContent = `ส่งงานรวม ${totalCalls} ครั้ง`;
+        document.getElementById('calls-counter-txt').textContent = `ส่งงาน ${totalCalls} ครั้ง`;
 
         const events = data.events || [];
         const tlEl = document.getElementById('events-timeline');
@@ -1776,65 +2257,61 @@
           tlEl.innerHTML = events
             .slice(0, 12)
             .map((ev) => {
-              const nClass = `node-${ev.node || 'core'}`;
-              const sClass = ev.status === 'blocked' ? 'status-blocked' : '';
+              const nKey = DESK_INFO[ev.node] ? ev.node : 'core';
+              const sCls = ev.status === 'blocked' ? 'blocked' : '';
               return `
-                <div class="tl-item ${nClass} ${sClass}">
-                  <div class="tl-meta">
-                    <span>🕒 ${escapeHtml(ev.time || '')}</span>
-                    <span>${formatNodeFriendly(ev.node)}</span>
+                <div class="log-entry ${nKey} ${sCls}">
+                  <div class="le-head">
+                    <span>${escapeHtml(ev.time || '')}</span>
+                    <span>${DESK_INFO[nKey].shortName}</span>
                   </div>
-                  <div class="tl-msg">${escapeHtml(ev.detail || '')}</div>
+                  <div class="le-body">${escapeHtml(ev.detail || '')}</div>
                 </div>
               `;
             })
             .join('');
         }
 
-        // อัปเดตเส้นทางเดินส่งแฟ้มงานในฉาก 3D
+        // เส้นไฟส่งแฟ้มงานบนพื้นออฟฟิศ
         Object.entries(pathwayMap).forEach(([k, p]) => {
-          p.mat.emissiveIntensity = k === node ? 0.65 : 0.05;
+          p.mat.emissiveIntensity = k === node ? 0.85 : 0.1;
         });
       } catch (_) {}
     }
 
-    // ฟังก์ชันกำหนดสีหลอดแบตเตอรี่โควต้า
     function getQuotaColor(pct) {
-      if (pct <= 15) return '#dc2626';
-      if (pct <= 40) return '#d97706';
-      return '#10b981';
+      if (pct <= 15) return '#ef4444';
+      if (pct <= 40) return '#f59e0b';
+      return '#22c55e';
     }
 
-    // ดึงข้อมูลโควต้าจริงจาก /api/quota
     async function pollQuota(force = false) {
       const btn = document.getElementById('btn-refresh-quota');
-      if (force) btn.textContent = '⏳ กำลังเช็ค...';
+      if (force) btn.textContent = '⏳...';
       try {
         const res = await fetch(`/api/quota${force ? '?refresh=1' : ''}`, { cache: 'no-store' });
         if (!res.ok) return;
         const q = await res.json();
 
-        // Claude Code
         const c = q.claude || {};
-        document.getElementById('q-claude-plan').textContent = c.plan ? `แพ็กเกจ ${c.plan}` : 'Claude';
+        document.getElementById('q-claude-plan').textContent = c.plan || 'Pro';
         const c5 = parseInt(c.rem5h, 10);
         const c7 = parseInt(c.rem7d, 10);
 
-        document.getElementById('q-claude-5h-pct').textContent = !isNaN(c5) ? `เหลือ ${c5}%` : 'ไม่พบข้อมูล';
+        document.getElementById('q-claude-5h-pct').textContent = !isNaN(c5) ? `${c5}%` : '--%';
         document.getElementById('q-claude-5h-reset').textContent =
-          c.reset5h && c.reset5h !== '-' ? `(รีเซ็ต ${c.reset5h})` : '';
+          c.reset5h && c.reset5h !== '-' ? `(${c.reset5h})` : '';
         const c5Bar = document.getElementById('q-claude-5h-bar');
         c5Bar.style.width = `${!isNaN(c5) ? c5 : 0}%`;
         c5Bar.style.backgroundColor = getQuotaColor(!isNaN(c5) ? c5 : 100);
 
-        document.getElementById('q-claude-7d-pct').textContent = !isNaN(c7) ? `เหลือ ${c7}%` : 'ไม่พบข้อมูล';
+        document.getElementById('q-claude-7d-pct').textContent = !isNaN(c7) ? `${c7}%` : '--%';
         document.getElementById('q-claude-7d-reset').textContent =
-          c.reset7d && c.reset7d !== '-' ? `(รีเซ็ต ${c.reset7d})` : '';
+          c.reset7d && c.reset7d !== '-' ? `(${c.reset7d})` : '';
         const c7Bar = document.getElementById('q-claude-7d-bar');
         c7Bar.style.width = `${!isNaN(c7) ? c7 : 0}%`;
         c7Bar.style.backgroundColor = getQuotaColor(!isNaN(c7) ? c7 : 100);
 
-        // Antigravity
         const a = q.agy || {};
         const g5 = parseInt(a.gemini5h, 10);
         const g7 = parseInt(a.gemini7d, 10);
@@ -1855,33 +2332,21 @@
         acBar.style.width = `${acMin}%`;
         acBar.style.backgroundColor = getQuotaColor(acMin);
 
-        // คำแนะนำภาษาไทยอัตโนมัติ
         const adviceEl = document.getElementById('quota-advice-box');
         if (!isNaN(c5) && c5 <= 20) {
-          adviceEl.style.background = '#fef2f2';
-          adviceEl.style.color = '#b91c1c';
-          adviceEl.style.borderColor = '#fca5a5';
-          adviceEl.textContent = `⚠️ โควต้า Claude รอบ 5 ชม. เหลือเพียง ${c5}% แนะนำกดปุ่ม "สลับค่าย AI" ด้านขวาล่างเพื่อย้ายไปใช้ Gemini ใน Antigravity ต่อทันที!`;
-        } else if (!isNaN(ac7) && ac7 <= 25) {
-          adviceEl.style.background = '#fffbeb';
-          adviceEl.style.color = '#b45309';
-          adviceEl.style.borderColor = '#fcd34d';
-          adviceEl.textContent = `💡 โควต้า Claude Code เหลือ ${!isNaN(c5) ? c5 : '--'}% และ Gemini เหลือ ${!isNaN(g5) ? g5 : '--'}% (ส่วนโควต้า Claude ใน AGY รอบสัปดาห์เหลือ ${ac7}% แนะนำใช้ Gemini หรือ Claude Code หลักแทน)`;
+          adviceEl.textContent = `⚠️ โควต้า Claude เหลือ ${c5}% แนะนำกดสลับไปใช้ Gemini ใน Antigravity ต่อทันที`;
         } else {
-          adviceEl.style.background = '#ecfdf5';
-          adviceEl.style.color = '#047857';
-          adviceEl.style.borderColor = '#a7f3d0';
-          adviceEl.textContent = `✅ แบตเตอรี่โควต้าทั้ง Claude Code (${!isNaN(c5) ? c5 : '--'}%) และ Antigravity Gemini (${!isNaN(g5) ? g5 : '--'}%) พร้อมลุยงานเต็มที่!`;
+          adviceEl.textContent = `✅ โควต้า Claude Code (${!isNaN(c5) ? c5 : '--'}%) และ Gemini (${!isNaN(g5) ? g5 : '--'}%) พร้อมลุยงานเต็มที่`;
         }
       } catch (_) {
       } finally {
-        if (force) btn.textContent = '🔄 เช็คโควต้าสด';
+        if (force) btn.textContent = '🔄 เช็คสด';
       }
     }
 
     document.getElementById('btn-refresh-quota').addEventListener('click', () => pollQuota(true));
 
-    // ปุ่มจำลองสถานการณ์ให้ผู้ใช้เห็นการทำงานของแต่ละโต๊ะและโมเดล Opus / Haiku / Sonnet
+    // ชุดจำลองสถานการณ์การทำงานของแต่ละโต๊ะ
     const SIM_PRESETS = {
       opus_plan: {
         engine: 'claude',
@@ -1897,7 +2362,7 @@
         node: 'explorer',
         status: 'working',
         strike: 0,
-        detail: '🔍 ฝ่ายสำรวจไฟล์ (โมเดล Haiku) กำลังค้นหาพิกัดไฟล์ในโปรเจกต์อย่างรวดเร็ว (ประหยัดโควต้า 15 เท่า)',
+        detail: '🔍 ฝ่ายสำรวจไฟล์ (โมเดล Haiku) กำลังค้นหาพิกัดไฟล์ความเร็วสูง (ประหยัดโควต้า 15 เท่า)',
       },
       sonnet_code: {
         engine: 'claude',
@@ -1922,7 +2387,7 @@
         node: 'core',
         status: 'blocked',
         strike: 3,
-        detail: '🛑 เทสต์พังครบ 3 ครั้ง! หัวหน้า Opus สั่งตัดไฟเบรกเกอร์ทันที เพื่อไม่ให้ AI เดาซ้ำจนโควต้าคุณหมด',
+        detail: '🛑 เทสต์พังครบ 3 ครั้ง! หัวหน้า Opus สั่งตัดไฟเบรกเกอร์ทันที เพื่อไม่ให้ผลาญโควต้าฟรี',
       },
       os_shield: {
         engine: 'claude',
@@ -1930,7 +2395,7 @@
         node: 'core',
         status: 'blocked',
         strike: 0,
-        detail: '🛡️ หัวหน้าคุมกฎ (Opus + OS Shield) บล็อกคำสั่งอันตราย (rm -rf / การอ่านไฟล์ความลับ .env) ทันที!',
+        detail: '🛡️ หัวหน้าคุมกฎ (Opus + OS Shield) บล็อกคำสั่งอันตราย (rm -rf / อ่านไฟล์ .env) ทันที!',
       },
       agy_takeover: {
         engine: 'antigravity',
@@ -1939,7 +2404,7 @@
         status: 'working',
         strike: 0,
         file: 'src/booking/checkout.ts',
-        detail: '🔄 สลับค่ายสำเร็จ! Antigravity (Gemini 4 Argon) อ่านสมุดส่งมอบงานแล้วเขียนโค้ดต่อจากจุดเดิมทันที',
+        detail: '🔄 สลับค่ายสำเร็จ! Antigravity (Gemini 4 Argon) รับแฟ้มงานเขียนโค้ดต่อจากจุดเดิมทันที',
       },
       review_done: {
         engine: 'claude',
@@ -1964,7 +2429,7 @@
       } catch (_) {}
     };
 
-    // ส่งคำสั่งจริงไปให้ Claude Code หรือ Antigravity ทำงาน
+    // ส่งคำสั่งจริงไปให้ AI
     document.getElementById('prompt-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const inputEl = document.getElementById('prompt-input');
@@ -1978,9 +2443,10 @@
       const replyStatus = document.getElementById('reply-status-txt');
 
       btn.disabled = true;
-      btn.textContent = '⏳ ทีม AI กำลังทำงาน...';
+      btn.textContent = '⏳ กำลังทำงาน...';
       replyStatus.textContent = `กำลังสั่ง ${engine} (${model})...`;
-      replyBox.textContent = `กำลังส่งแฟ้มงาน "${prompt}" ไปที่โต๊ะทำงาน... กรุณารอสักครู่`;
+      replyBox.textContent = `กำลังส่งแฟ้มงาน "${prompt}" ไปที่โต๊ะทำงาน...`;
+      window.switchTab('tab-logs');
 
       try {
         const res = await fetch('/api/prompt', {
@@ -1990,10 +2456,10 @@
         });
         const data = await res.json();
         if (data.error) {
-          replyStatus.textContent = 'เกิดข้อผิดพลาด';
+          replyStatus.textContent = 'ผิดพลาด';
           replyBox.textContent = `❌ ${data.error}`;
         } else {
-          replyStatus.textContent = data.ok ? 'ทำงานเสร็จสิ้น' : `จบด้วยรหัส ${data.exitCode}`;
+          replyStatus.textContent = data.ok ? 'เสร็จสมบูรณ์' : `รหัส ${data.exitCode}`;
           replyBox.textContent = data.output || '(ไม่มีข้อความตอบกลับ)';
           inputEl.value = '';
         }
@@ -2001,14 +2467,13 @@
         await pollQuota(false);
       } catch (err) {
         replyStatus.textContent = 'เชื่อมต่อไม่ได้';
-        replyBox.textContent = `❌ ไม่สามารถส่งคำสั่งได้: ${err.message}`;
+        replyBox.textContent = `❌ ${err.message}`;
       } finally {
         btn.disabled = false;
-        btn.textContent = '🚀 ส่งคำสั่งให้ทีม AI ทำงาน';
+        btn.textContent = '🚀 ส่งคำสั่งงาน';
       }
     });
 
-    // ปุ่มสลับค่าย AI แล้วทำต่อทันที
     document.getElementById('btn-handover-now').addEventListener('click', () => {
       const engSelect = document.getElementById('select-engine');
       const modSelect = document.getElementById('select-model');
@@ -2035,11 +2500,15 @@
         .replace(/"/g, '&quot;');
     }
 
-    // อัปเดตตำแหน่งป้ายชื่อลอยเหนือโต๊ะ 3D ทุกเฟรม
+    // =========================================================================
+    // 9. อัปเดตตำแหน่งป้าย 3D และลูปแอนิเมชันหลัก
+    // =========================================================================
     const tempVec = new THREE.Vector3();
     function updateFloatingLabels() {
-      const halfW = window.innerWidth / 2;
-      const halfH = window.innerHeight / 2;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      const halfW = w / 2;
+      const halfH = h / 2;
 
       Object.entries(workstations).forEach(([key, ws]) => {
         const el = document.getElementById(`label-${key}`);
@@ -2050,27 +2519,21 @@
           el.style.display = 'none';
           return;
         }
-        const x = tempVec.x * halfW + halfW;
-        const y = -(tempVec.y * halfH) + halfH;
-        el.style.display = 'block';
-        el.style.left = `${x}px`;
-        el.style.top = `${y}px`;
+        el.style.display = 'flex';
+        el.style.left = `${tempVec.x * halfW + halfW}px`;
+        el.style.top = `${-(tempVec.y * halfH) + halfH}px`;
       });
 
-      // ป้ายแฟ้มงาน 3D
       const fTag = document.getElementById('folder-tag');
       if (fTag) {
         tempVec.copy(workFolderGroup.position);
-        tempVec.y += 0.35;
+        tempVec.y += 0.32;
         tempVec.project(camera);
-        const fx = tempVec.x * halfW + halfW;
-        const fy = -(tempVec.y * halfH) + halfH;
-        fTag.style.left = `${fx}px`;
-        fTag.style.top = `${fy}px`;
+        fTag.style.left = `${tempVec.x * halfW + halfW}px`;
+        fTag.style.top = `${-(tempVec.y * halfH) + halfH}px`;
       }
     }
 
-    // ลูปแอนิเมชัน 3 มิติ (พนักงานพิมพ์งาน + แฟ้มงานวิ่งส่งต่อระหว่างโต๊ะ + ไฟไซเรน)
     let lastTimeMs = performance.now();
     let frameCount = 0;
     let fpsAccum = 0;
@@ -2091,75 +2554,88 @@
         fpsAccum = 0;
       }
 
+      // Frame-Rate-Independent Exponential Decay Camera Smoothing
+      if (isCameraTransitioning) {
+        const factor = 1.0 - Math.exp(-5.8 * dt);
+        camera.position.lerp(desiredCamPos, factor);
+        controls.target.lerp(desiredCamTarget, factor);
+        if (
+          camera.position.distanceTo(desiredCamPos) < 0.04 &&
+          controls.target.distanceTo(desiredCamTarget) < 0.04
+        ) {
+          isCameraTransitioning = false;
+        }
+      }
       controls.update();
 
-      // แอนิเมชันพนักงานและไฟประจำโต๊ะ
+      // แอนิเมชันตัวละครพนักงานและจอมอนิเตอร์
       Object.entries(workstations).forEach(([key, ws]) => {
         const isCurrent = key === activeDeskKey;
         if (isCurrent) {
-          // พนักงานขยับตัวและพิมพ์คีย์บอร์ดคึกคัก
-          ws.workerRig.position.y = 0.65 + Math.abs(Math.sin(elapsed * 7.5)) * 0.06;
-          ws.workerRig.rotation.y = Math.sin(elapsed * 3.2) * 0.12;
-          ws.leftArm.rotation.x = Math.PI / 2.6 + Math.sin(elapsed * 14) * 0.25;
-          ws.rightArm.rotation.x = Math.PI / 2.6 - Math.sin(elapsed * 14) * 0.25;
-          ws.ringMat.opacity = 0.55 + Math.sin(elapsed * 5) * 0.2;
-          ws.screenMat.emissiveIntensity = 0.75 + Math.sin(elapsed * 6) * 0.2;
-          ws.lampBulbMat.emissiveIntensity = 0.9;
+          ws.workerRig.position.y = 0.58 + Math.abs(Math.sin(elapsed * 7.5)) * 0.055;
+          ws.workerRig.rotation.y = Math.sin(elapsed * 3.0) * 0.12;
+          ws.leftArm.rotation.x = Math.PI / 2.6 + Math.sin(elapsed * 15) * 0.26;
+          ws.rightArm.rotation.x = Math.PI / 2.6 - Math.sin(elapsed * 15) * 0.26;
+          ws.ringMat.opacity = 0.65 + Math.sin(elapsed * 5) * 0.2;
+          ws.screenMat.emissiveIntensity = 0.8 + Math.sin(elapsed * 6) * 0.2;
+          ws.lampBulbMat.emissiveIntensity = 1.1;
         } else {
-          // พนักงานหายใจสแตนด์บายเบาๆ
-          ws.workerRig.position.y = 0.65 + Math.sin(elapsed * 2 + ws.group.position.x) * 0.015;
+          ws.workerRig.position.y = 0.58 + Math.sin(elapsed * 2 + ws.group.position.x) * 0.012;
           ws.workerRig.rotation.y = 0;
           ws.leftArm.rotation.x = Math.PI / 2.6;
           ws.rightArm.rotation.x = Math.PI / 2.6;
           ws.ringMat.opacity = 0.18;
-          ws.screenMat.emissiveIntensity = 0.25;
-          ws.lampBulbMat.emissiveIntensity = 0.15;
+          ws.screenMat.emissiveIntensity = 0.32;
+          ws.lampBulbMat.emissiveIntensity = 0.2;
         }
 
-        // โต๊ะหัวหน้า Opus: เมื่อสั่งเบรกฉุกเฉิน ให้เปิดรั้วกั้นสีแดงและไฟไซเรนกระพริบ
         if (key === 'core' && ws.shieldCage && ws.sirenMesh) {
           if (currentSystemStatus === 'blocked') {
-            ws.shieldCage.material.opacity = 0.35 + Math.sin(elapsed * 10) * 0.15;
-            ws.shieldCage.rotation.y += dt * 0.8;
-            ws.sirenMesh.material.emissiveIntensity = 0.8 + Math.sin(elapsed * 14) * 0.4;
+            ws.shieldCage.material.opacity = 0.38 + Math.sin(elapsed * 10) * 0.16;
+            ws.shieldCage.rotation.y += dt * 0.9;
+            ws.sirenMesh.material.emissiveIntensity = 1.2 + Math.sin(elapsed * 16) * 0.5;
           } else {
             ws.shieldCage.material.opacity = 0;
-            ws.sirenMesh.material.emissiveIntensity = 0.1;
+            ws.sirenMesh.material.emissiveIntensity = 0.15;
           }
         }
       });
 
-      // แอนิเมชันแฟ้มงาน 3D วิ่งส่งต่อจากโต๊ะหัวหน้า (Opus) ไปยังโต๊ะลูกทีมที่กำลังทำงาน
+      // แอนิเมชันแฟ้มงาน 3D สีทองวิ่งส่งต่อระหว่างโต๊ะหัวหน้า (Opus) กับโต๊ะลูกทีม
       const fTag = document.getElementById('folder-tag');
       if (activeDeskKey === 'core') {
         workFolderGroup.position.set(
-          Math.cos(elapsed * 1.8) * 0.7,
-          1.55 + Math.sin(elapsed * 3.5) * 0.08,
-          Math.sin(elapsed * 1.8) * 0.7
+          Math.cos(elapsed * 1.8) * 0.65,
+          1.55 + Math.sin(elapsed * 3.5) * 0.07,
+          Math.sin(elapsed * 1.8) * 0.65
         );
         workFolderGroup.rotation.y = elapsed * 1.2;
         if (fTag) fTag.textContent = '📁 แฟ้มงานอยู่ที่โต๊ะหัวหน้า (Opus)';
       } else if (pathwayMap[activeDeskKey]) {
-        // วิ่งไปกลับระหว่างโต๊ะหัวหน้ากับโต๊ะที่กำลังทำงาน
-        const t = (elapsed * 0.48) % 1;
+        const t = (elapsed * 0.45) % 1;
         const pt = pathwayMap[activeDeskKey].curve.getPointAt(t);
-        const arcHeight = 1.15 + Math.sin(t * Math.PI) * 0.85;
-        workFolderGroup.position.set(pt.x, arcHeight, pt.z);
-        workFolderGroup.rotation.y = elapsed * 2.5;
-        if (fTag) fTag.textContent = `📁 ส่งแฟ้มงาน ➔ ${formatNodeFriendly(activeDeskKey)}`;
+        const arcY = 1.12 + Math.sin(t * Math.PI) * 0.85;
+        workFolderGroup.position.set(pt.x, arcY, pt.z);
+        workFolderGroup.rotation.y = elapsed * 2.4;
+        if (fTag) fTag.textContent = `📁 ส่งแฟ้มงาน ➔ ${DESK_INFO[activeDeskKey].shortName}`;
       }
 
-      updateFloatingLabels();
       renderer.render(scene, camera);
+      updateFloatingLabels();
     }
 
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
+    function handleResize() {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+      renderer.setSize(w, h);
+    }
 
-    // เริ่มต้นดึงข้อมูลจริงทันที
+    window.addEventListener('resize', handleResize);
+    new ResizeObserver(handleResize).observe(container);
+
     pollTelemetry();
     pollQuota(false);
     setInterval(pollTelemetry, 1200);

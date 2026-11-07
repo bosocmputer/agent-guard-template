@@ -21,6 +21,8 @@ AI มักเขียนโค้ด Three.js พังเพราะติ�
 | `texture.encoding = THREE.sRGBEncoding` | `texture.colorSpace = THREE.SRGBColorSpace` (เฉพาะสี/Albedo เท่านั้น) |
 | `renderer.physicallyCorrectLights = true` | ถอดออกแล้ว (ใช้ระบบแสงจริงเป็นค่าเริ่มต้นตั้งแต่ `r155+`) |
 | `new THREE.BoxBufferGeometry()` | `new THREE.BoxGeometry()` (Geometry ทุกตัวเป็น BufferGeometry ทั้งหมดแล้ว) |
+| `new THREE.Clock()` | **`new THREE.Timer()`** หรือ `performance.now()` (`THREE.Clock` ถูก Deprecated ใน `r187+`) |
+| `THREE.PCFSoftShadowMap` | **`THREE.PCFShadowMap`** (`PCFSoftShadowMap` ถูกถอดออกใน `r187+`) |
 | `requestAnimationFrame(animate)` ดิบๆ | `renderer.setAnimationLoop(animate)` (หยุดอัตโนมัติเมื่อพับแท็บ + รองรับ WebGPU/WebXR) |
 | `EffectComposer` โดยไม่มี `OutputPass` ปิดท้าย | ต้องใส่ **`new OutputPass()`** ปิดท้าย Linear Pass เสมอ เพื่อให้ Tone Mapping และ sRGB ถูกต้อง |
 
@@ -188,3 +190,34 @@ function disposeViewer({ renderer, scene, controls, composer, dracoLoader, ktx2L
   renderer.dispose();
 }
 ```
+
+---
+
+## 5. มาตรฐานกราฟิกและการจัดหน้าจอระดับ Studio (`Threejs-Awesome-Graphics` Standards)
+
+เมื่อต้องสร้างฉาก 3D ที่ดูสมจริงระดับงานโปรดักชัน (ห้ามทำกราฟิกกล่องเหลี่ยมทื่อๆ สีแบนๆ หรือวางการ์ด UI ทับฉาก 3D จนรก):
+
+### 5.1 กฎ "3D Canvas as the Hero" และ Achromatic Studio Shell
+1. **พื้นที่ฉาก 3D ต้องเป็นพระเอก (75%–85% ของหน้าจอ):**
+   - ห้ามวาง Sidebar ขนาดใหญ่ขนาบทั้งซ้ายและขวาพร้อมกันจนบีบฉาก 3D เหลือช่องแคบๆ ตรงกลาง
+   - ใช้โครงสร้าง **Studio Viewport + Single Right Inspector (`280px–320px`) + Micro-Topbar (`52px`) + Floating Bottom Command Dock**
+2. **Achromatic Dark Graphite Frame (`#0b0b0d` / `#0e0e11` / `#131317`):**
+   - กรอบ UI รอบนอกใช้โทนสีเทาดำกราไฟต์ (`#0e0e11`, ขอบบาง `1px solid rgba(255,255,255,0.08)`, ตัวอักษรสีขาวนวล `#edeae3` / `#a5a29c`) เพื่อให้สายตาของผู้ใช้โฟกัสที่แสงและสีสันของฉาก 3D เป็นหลัก ไม่ถูกปุ่มสีรุ้งแย่งสายตา
+
+### 5.2 Procedural Studio Softbox IBL + 3-Point Rig + Contact Blush
+1. **No-Post Baseline:** ฉาก 3D ต้องดูมีมิติและอ่านค่าแสงเงาได้ชัดเจนตั้งแต่ก่อนเปิด Post-Processing
+2. **Procedural Softbox Environment (`scene.environment`):**
+   - สร้าง Equirectangular HDR `DataTexture` ที่มี Softbox 5 ทิศทาง (Key `[1, 0.98, 0.94]`, Cool Fill `[0.82, 0.9, 1]`, Warm Rim `[1, 0.86, 0.66]`, Low Rim, Ground Bounce) หรือใช้ `RoomEnvironment` เพื่อให้วัสดุไม้ โลหะ และกระจกมีแสงสะท้อน IBL สมจริง
+3. **Analytic Contact Blush (เงาสัมผัสพื้นใต้โต๊ะ/วัตถุ):**
+   - วางแผ่นเงา Radial Falloff บางๆ ที่ `groundY + 0.004` (`depthWrite: false`) ใต้วัตถุและโต๊ะทุกตัว เพื่อไม่ให้วัตถุดูลอยเคว้งเหนือพื้น
+
+### 5.3 Calibrated `MeshPhysicalMaterial` & Beveled Geometry (`RoundedBoxGeometry`)
+- **ห้ามใช้ขอบกล่องคมกริบ (`BoxGeometry` ดิบๆ) กับเฟอร์นิเจอร์หรืออุปกรณ์ที่มนุษย์สร้าง:** ต้องใช้ `RoundedBoxGeometry` (`three/addons/geometries/RoundedBoxGeometry.js`) เพื่อให้ขอบมนรับไฮไลต์แสง (Specular Fillet) เสมอ
+- **ค่าวัสดุมาตรฐาน (`MeshPhysicalMaterial`):**
+  - **ไม้ Walnut หรู (โต๊ะประธาน/หัวหน้า):** `roughness: 0.42, metalness: 0.04, clearcoat: 0.62, clearcoatRoughness: 0.28`
+  - **ไม้ Nordic Oak (โต๊ะทำงานทั่วไป):** `roughness: 0.45, metalness: 0.02, clearcoat: 0.45, clearcoatRoughness: 0.32`
+  - **ทองเหลืองปัดเงา (Antique Gold Brass):** `roughness: 0.24, metalness: 0.78, clearcoat: 0.24, clearcoatRoughness: 0.20`
+  - **อะลูมิเนียม/เหล็กพ่นทราย (ขาโต๊ะ/ตัวเครื่อง):** `roughness: 0.34, metalness: 0.82, clearcoat: 0.18`
+- **Frame-Rate-Independent Camera Rig:**
+  - การเลื่อนกล้องไปยังจุดโฟกัส (`camera.position` และ `controls.target`) ต้องใช้สมการ Exponential Decay: `factor = 1.0 - Math.exp(-lambda * dt)` เพื่อความนุ่มนวลในทุกอัตราเฟรมเรต
+
