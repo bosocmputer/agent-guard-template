@@ -21,6 +21,7 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 if [ -n "$CHECKPOINT" ] || [ -n "$GIT_DIRTY" ]; then
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "ready" --detail "🔄 Auto-Handoff Ready ($MODE): พบงานค้างพร้อมลุยต่อ" >/dev/null 2>&1 || true
   MSG="[AUTO-HANDOFF READY]: พบงานที่ทำค้างไว้ในโปรเจกต์ ($CHECKPOINT $GIT_DIRTY) หากผู้ใช้สั่งงานต่อ ให้ตรวจ git diff และทำต่อจากจุดเดิมทันทีโดยไม่ต้องเริ่มใหม่"
   if [ "$MODE" = "antigravity" ]; then
     printf '{"injectSteps":[{"systemMessage":{"systemMessage":"%s"}}]}\n' "$MSG"
@@ -28,6 +29,7 @@ if [ -n "$CHECKPOINT" ] || [ -n "$GIT_DIRTY" ]; then
     echo "$MSG"
   fi
 else
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "ready" --detail "🟢 Session Started ($MODE)" >/dev/null 2>&1 || true
   if [ "$MODE" = "antigravity" ]; then
     printf '{}\n'
   fi

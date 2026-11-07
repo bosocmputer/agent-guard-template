@@ -43,6 +43,39 @@ chmod +x .claude/hooks/*.sh
 chmod +x .claude/hooks/*.sh
 ```
 
+### วิธีที่ 3: อัปเดตโปรเจกต์เดิมที่ใช้ Template เวอร์ชันเก่าอยู่แล้ว
+รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์เดิม เพื่ออัปเดตเฉพาะไฟล์มาตรฐานของ Template โดย**ไม่ลบ** Skill เสริมที่เคยดึงเพิ่มไว้ (`install-skill.sh`) และไม่กระทบโค้ดในโปรเจกต์:
+```bash
+git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update && \
+rsync -a /tmp/agt-update/CLAUDE.md /tmp/agt-update/AGENTS.md /tmp/agt-update/.claude /tmp/agt-update/.agents ./ && \
+chmod +x .claude/hooks/*.sh && \
+rm -rf /tmp/agt-update
+```
+
+---
+
+## 🖥️ ศูนย์บัญชาการและจอมอนิเตอร์ 3D เรียลไทม์ (`3D Command & Monitor Center`)
+
+Template นี้มาพร้อมหน้าจอ **3D Command & Monitor Center** (สร้างด้วยมาตรฐาน [`mrdoob/three.js`](https://github.com/mrdoob/three.js) `r187` แบบไฟล์เดียวจบใน `.claude/hud/index.html` ไม่ต้อง `npm install` ไม่เพิ่ม `node_modules` ลงในโปรเจกต์) สำหรับเปิดเป็นจอมอนิเตอร์ดูการทำงานของ AI สดๆ หรือใช้พิมพ์สั่งงานแทน CLI ได้ทันที:
+
+```bash
+bash .claude/hooks/open-hud.sh
+```
+
+### สิ่งที่ทำได้บนหน้าจอ 3D Command & Monitor Center:
+1. **แสดงสถาปัตยกรรม 3D สดตามจังหวะ Hook จริง (0 Token Cost):**
+   * **แกนกลาง `Sentinel Core`:** เปลี่ยนสีและความเร็วตามสถานะจริง (`READY` สีเขียวมรกต ➔ `WORKING` สีฟ้า ➔ `WARNING` สีเหลืองอำพัน ➔ `CIRCUIT BREAKER / BLOCKED` กางกรงล็อก 3D สีแดง)
+   * **ดาวบริวารลูกมือ 4 ดวง (`ADK 2.0 Subagent Graph`):** ยิงลำแสงข้อมูล (`State-Delta Packet`) ไปยังโหนด `Explorer [Haiku]`, `Implementer [Sonnet]`, `Debugger [Sonnet]`, หรือ `Reviewer [Sonnet]` ตามงานที่กำลังรันจริง
+   * **โหนดไฟล์ที่ถูกแตะ (`Touched File Satellites`):** สร้างคริสตัล 3D พร้อมป้ายชื่อไฟล์ลอยรอบโหนด `Implementer` ทุกครั้งที่มีการแก้โค้ด ช่วยเช็กขอบเขต `Surgical Edit` ด้วยสายตา
+2. **ตรวจเช็ก % โควต้าคงเหลือจริงของทั้ง 2 ค่าย (`Live Provider Quota Monitor`):**
+   * ดึงค่า **% โควต้าคงเหลือราย 5 ชั่วโมง (`5-Hour Remaining %`)** และ **รายสัปดาห์ (`7-Day Remaining %`)** พร้อมเวลา Reset จริงจาก CLI ของทั้ง **Claude Code** (`control_request: get_usage`) และ **Antigravity / Google AI Ultra** (`agy -p /usage`)
+3. **สั่งงาน AI และสลับค่ายจากหน้าจอ 3D ได้โดยตรง:**
+   * มีช่องพิมพ์คำสั่งด้านล่างจอ เลือกสลับระหว่าง **`Claude Code CLI`** กับ **`Antigravity CLI (agy)`** และเลือก Model (`Sonnet`, `Opus`, `Haiku`, `Gemini 4 Argon`, `Claude 5.5`) ได้ในคลิกเดียว
+   * เมื่อค่ายใดค่ายหนึ่งโควต้าหมด กดปุ่ม **`[Switch & Resume]`** บนจอ 3D เพื่อสลับค่ายและสั่งลุยงานที่ค้างไว้ต่อได้ทันที
+4. **ประหยัดพลังงานอัตโนมัติ (`Smart Eco FPS`):**
+   * เมื่อพับหน้าต่างเบราว์เซอร์จะหยุดใช้การ์ดจอทันที และเมื่อ AI พักรอคำสั่งเกิน 6 วินาทีจะลดความเร็วลงเหลือ `12 FPS (ECO)` อัตโนมัติ (ถ้าไม่ได้รัน `open-hud.sh` จะไม่เปิดเซิร์ฟเวอร์และไม่กินทรัพยากรเครื่องเลย)
+   * *(หมายเหตุตามจริง: ข้อมูลสถานะบนจอ 3D อัปเดตตามจังหวะ Event ของระบบ Hook ได้แก่ ตอนส่งคำสั่ง, ตอนเริ่มใช้เครื่องมือค้นหา/แก้ไฟล์/รันเทสต์, และตอนจบงาน ไม่ได้ดึงข้อความคิดในใจแบบไหลทีละตัวอักษร)*
+
 ---
 
 ## 🎯 วิธีเลือก Model ใน Claude Code (VS Code Extension / CLI) สำหรับมือใหม่
@@ -189,9 +222,9 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
   * **Graph `State-Delta` Handoff:** เวลาลูกมือส่งงานต่อกัน (`explorer` ➔ `implementer` ➔ `reviewer`) ห้ามก๊อปปี้ประวัติแชทยาวๆ ส่งต่อ ให้ส่งเฉพาะก้อนข้อมูลสั้นๆ ไม่เกิน 8 บรรทัด (*ชื่อไฟล์:บรรทัด + เงื่อนไข + คำสั่งเทสต์*)
   * **Safe Rollback:** เวลาแก้บั๊กไม่ผ่านแล้วต้องย้อนโค้ด บังคับใช้เครื่องมือ `Edit` แก้กลับเฉพาะบรรทัดเดิม ห้ามรัน `git checkout .` หรือ `git reset --hard` ทับโค้ดของคุณ
 * **`testing-and-api.md` (`obra/superpowers` TDD & OWASP API Security):** โหลดเฉพาะตอนแก้ไฟล์เทสต์หรือ API บังคับเทสต์กับโค้ดจริง (ห้าม Mock ฟังก์ชันที่กำลังเทสต์), แก้บั๊กต้องเห็นเทสต์พังก่อนแก้จริง (*Verify RED*), และบังคับตรวจสิทธิ์เข้าถึงข้อมูล (ป้องกันช่องโหว่ IDOR/BOLA)
-* **`ui-anti-slop.md` (`heydamir/unslop` 1-Pass UI):** โหลดเฉพาะตอนแก้ไฟล์หน้าบ้าน บังคับเกณฑ์ออกแบบ UI 9 ด้านตั้งแต่การเขียนโค้ดรอบแรก
+* **`ui-anti-slop.md` (`heydamir/unslop` 1-Pass UI & 3D Standards):** โหลดเฉพาะตอนแก้ไฟล์หน้าบ้าน บังคับเกณฑ์ออกแบบ UI 9 ด้าน และกฎมาตรฐาน Three.js `r187+` ตั้งแต่การเขียนโค้ดรอบแรก
 
-### 3. ตำราเฉพาะทางที่เปิดอ่านเมื่อถึงจังหวะใช้งาน (`skills/*/SKILL.md` — 7 ไฟล์)
+### 3. ตำราเฉพาะทางที่เปิดอ่านเมื่อถึงจังหวะใช้งาน (`skills/*/SKILL.md` — 8 ไฟล์)
 ใช้เทคนิค **Progressive Disclosure** (ปกติจะซ่อนเนื้อหาไว้เพื่อประหยัดโควต้า และจะเปิดอ่านเฉพาะเมื่อคำสั่งของคุณตรงกับเรื่องนั้น):
 * **`common-ground`:** สกัดสมมติฐานที่ซ่อนอยู่ 3–4 ข้อพร้อมระบุขอบเขตที่จะไม่ทำ (*YAGNI Out of Scope*) มาถามคุณก่อนเริ่มเขียนฟีเจอร์ใหม่
 * **`root-cause-debug`:** บังคับ 4 ขั้นตอนหาต้นตอบั๊ก พร้อมเบรกเกอร์ **`0-Strike`** (ถ้าขาดสูตรธุรกิจให้หยุดถามทันที ห้ามเดาเลข) และ **`2-Strike`** (ลองแก้ไม่เกิน 2 ครั้ง ถ้ายังพังให้คืนค่าไฟล์เดิมแล้วสรุปทางเลือก A/B มาถามคุณ)
@@ -200,11 +233,12 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`db-migration`:** กฎแก้ไขฐานข้อมูลแบบ Zero-Downtime (*Expand & Contract*), ห้ามแก้ไฟล์ Migration เก่า, บังคับใส่ Index ที่ Foreign Key, ห้ามยิง Query ในลูป (N+1), และบังคับใช้ Transaction
 * **`auto-resume-handoff`:** ขั้นตอนกู้คืนงานค้าง 3 จังหวะ (อ่าน `.agent-last-state.log` ➔ เช็ก `git diff` ➔ รันเทสต์เช็กสถานะปัจจุบัน) เมื่อสลับโปรแกรมหลังโควต้าหมด
 * **`tech-stack-skills`:** ตารางจับคู่และวิธีดึงคู่มือภาษาเฉพาะทาง (เช่น `react-expert`, `nestjs-expert`, `golang-pro`, `flutter-expert`, `unslop`) มาลงเฉพาะตัวที่ใช้จริง (2–4 ตัวต่อโปรเจกต์)
+* **`threejs-expert` (`mrdoob/three.js r187+`):** คู่มือผู้เชี่ยวชาญสำหรับสร้าง 3D Viewer และ Interactive 3D UI บนเว็บ บังคับใช้ API รุ่นใหม่ (`three/addons/*`, `HDRLoader`, `SRGBColorSpace`, `OutputPass`, `CSS2DRenderer`, `setAnimationLoop`) พร้อมสูตรคำนวณมุมกล้องอัตโนมัติและฟังก์ชันคืนค่าหน่วยความจำการ์ดจอ (`disposeViewer`) ป้องกันอาการการ์ดจอค้าง
 
 ### 4. ลูกมือเฉพาะทาง 4 ตัว (`.claude/agents/*.md` — Bounded Agent Loops)
 ทำหน้าที่แยกงานหนักออกไปทำข้างนอกเพื่อไม่ให้หน้าแชทหลักรก พร้อมล็อกเพดานรอบ (`maxTurns`), ล็อกเครื่องมือ (`disallowedTools`), และผูกตำรา (`skills` preload) ไว้ล่วงหน้า:
 * **`explorer.md` (`model: haiku`, สูงสุด 6 รอบ):** ค้นหาไฟล์และจุดเชื่อมต่อแบบอ่านอย่างเดียว (ห้ามแก้ไฟล์) ใช้โมเดล `haiku` ที่เร็วและประหยัดโควต้ากว่า 10–20 เท่า
-* **`implementer.md` (`model: sonnet`, สูงสุด 15 รอบ):** คนลงมือเขียนและแก้โค้ดแบบ Surgical Edit พร้อมผูกตำรา `verification-before-completion` และ `db-migration`
+* **`implementer.md` (`model: sonnet`, สูงสุด 15 รอบ):** คนลงมือเขียนและแก้โค้ดแบบ Surgical Edit พร้อมผูกตำรา `verification-before-completion`, `db-migration`, และ `threejs-expert`
 * **`debugger.md` (`model: sonnet`, สูงสุด 10 รอบ):** คนวิเคราะห์และแก้บั๊กตามกฎ `0-Strike` / `2-Strike` พร้อมผูกตำรา `root-cause-debug`
 * **`reviewer.md` (`model: sonnet`, สูงสุด 8 รอบ):** คนตรวจโค้ดแบบอ่านอย่างเดียว (ห้ามแอบแก้ไฟล์เอง) พร้อมผูกตำรา `pragmatic-review`
 
@@ -224,6 +258,7 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`post-edit-format.sh`:** จัด Format โค้ดอัตโนมัติตามภาษา (`prettier`, `gofmt`, `dart format`, `ruff format`, `rustfmt`) และบันทึกจุดแก้ล่าสุดลง `.agent-last-state.log` ทุกครั้ง
 * **`loop-circuit-breaker.sh`:** นับจำนวนครั้งที่ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำๆ ถ้าเกิน 3 ครั้งจะตัดเบรกเกอร์บังคับหยุดทันที
 * **`auto-resume.sh`:** ตรวจหาไฟล์ `.agent-last-state.log` และ `git status` ตอนเปิดแชทใหม่ เพื่อส่งต่องานค้างให้อัตโนมัติ
+* **`telemetry-tracker.sh` & `open-hud.sh`:** บันทึกสถานะการทำงานสดจากทุก Hook ลงไฟล์ `.claude/.telemetry.json` และเปิดเซิร์ฟเวอร์ศูนย์บัญชาการ 3D (`.claude/hud/index.html`) พร้อมระบบเช็กโควต้าคงเหลือจริงของทั้ง Claude Code และ Antigravity
 * **`install-skill.sh`:** ดึงเฉพาะโฟลเดอร์ Skill ที่สั่งจาก `jeffallan/claude-skills` หรือ `heydamir/unslop` มาติดตั้งให้ทั้ง 2 โปรแกรมพร้อมกันภายในไม่กี่วินาที
 
 ---
@@ -238,23 +273,26 @@ project-root/
 ├── .gitignore                                  # ป้องกันไฟล์ความลับและไฟล์สถานะชั่วคราวขึ้น Git
 │
 ├── .agents/                                    # ⚡ ตั้งค่าอัตโนมัติสำหรับ Antigravity (VS Code)
-│   ├── hooks.json                              # ผูก SessionStart, PreToolUse, PostToolUse
+│   ├── hooks.json                              # ผูก SessionStart, PreInvocation, PreToolUse, PostToolUse, Stop
 │   ├── rules/
 │   │   ├── code-simplicity.md                  # Karpathy 4 Principles (Think, Simplicity, Surgical, Goal-Driven)
 │   │   ├── execution-discipline.md             # Context Hygiene (trailofbits) + Graph State-Delta (ADK 2) & Safe Rollback
 │   │   ├── testing-and-api.md                  # Real Testing (obra/superpowers TDD) & OWASP API Security
-│   │   └── ui-anti-slop.md                     # กฎออกแบบ UI 9 ด้านแบบ Auto 1-Pass (heydamir/unslop)
+│   │   └── ui-anti-slop.md                     # กฎออกแบบ UI 9 ด้าน (heydamir/unslop) + มาตรฐาน Three.js r187+
 │   └── skills/
 │       ├── auto-resume-handoff/SKILL.md        # 3-Phase Harness รับไม้ต่ออัตโนมัติ (Anthropic Long-Running Harness)
 │       ├── common-ground/SKILL.md              # Socratic Discovery & YAGNI Scope (obra/superpowers brainstorming)
 │       ├── db-migration/SKILL.md               # Zero-Downtime Migration (supabase/agent-skills + postgres-pro)
-│       ├── pragmatic-review/SKILL.md           # Blocker-Only Review ไม่เกิน 2 รอบ (obra/superpowers review)
+│       ├── pragmatic-review/SKILL.md           # Blocker-Only Review ไม่เกิน 2 รอบ (obra/superpowers + gstack)
 │       ├── root-cause-debug/SKILL.md           # 4-Phase Debugging (obra/superpowers) + 0/2-Strike Breaker
 │       ├── tech-stack-skills/SKILL.md          # ดึง Skill เฉพาะทางจาก jeffallan/claude-skills อัตโนมัติ
-│       └── verification-before-completion/     # Iron Law & 5-Step Gate Function (Test + Build + Smoke Check)
+│       ├── threejs-expert/SKILL.md             # คู่มือผู้เชี่ยวชาญ Three.js r187+ (3D Viewer, HDRLoader, OutputPass, Disposal)
+│       └── verification-before-completion/     # Iron Law & 5-Step Gate Function (Test + Zero-Run Check + Build)
 │
 └── .claude/                                    # 🤖 ตั้งค่าอัตโนมัติสำหรับ Claude Code
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks ($CLAUDE_PROJECT_DIR)
+    ├── hud/
+    │   └── index.html                          # 🖥️ 3D Command & Monitor Center (Three.js r187 Single-File HUD)
     ├── agents/                                 # 4 Sub-Agents (พร้อม model, maxTurns, disallowedTools & skills preload)
     │   ├── explorer.md                         # สำรวจโค้ดแบบ Read-only (haiku, maxTurns: 6)
     │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (sonnet, maxTurns: 15 + skills preload)
@@ -269,6 +307,8 @@ project-root/
         ├── protect-sensitive-files.sh          # บล็อกการแก้ไขไฟล์ .env, .pem, .key, และ lockfiles
         ├── loop-circuit-breaker.sh             # บล็อกเมื่อ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน 3 ครั้ง
         ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึกจุด Checkpoint ล่าสุด
+        ├── telemetry-tracker.sh                # บันทึกสถานะการทำงานสดจากทุก Hook ลง .claude/.telemetry.json
+        ├── open-hud.sh                         # เปิดเซิร์ฟเวอร์ 3D Command & Monitor Center + เช็กโควต้าจริง
         └── install-skill.sh                    # ดึง Skill เฉพาะทางจาก jeffallan/claude-skills แบบ Sparse Checkout
 ```
 
@@ -284,3 +324,4 @@ project-root/
 * **[`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) & Google ADK 2.0 Graph Engineering:** สถาปัตยกรรม 3 ชั้น (*Harness ➔ Bounded Loop ➔ Graph*), *Two-Layer Context Hygiene*, และการส่งต่อข้อมูลระหว่าง Sub-agent แบบบีบอัด (`State-Delta` Handoff ไม่เกิน 8 บรรทัด)
 * **[`supabase/agent-skills`](https://github.com/supabase/agent-skills) & [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills):** กฎ *Zero-Downtime Postgres Migration / RLS* และระบบดึงทักษะเฉพาะทางตาม Tech Stack จริงแบบ Sparse Checkout (`install-skill.sh`)
 * **[`heydamir/unslop`](https://github.com/heydamir/unslop):** สกัดเกณฑ์ตรวจสอบ UI 9 ด้าน (*Spacing, Color, Icons, Copy, Type, Layout, Details, Visuals, Motion*) มาเป็นกฎ `ui-anti-slop.md` ที่ทำงานอัตโนมัติในรอบเดียวเมื่อแก้ไขไฟล์หน้าบ้าน และรองรับการดึง Skill ตัวเต็มผ่าน `install-skill.sh unslop`
+* **[`mrdoob/three.js`](https://github.com/mrdoob/three.js) (`r187+`):** สกัดมาตรฐานสถาปัตยกรรม Three.js รุ่นล่าสุด (`three/addons/*`, `HDRLoader`, `OutputPass`, `CSS2DRenderer`, `setAnimationLoop`, และระบบคืนค่าหน่วยความจำการ์ดจอ `dispose()`) มาเป็นทักษะ `threejs-expert` และใช้สร้าง **3D Command & Monitor Center** ประจำตัว Template

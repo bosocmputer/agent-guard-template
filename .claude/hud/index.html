@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Guard — 3D Command &amp; Monitor Center</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    :root {
+      --bg-base: #070b12;
+      --panel-bg: rgba(11, 17, 29, 0.84);
+      --panel-border: rgba(56, 189, 248, 0.18);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-cyan: #06b6d4;
+      --status-ready: #10b981;
+      --status-work: #0ea5e9;
+      --status-warn: #f59e0b;
+      --status-block: #ef4444;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg-base); color: var(--text-main);
+      font-family: var(--font-sans); font-size: 13px;
+      user-select: none;
+    }
+    #canvas-container {
+      position: fixed; inset: 0; z-index: 1;
+    }
+    .hud-overlay {
+      position: fixed; inset: 0; z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-columns: 350px 1fr 370px;
+      gap: 12px; padding: 12px;
+    }
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      backdrop-filter: blur(12px);
+      pointer-events: auto;
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    /* Top Header */
+    .top-bar {
+      grid-column: 1 / -1;
+      flex-direction: row; align-items: center; justify-content: space-between;
+      padding: 10px 16px;
+    }
+    .brand-group { display: flex; align-items: center; gap: 12px; }
+    .brand-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--status-ready);
+      box-shadow: 0 0 10px var(--status-ready);
+    }
+    .brand-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    .brand-sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+    .top-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      padding: 4px 10px; border-radius: 6px;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.8);
+      font-variant-numeric: tabular-nums;
+    }
+    .badge.ready { border-color: rgba(16, 185, 129, 0.5); color: #34d399; }
+    .badge.working { border-color: rgba(14, 165, 233, 0.5); color: #38bdf8; }
+    .badge.warning { border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; }
+    .badge.blocked { border-color: rgba(239, 68, 68, 0.6); color: #f87171; }
+    .btn-ghost {
+      cursor: pointer; background: rgba(30, 41, 59, 0.8);
+      color: var(--text-main); border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 6px; padding: 4px 10px; font-size: 11px;
+      font-family: var(--font-mono); transition: border-color 150ms ease-out, background 150ms ease-out;
+    }
+    .btn-ghost:hover { border-color: var(--accent-cyan); background: rgba(15, 23, 42, 0.95); }
+
+    /* Left & Right Columns */
+    .left-col {
+      grid-column: 1; grid-row: 2;
+      overflow-y: auto; max-height: 100%;
+    }
+    .right-col {
+      grid-column: 3; grid-row: 2;
+      overflow-y: auto; max-height: 100%;
+    }
+    .section-title {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--accent-cyan);
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      padding-bottom: 6px;
+    }
+    .card-box {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 8px; padding: 10px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .label-muted { font-size: 11px; color: var(--text-muted); }
+    .val-text {
+      font-size: 12.5px; font-weight: 500; line-height: 1.4;
+      word-break: break-word; user-select: text;
+    }
+    .mono-val {
+      font-family: var(--font-mono); font-size: 11.5px;
+      color: #38bdf8; word-break: break-all; user-select: text;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Strike / Loop Breaker Meter */
+    .strike-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 4px;
+    }
+    .strike-slot {
+      height: 8px; border-radius: 4px;
+      background: rgba(148, 163, 184, 0.18);
+      transition: background 200ms ease-out, box-shadow 200ms ease-out;
+    }
+    .strike-slot.s-warn { background: var(--status-warn); box-shadow: 0 0 8px var(--status-warn); }
+    .strike-slot.s-block { background: var(--status-block); box-shadow: 0 0 10px var(--status-block); }
+
+    /* Quota Cards */
+    .quota-card {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 8px; padding: 9px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .quota-head {
+      display: flex; align-items: center; justify-content: space-between;
+      font-weight: 600; font-size: 12px;
+    }
+    .quota-row {
+      display: flex; flex-direction: column; gap: 3px;
+      font-size: 11px; font-variant-numeric: tabular-nums;
+    }
+    .quota-row-top {
+      display: flex; justify-content: space-between; color: var(--text-muted);
+    }
+    .quota-bar-bg {
+      height: 6px; border-radius: 3px; background: rgba(148, 163, 184, 0.18); overflow: hidden;
+    }
+    .quota-bar-fill {
+      height: 100%; border-radius: 3px; background: var(--status-ready);
+      transition: width 200ms ease-out, background 200ms ease-out;
+    }
+
+    /* Touched files & Event stream */
+    .tag-list { display: flex; flex-wrap: wrap; gap: 5px; }
+    .file-tag {
+      font-family: var(--font-mono); font-size: 11px;
+      padding: 2px 7px; border-radius: 4px;
+      background: rgba(6, 182, 212, 0.14);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      color: #67e8f9;
+    }
+    .event-list {
+      display: flex; flex-direction: column; gap: 6px;
+      max-height: 220px; overflow-y: auto;
+    }
+    .event-item {
+      font-size: 11.5px; padding: 6px 8px; border-radius: 6px;
+      background: rgba(15, 23, 42, 0.65);
+      border-left: 3px solid var(--accent-cyan);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .event-item.warning { border-left-color: var(--status-warn); }
+    .event-item.blocked { border-left-color: var(--status-block); }
+    .event-item.ready { border-left-color: var(--status-ready); }
+    .event-meta {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .console-out {
+      font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45;
+      background: rgba(2, 6, 23, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 6px; padding: 8px;
+      max-height: 190px; overflow-y: auto;
+      white-space: pre-wrap; user-select: text; color: #e2e8f0;
+    }
+
+    /* Bottom Command Dock */
+    .bottom-dock {
+      grid-column: 1 / -1; grid-row: 3;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .cmd-form {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .select-ctrl, .input-ctrl {
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-main);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 6px; padding: 7px 10px;
+      font-family: var(--font-sans); font-size: 12.5px;
+    }
+    .select-ctrl:focus, .input-ctrl:focus {
+      outline: none; border-color: var(--accent-cyan);
+    }
+    .input-ctrl { flex: 1; min-width: 240px; }
+    .btn-primary {
+      cursor: pointer; background: #0284c7; color: #fff;
+      border: 1px solid #38bdf8; border-radius: 6px;
+      padding: 7px 16px; font-weight: 600; font-size: 12.5px;
+      transition: background 150ms ease-out;
+    }
+    .btn-primary:hover { background: #0369a1; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .sim-bar {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+
+    /* 3D Floating CSS2D Labels */
+    .node-label {
+      padding: 3px 8px; border-radius: 5px;
+      background: rgba(7, 11, 18, 0.86);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      color: #e2e8f0; font-family: var(--font-mono);
+      font-size: 10.5px; font-weight: 600;
+      white-space: nowrap; pointer-events: none;
+    }
+    .node-label.active {
+      border-color: #10b981; color: #6ee7b7;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+    }
+    .file-orbit-label {
+      padding: 2px 6px; border-radius: 4px;
+      background: rgba(6, 182, 212, 0.2);
+      border: 1px solid rgba(6, 182, 212, 0.5);
+      color: #a5f3fc; font-family: var(--font-mono);
+      font-size: 9.5px; white-space: nowrap; pointer-events: none;
+    }
+    @media (max-width: 1100px) {
+      .hud-overlay {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        overflow-y: auto;
+      }
+      .left-col, .right-col { grid-column: 1; grid-row: auto; max-height: 240px; }
+      .bottom-dock { grid-column: 1; grid-row: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div class="hud-overlay">
+    <!-- Top Header -->
+    <header class="panel top-bar">
+      <div class="brand-group">
+        <div id="status-dot" class="brand-dot"></div>
+        <div>
+          <div class="brand-title">AGENT GUARD — 3D COMMAND &amp; MONITOR CENTER</div>
+          <div class="brand-sub" id="project-subtitle">Three.js r187 Sentinel Core • ADK 2.0 Subagent Graph</div>
+        </div>
+      </div>
+      <div class="top-badges">
+        <span id="badge-engine" class="badge working">ENGINE: CLAUDE</span>
+        <span id="badge-model" class="badge">MODEL: SONNET</span>
+        <span id="badge-node" class="badge">NODE: CORE</span>
+        <span id="badge-status" class="badge ready">STATUS: READY</span>
+        <span id="badge-fps" class="badge">60 FPS</span>
+        <button id="btn-sound" class="btn-ghost" type="button">SOUND: OFF</button>
+      </div>
+    </header>
+
+    <!-- Left Telemetry & Quota Column -->
+    <aside class="panel left-col">
+      <div class="section-title">
+        <span>LIVE TASK &amp; GUARDRAILS</span>
+        <span id="updated-time" class="label-muted">--:--:--</span>
+      </div>
+
+      <div class="card-box">
+        <div class="label-muted">CURRENT TASK / PROMPT</div>
+        <div id="txt-task" class="val-text">รอรับคำสั่ง (Waiting for command...)</div>
+        <div class="label-muted" style="margin-top:4px;">LIVE STEP / ACTION</div>
+        <div id="txt-action" class="mono-val">System Ready</div>
+      </div>
+
+      <div class="card-box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="label-muted">LOOP / CIRCUIT BREAKER METER</span>
+          <span id="txt-strike" class="mono-val">0 / 3</span>
+        </div>
+        <div class="strike-grid">
+          <div id="strike-1" class="strike-slot"></div>
+          <div id="strike-2" class="strike-slot"></div>
+          <div id="strike-3" class="strike-slot"></div>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:4px;">
+        <span>PROVIDER QUOTA MONITOR (LIVE CLI)</span>
+        <button id="btn-refresh-quota" class="btn-ghost" type="button">Refresh</button>
+      </div>
+
+      <!-- Claude Code Quota -->
+      <div class="quota-card">
+        <div class="quota-head">
+          <span>Claude Code (<span id="q-claude-plan">Pro</span>)</span>
+          <span id="q-claude-badge" class="badge ready" style="padding:1px 6px; font-size:10px;">READY</span>
+        </div>
+        <div class="quota-row">
+          <div class="quota-row-top">
+            <span>5-Hour Remaining</span>
+            <span id="q-claude-5h">-</span>
+          </div>
+          <div class="quota-bar-bg"><div id="bar-claude-5h" class="quota-bar-fill" style="width:100%;"></div></div>
+        </div>
+        <div class="quota-row">
+          <div class="quota-row-top">
+            <span>7-Day Remaining</span>
+            <span id="q-claude-7d">-</span>
+          </div>
+          <div class="quota-bar-bg"><div id="bar-claude-7d" class="quota-bar-fill" style="width:100%;"></div></div>
+        </div>
+      </div>
+
+      <!-- Antigravity (Google AI Ultra) Quota -->
+      <div class="quota-card">
+        <div class="quota-head">
+          <span>Antigravity (Google AI Ultra)</span>
+          <span id="q-agy-badge" class="badge ready" style="padding:1px 6px; font-size:10px;">READY</span>
+        </div>
+        <div class="quota-row">
+          <div class="quota-row-top">
+            <span>Gemini Models (5h / 7d)</span>
+            <span id="q-agy-gemini">-</span>
+          </div>
+          <div class="quota-bar-bg"><div id="bar-agy-gemini" class="quota-bar-fill" style="width:100%;"></div></div>
+        </div>
+        <div class="quota-row">
+          <div class="quota-row-top">
+            <span>Claude &amp; GPT on AGY (5h / 7d)</span>
+            <span id="q-agy-claude">-</span>
+          </div>
+          <div class="quota-bar-bg"><div id="bar-agy-claude" class="quota-bar-fill" style="width:100%;"></div></div>
+        </div>
+      </div>
+
+      <div class="card-box">
+        <div class="label-muted">TOUCHED FILES (SURGICAL SCOPE)</div>
+        <div id="touched-files" class="tag-list">
+          <span class="label-muted">ยังไม่มีไฟล์ที่ถูกแก้ไขในรอบนี้</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right Event Log & Output Column -->
+    <aside class="panel right-col">
+      <div class="section-title">
+        <span>REAL-TIME HOOK STREAM</span>
+        <span id="stat-counters" class="label-muted">Calls: 0 | Blocked: 0</span>
+      </div>
+      <div id="event-list" class="event-list"></div>
+
+      <div class="section-title" style="margin-top:4px;">
+        <span>AI COMMAND OUTPUT CONSOLE</span>
+        <button id="btn-switch-handoff" class="btn-ghost" type="button" title="สลับค่าย AI แล้วสั่งทำต่อจากจุดเดิม">Switch &amp; Resume</button>
+      </div>
+      <div id="console-output" class="console-out">พิมพ์คำสั่งที่แถบด้านล่างเพื่อสั่งงาน Claude Code หรือ Antigravity ผ่านหน้าจอ 3D นี้ได้ทันที...</div>
+    </aside>
+
+    <!-- Bottom Command & Interactive Simulation Dock -->
+    <footer class="panel bottom-dock">
+      <form id="prompt-form" class="cmd-form">
+        <select id="sel-engine" class="select-ctrl" aria-label="Select AI Engine">
+          <option value="claude">Claude Code CLI</option>
+          <option value="antigravity">Antigravity CLI (agy)</option>
+        </select>
+        <select id="sel-model" class="select-ctrl" aria-label="Select Model">
+          <option value="sonnet">Sonnet (Default 85%)</option>
+          <option value="opus">Opus (Architect 15%)</option>
+          <option value="haiku">Haiku (Fast)</option>
+          <option value="gemini-4-argon-high">AGY: Gemini 4 Argon High</option>
+          <option value="claude-sonnet-5-5-high">AGY: Claude Sonnet 5.5 High</option>
+          <option value="claude-opus-5-5-high">AGY: Claude Opus 5.5 High</option>
+        </select>
+        <label style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:var(--text-muted); cursor:pointer;">
+          <input type="checkbox" id="chk-continue" checked /> ต่อเนื่อง (-c)
+        </label>
+        <input id="inp-prompt" class="input-ctrl" type="text" placeholder="พิมพ์สั่งงาน AI ที่นี่ (หรือกดปุ่มจำลองเหตุการณ์ด้านล่าง)..." />
+        <button id="btn-send" class="btn-primary" type="submit">Send Command</button>
+      </form>
+
+      <div class="sim-bar">
+        <span class="label-muted" style="margin-right:4px;">3D TEST SIMULATOR:</span>
+        <button class="btn-ghost" type="button" data-sim="explorer">Simulate Explorer</button>
+        <button class="btn-ghost" type="button" data-sim="implementer">Simulate Surgical Edit</button>
+        <button class="btn-ghost" type="button" data-sim="warning">Simulate Strike 1/3</button>
+        <button class="btn-ghost" type="button" data-sim="blocked">Simulate Circuit Breaker</button>
+        <button class="btn-ghost" type="button" data-sim="shield">Simulate Blocked rm -rf</button>
+        <button class="btn-ghost" type="button" data-sim="handoff">Simulate Auto-Handoff</button>
+        <button class="btn-ghost" type="button" data-sim="ready">Reset Ready</button>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+    // ─── 1. Web Audio Synth (Mute by Default) ───────────────────────────────────
+    let soundEnabled = false;
+    let audioCtx = null;
+    function playTone(type) {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+        if (type === 'blocked') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.25);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+          osc.start(now); osc.stop(now + 0.28);
+        } else {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.18);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          osc.start(now); osc.stop(now + 0.2);
+        }
+      } catch (_) {}
+    }
+
+    document.getElementById('btn-sound').addEventListener('click', (e) => {
+      soundEnabled = !soundEnabled;
+      e.currentTarget.textContent = soundEnabled ? 'SOUND: ON' : 'SOUND: OFF';
+      if (soundEnabled) playTone('ready');
+    });
+
+    // ─── 2. Three.js r187 Scene, Camera, Renderer, Post-Processing ──────────────
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x070b12, 0.035);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 5.5, 13.5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    container.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0';
+    labelRenderer.domElement.style.left = '0';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    container.appendChild(labelRenderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 32;
+    controls.minDistance = 5;
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.35, 0.75);
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+
+    // Lights & Tactical Grid
+    scene.add(new THREE.AmbientLight(0x94a3b8, 0.8));
+    const coreLight = new THREE.PointLight(0x10b981, 4, 25);
+    scene.add(coreLight);
+
+    const grid = new THREE.GridHelper(32, 32, 0x1e293b, 0x0f172a);
+    grid.position.y = -3.2;
+    scene.add(grid);
+
+    // ─── 3. Sentinel Core & OS Shield Rings ─────────────────────────────────────
+    const coreGroup = new THREE.Group();
+    scene.add(coreGroup);
+
+    const outerCoreMat = new THREE.MeshStandardMaterial({
+      color: 0x10b981, emissive: 0x059669, emissiveIntensity: 0.7,
+      wireframe: true, roughness: 0.2, metalness: 0.8
+    });
+    const outerCore = new THREE.Mesh(new THREE.IcosahedronGeometry(1.45, 1), outerCoreMat);
+    coreGroup.add(outerCore);
+
+    const innerCoreMat = new THREE.MeshStandardMaterial({
+      color: 0x34d399, emissive: 0x10b981, emissiveIntensity: 1.2,
+      roughness: 0.1, metalness: 0.5
+    });
+    const innerCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.82, 0), innerCoreMat);
+    coreGroup.add(innerCore);
+
+    // Shield Ring (OS Harness)
+    const shieldRingMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, wireframe: true, transparent: true, opacity: 0.45 });
+    const shieldRing = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.03, 12, 64), shieldRingMat);
+    shieldRing.rotation.x = Math.PI / 2;
+    coreGroup.add(shieldRing);
+
+    // Lockdown Cage (Visible when Circuit Breaker / Shield Blocked)
+    const cageMat = new THREE.MeshBasicMaterial({ color: 0xef4444, wireframe: true, transparent: true, opacity: 0.0 });
+    const lockdownCage = new THREE.Mesh(new THREE.DodecahedronGeometry(2.05, 0), cageMat);
+    coreGroup.add(lockdownCage);
+
+    // ─── 4. Subagent Graph Nodes (Explorer, Implementer, Debugger, Reviewer) ────
+    const SUBAGENTS = [
+      { id: 'explorer',    title: 'EXPLORER [Haiku]',     angle: 0,              color: 0x38bdf8 },
+      { id: 'implementer', title: 'IMPLEMENTER [Sonnet]', angle: Math.PI / 2,    color: 0x10b981 },
+      { id: 'debugger',    title: 'DEBUGGER [Sonnet]',    angle: Math.PI,        color: 0xf59e0b },
+      { id: 'reviewer',    title: 'REVIEWER [Sonnet]',    angle: 1.5 * Math.PI,  color: 0xa855f7 },
+    ];
+    const ORBIT_RADIUS = 4.8;
+    const subagentMap = {};
+
+    SUBAGENTS.forEach((cfg) => {
+      const group = new THREE.Group();
+      group.position.set(Math.cos(cfg.angle) * ORBIT_RADIUS, 0, Math.sin(cfg.angle) * ORBIT_RADIUS);
+      scene.add(group);
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: cfg.color, emissive: cfg.color, emissiveIntensity: 0.4,
+        wireframe: false, roughness: 0.25, metalness: 0.7
+      });
+      const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.48, 1), mat);
+      group.add(mesh);
+
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.65, 0.72, 32),
+        new THREE.MeshBasicMaterial({ color: cfg.color, side: THREE.DoubleSide, transparent: true, opacity: 0.4 })
+      );
+      ring.rotation.x = Math.PI / 2;
+      group.add(ring);
+
+      // Beam connecting Core (0,0,0) -> Node
+      const beamGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        group.position.clone()
+      ]);
+      const beamMat = new THREE.LineBasicMaterial({ color: cfg.color, transparent: true, opacity: 0.22 });
+      const beam = new THREE.Line(beamGeo, beamMat);
+      scene.add(beam);
+
+      // CSS2D Label
+      const div = document.createElement('div');
+      div.className = 'node-label';
+      div.textContent = cfg.title;
+      const label = new CSS2DObject(div);
+      label.position.set(0, 0.85, 0);
+      group.add(label);
+
+      subagentMap[cfg.id] = { cfg, group, mesh, mat, beam, beamMat, div };
+    });
+
+    // State-Delta Packet (travels along active beam)
+    const packetMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.14, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0x67e8f9 })
+    );
+    scene.add(packetMesh);
+
+    // Touched File Satellite Nodes around Implementer
+    const fileSatellitesGroup = new THREE.Group();
+    subagentMap.implementer.group.add(fileSatellitesGroup);
+    let currentFileLabels = [];
+
+    function syncTouchedFileNodes(files) {
+      const key = (files || []).join('|');
+      if (key === currentFileLabels.join('|')) return;
+      currentFileLabels = files || [];
+
+      while (fileSatellitesGroup.children.length > 0) {
+        const child = fileSatellitesGroup.children[0];
+        child.traverse((o) => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) o.material.dispose();
+          if (o.element && o.element.parentNode) o.element.parentNode.removeChild(o.element);
+        });
+        fileSatellitesGroup.remove(child);
+      }
+
+      currentFileLabels.slice(0, 6).forEach((fname, idx) => {
+        const angle = (idx / Math.max(1, currentFileLabels.length)) * Math.PI * 2;
+        const sat = new THREE.Mesh(
+          new THREE.BoxGeometry(0.18, 0.18, 0.18),
+          new THREE.MeshBasicMaterial({ color: 0x22d3ee, wireframe: true })
+        );
+        sat.position.set(Math.cos(angle) * 1.25, 0.25 * ((idx % 2) ? 1 : -1), Math.sin(angle) * 1.25);
+
+        const fdiv = document.createElement('div');
+        fdiv.className = 'file-orbit-label';
+        fdiv.textContent = fname.split('/').pop();
+        const flabel = new CSS2DObject(fdiv);
+        flabel.position.set(0, 0.28, 0);
+        sat.add(flabel);
+        fileSatellitesGroup.add(sat);
+      });
+    }
+
+    // ─── 5. Visual State Synchronization ────────────────────────────────────────
+    let activeState = {
+      status: 'ready',
+      node: 'core',
+      lastEpochMs: 0,
+      lastEventTime: performance.now(),
+    };
+
+    const STATUS_COLORS = {
+      ready:   { hex: 0x10b981, css: '#10b981', badge: 'ready' },
+      working: { hex: 0x0ea5e9, css: '#0ea5e9', badge: 'working' },
+      warning: { hex: 0xf59e0b, css: '#f59e0b', badge: 'warning' },
+      blocked: { hex: 0xef4444, css: '#ef4444', badge: 'blocked' },
+    };
+
+    function applyVisualState(data) {
+      const status = STATUS_COLORS[data.systemStatus] ? data.systemStatus : 'ready';
+      const palette = STATUS_COLORS[status];
+
+      if (data.updatedEpochMs && data.updatedEpochMs !== activeState.lastEpochMs) {
+        activeState.lastEpochMs = data.updatedEpochMs;
+        activeState.lastEventTime = performance.now();
+        if (status === 'blocked') playTone('blocked');
+        else if (status === 'ready') playTone('ready');
+      }
+
+      activeState.status = status;
+      activeState.node = data.activeNode || 'core';
+
+      outerCoreMat.color.setHex(palette.hex);
+      outerCoreMat.emissive.setHex(palette.hex);
+      innerCoreMat.color.setHex(palette.hex);
+      innerCoreMat.emissive.setHex(palette.hex);
+      coreLight.color.setHex(palette.hex);
+
+      cageMat.opacity = status === 'blocked' ? 0.78 : 0.0;
+
+      const dot = document.getElementById('status-dot');
+      dot.style.background = palette.css;
+      dot.style.boxShadow = `0 0 10px ${palette.css}`;
+
+      Object.entries(subagentMap).forEach(([id, item]) => {
+        const isCurrent = id === activeState.node;
+        item.mat.emissiveIntensity = isCurrent ? 1.5 : 0.35;
+        item.beamMat.opacity = isCurrent ? 0.9 : 0.18;
+        item.div.classList.toggle('active', isCurrent);
+      });
+
+      // Top Badges
+      const eng = (data.activeEngine || 'claude').toUpperCase();
+      document.getElementById('badge-engine').textContent = `ENGINE: ${eng}`;
+      document.getElementById('badge-model').textContent = `MODEL: ${(data.activeModel || 'sonnet').toUpperCase()}`;
+      document.getElementById('badge-node').textContent = `NODE: ${activeState.node.toUpperCase()}`;
+      const stBadge = document.getElementById('badge-status');
+      stBadge.textContent = `STATUS: ${status.toUpperCase()}`;
+      stBadge.className = `badge ${palette.badge}`;
+
+      if (data.projectName) {
+        document.getElementById('project-subtitle').textContent =
+          `Project: ${data.projectName} • Three.js r187 Sentinel Core`;
+      }
+
+      // Left Panel
+      document.getElementById('txt-task').textContent = data.currentTask || 'รอรับคำสั่ง...';
+      document.getElementById('txt-action').textContent = data.currentAction || 'Ready';
+
+      const strike = Math.min(3, Math.max(0, Number(data.strikeCount || 0)));
+      document.getElementById('txt-strike').textContent = `${strike} / 3`;
+      [1, 2, 3].forEach((idx) => {
+        const el = document.getElementById(`strike-${idx}`);
+        el.className = 'strike-slot';
+        if (idx <= strike) {
+          el.classList.add(strike >= 3 ? 's-block' : 's-warn');
+        }
+      });
+
+      // Touched Files
+      const touched = data.touchedFiles || [];
+      const tfContainer = document.getElementById('touched-files');
+      if (touched.length === 0) {
+        tfContainer.innerHTML = '<span class="label-muted">ยังไม่มีไฟล์ที่ถูกแก้ไขในรอบนี้</span>';
+      } else {
+        tfContainer.innerHTML = touched.map((f) => `<span class="file-tag">${f}</span>`).join('');
+      }
+      syncTouchedFileNodes(touched);
+
+      // Right Panel Events
+      const stats = data.stats || {};
+      document.getElementById('stat-counters').textContent =
+        `Claude: ${stats.claudeCalls || 0} | AGY: ${stats.antigravityCalls || 0} | Blocked: ${stats.blockedCount || 0}`;
+
+      const evList = document.getElementById('event-list');
+      const events = data.events || [];
+      evList.innerHTML = events.slice(0, 14).map((ev) => `
+        <div class="event-item ${ev.status || 'working'}">
+          <div class="event-meta">
+            <span>[${(ev.engine || 'claude').toUpperCase()} -> ${(ev.node || 'core').toUpperCase()}]</span>
+            <span>${ev.time || ''}</span>
+          </div>
+          <div>${ev.detail || ''}</div>
+        </div>
+      `).join('');
+    }
+
+    // ─── 6. Telemetry & Quota Polling ───────────────────────────────────────────
+    async function pollTelemetry() {
+      if (document.hidden) return;
+      try {
+        const res = await fetch('/api/telemetry');
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('updated-time').textContent = new Date().toLocaleTimeString('th-TH', { hour12: false });
+        applyVisualState(data);
+      } catch (_) {}
+    }
+
+    function updateQuotaBar(barId, pctStr) {
+      const bar = document.getElementById(barId);
+      const num = parseInt(pctStr, 10);
+      if (isNaN(num)) {
+        bar.style.width = '100%';
+        bar.style.background = 'rgba(148,163,184,0.35)';
+        return;
+      }
+      bar.style.width = `${Math.max(0, Math.min(100, num))}%`;
+      if (num <= 15) bar.style.background = '#ef4444';
+      else if (num <= 40) bar.style.background = '#f59e0b';
+      else bar.style.background = '#10b981';
+    }
+
+    async function fetchQuota(force = false) {
+      const btn = document.getElementById('btn-refresh-quota');
+      btn.textContent = 'Loading...';
+      try {
+        const res = await fetch(`/api/quota${force ? '?refresh=1' : ''}`);
+        if (!res.ok) return;
+        const q = await res.json();
+
+        // Claude Code
+        const c = q.claude || {};
+        document.getElementById('q-claude-plan').textContent = c.plan || 'Pro';
+        const c5 = c.rem5h && c.rem5h !== '-' ? `${c.rem5h}% (Reset ${c.reset5h || '-'})` : 'พร้อมใช้งาน';
+        const c7 = c.rem7d && c.rem7d !== '-' ? `${c.rem7d}% (Reset ${c.reset7d || '-'})` : '-';
+        document.getElementById('q-claude-5h').textContent = c5;
+        document.getElementById('q-claude-7d').textContent = c7;
+        updateQuotaBar('bar-claude-5h', c.rem5h);
+        updateQuotaBar('bar-claude-7d', c.rem7d);
+        const cBadge = document.getElementById('q-claude-badge');
+        if (!c.installed) { cBadge.textContent = 'NOT INSTALLED'; cBadge.className = 'badge warning'; }
+        else if (parseInt(c.rem5h, 10) === 0) { cBadge.textContent = 'QUOTA 0%'; cBadge.className = 'badge blocked'; }
+        else { cBadge.textContent = 'READY'; cBadge.className = 'badge ready'; }
+
+        // Antigravity
+        const a = q.agy || {};
+        const ag5 = a.gemini5h && a.gemini5h !== '-' ? `5h: ${a.gemini5h}% | 7d: ${a.gemini7d || '-'}%` : 'พร้อมใช้งาน';
+        const ac5 = a.claude5h && a.claude5h !== '-' ? `5h: ${a.claude5h}% | 7d: ${a.claude7d || '-'}%` : 'พร้อมใช้งาน';
+        document.getElementById('q-agy-gemini').textContent = ag5;
+        document.getElementById('q-agy-claude').textContent = ac5;
+        updateQuotaBar('bar-agy-gemini', a.gemini5h);
+        updateQuotaBar('bar-agy-claude', a.claude5h);
+        const aBadge = document.getElementById('q-agy-badge');
+        if (!a.installed) { aBadge.textContent = 'NOT INSTALLED'; aBadge.className = 'badge warning'; }
+        else if (parseInt(a.gemini5h, 10) === 0 && parseInt(a.claude5h, 10) === 0) {
+          aBadge.textContent = 'QUOTA 0%'; aBadge.className = 'badge blocked';
+        } else {
+          aBadge.textContent = 'READY'; aBadge.className = 'badge ready';
+        }
+      } catch (_) {
+      } finally {
+        btn.textContent = 'Refresh';
+      }
+    }
+
+    document.getElementById('btn-refresh-quota').addEventListener('click', () => fetchQuota(true));
+
+    // ─── 7. Direct AI Command Dispatch & Auto-Handoff Switch ────────────────────
+    const promptForm = document.getElementById('prompt-form');
+    const inpPrompt = document.getElementById('inp-prompt');
+    const selEngine = document.getElementById('sel-engine');
+    const selModel = document.getElementById('sel-model');
+    const chkContinue = document.getElementById('chk-continue');
+    const btnSend = document.getElementById('btn-send');
+    const consoleOut = document.getElementById('console-output');
+
+    async function sendPromptToEngine(promptText) {
+      const engine = selEngine.value;
+      const model = selModel.value;
+      btnSend.disabled = true;
+      btnSend.textContent = 'Running...';
+      consoleOut.textContent = `⏳ กำลังส่งคำสั่งไปยัง ${engine.toUpperCase()} (${model})...\n> ${promptText}`;
+      activeState.lastEventTime = performance.now();
+
+      try {
+        const res = await fetch('/api/prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            engine,
+            model,
+            prompt: promptText,
+            continueSession: chkContinue.checked,
+          }),
+        });
+        const data = await res.json();
+        if (data.quotaExhausted) {
+          consoleOut.textContent =
+            `🔴 โควต้าของ ${engine.toUpperCase()} เต็มแล้ว!\nกดปุ่ม [Switch & Resume] ด้านบนเพื่อสลับไปใช้อีกค่ายแล้วลุยต่อจากจุดเดิมได้ทันที\n\n${data.output || ''}`;
+        } else if (data.ok) {
+          consoleOut.textContent = data.output;
+        } else {
+          consoleOut.textContent = `⚠️ Error: ${data.error || data.output || 'Unknown error'}`;
+        }
+        await pollTelemetry();
+        fetchQuota(false);
+      } catch (err) {
+        consoleOut.textContent = `❌ ไม่สามารถติดต่อเซิร์ฟเวอร์ 3D HUD ได้: ${err.message}`;
+      } finally {
+        btnSend.disabled = false;
+        btnSend.textContent = 'Send Command';
+      }
+    }
+
+    promptForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const txt = inpPrompt.value.trim();
+      if (!txt) return;
+      inpPrompt.value = '';
+      sendPromptToEngine(txt);
+    });
+
+    document.getElementById('btn-switch-handoff').addEventListener('click', () => {
+      selEngine.value = selEngine.value === 'claude' ? 'antigravity' : 'claude';
+      if (selEngine.value === 'antigravity') selModel.value = 'claude-sonnet-5-5-high';
+      else selModel.value = 'sonnet';
+      sendPromptToEngine('ทำต่อจากที่ค้างไว้ใน .agent-last-state.log และ git diff ได้เลย');
+    });
+
+    // ─── 8. Interactive 3D Simulator Buttons ────────────────────────────────────
+    const SIM_PRESETS = {
+      explorer:    { engine: 'claude', node: 'explorer',    status: 'working', detail: '🔍 Explorer (Haiku): Grepค้นหาโครงสร้างไฟล์ใน src/', strike: 0 },
+      implementer: { engine: 'claude', node: 'implementer', status: 'working', detail: '✂️ Surgical Edit: src/viewer/scene.ts (prettier)', file: 'src/viewer/scene.ts', strike: 0 },
+      warning:     { engine: 'claude', node: 'debugger',    status: 'warning', detail: '⚠️ Strike 1/3: Unit test failed in booking.test.ts', strike: 1 },
+      blocked:     { engine: 'claude', node: 'debugger',    status: 'blocked', detail: '🛑 CIRCUIT BREAKER TRIPPED (2-Strike Limit): หยุดเดาสุ่มและคืนค่าไฟล์เดิม!', strike: 3 },
+      shield:      { engine: 'claude', node: 'core',        status: 'blocked', detail: '🛡️ OS Shield Deflected: บล็อกคำสั่ง git push origin +main / rm -rf', strike: 0 },
+      handoff:     { engine: 'antigravity', node: 'core',   status: 'ready',   detail: '🔄 Auto-Handoff Resumed: Antigravity รับไม้ต่อจาก Claude Code สำเร็จ', strike: 0 },
+      ready:       { engine: 'claude', node: 'reviewer',    status: 'ready',   detail: '✅ Verification Passed: เทสต์ผ่านครบและระบบพร้อมรับคำสั่งถัดไป', strike: 0 },
+    };
+
+    document.querySelectorAll('[data-sim]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const key = btn.getAttribute('data-sim');
+        const payload = SIM_PRESETS[key];
+        if (!payload) return;
+        activeState.lastEventTime = performance.now();
+        await fetch('/api/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        pollTelemetry();
+      });
+    });
+
+    // ─── 9. Animation Loop with Smart Idle FPS Throttle (60 FPS -> 12 FPS) ──────
+    let lastRenderTime = 0;
+    const fpsBadge = document.getElementById('badge-fps');
+
+    renderer.domElement.addEventListener('pointerdown', () => {
+      activeState.lastEventTime = performance.now();
+    });
+
+    renderer.setAnimationLoop((now) => {
+      const idleMs = now - activeState.lastEventTime;
+      const isEco = activeState.status === 'ready' && idleMs > 6000;
+      const minInterval = isEco ? 80 : 0; // ~12 FPS in Eco mode
+
+      if (now - lastRenderTime < minInterval) return;
+      lastRenderTime = now;
+
+      fpsBadge.textContent = isEco ? '12 FPS (ECO)' : '60 FPS';
+
+      const speedMult = activeState.status === 'working' ? 2.4 : activeState.status === 'blocked' ? 0.15 : 0.8;
+      outerCore.rotation.y += 0.006 * speedMult;
+      outerCore.rotation.x += 0.003 * speedMult;
+      innerCore.rotation.y -= 0.01 * speedMult;
+      shieldRing.rotation.z += 0.005 * speedMult;
+      lockdownCage.rotation.y -= 0.008;
+
+      fileSatellitesGroup.rotation.y += 0.012;
+
+      // Animate traveling packet along active subagent beam
+      const targetSub = subagentMap[activeState.node];
+      if (targetSub) {
+        packetMesh.visible = true;
+        const t = (now * 0.0018) % 1;
+        packetMesh.position.lerpVectors(new THREE.Vector3(0, 0, 0), targetSub.group.position, t);
+      } else {
+        packetMesh.visible = false;
+      }
+
+      controls.update();
+      composer.render();
+      labelRenderer.render(scene, camera);
+    });
+
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const rDpr = Math.min(window.devicePixelRatio, 2);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(rDpr);
+      renderer.setSize(w, h);
+      composer.setPixelRatio(rDpr);
+      composer.setSize(w, h);
+      labelRenderer.setSize(w, h);
+      activeState.lastEventTime = performance.now();
+    });
+
+    // Official Three.js r187 GPU Memory Disposal on page unload
+    window.addEventListener('pagehide', () => {
+      renderer.setAnimationLoop(null);
+      scene.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((m) => {
+            Object.values(m).forEach((v) => { if (v && typeof v.dispose === 'function') v.dispose(); });
+            m.dispose();
+          });
+        }
+      });
+      composer.dispose();
+      bloomPass.dispose();
+      controls.dispose();
+      renderer.dispose();
+    });
+
+    // Initial Boot
+    pollTelemetry();
+    fetchQuota(false);
+    setInterval(pollTelemetry, 1200);
+  </script>
+</body>
+</html>

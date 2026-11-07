@@ -3,6 +3,8 @@ CLAUDE.local.md
 .claude/settings.local.json
 TASK_STATE.md
 .agent-last-state.log
+.claude/.telemetry.json*
+.claude/.quota_cache.json*
 node_modules/
 .env
 .env.*

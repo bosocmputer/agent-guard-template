@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Dual-Mode Hook (Claude Code + Antigravity): บล็อกคำสั่งอันตราย ทับโค้ดที่ยังไม่ Commit การพลางคำสั่ง (Obfuscation) หรือลงแพ็กเกจใหม่โดยไม่ขออนุญาต
 # อ้างอิงเทคนิค Escaped-Quote Safe Extraction & Shell Obfuscation Tripwire จาก garrytan/gstack (careful/bin/check-careful.sh)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INPUT=$(cat)
 
 if echo "$INPUT" | grep -q '"toolCall"'; then
@@ -13,6 +14,7 @@ fi
 
 block_action() {
   local REASON="$1"
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "blocked" --detail "🛡️ Shield Blocked: $REASON" >/dev/null 2>&1 || true
   if [ "$MODE" = "antigravity" ]; then
     printf '{"decision":"deny","reason":"%s"}\n' "$REASON"
     exit 0

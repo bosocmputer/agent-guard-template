@@ -7,6 +7,7 @@ maxTurns: 15
 skills:
   - verification-before-completion
   - db-migration
+  - threejs-expert
 ---
 # Surgical Implementation Specialist
 

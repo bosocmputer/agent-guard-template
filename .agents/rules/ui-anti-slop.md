@@ -51,3 +51,8 @@ paths:
 
 ### 9. Subtle Motion (แอนิเมชันที่พอดี)
 - ใช้ Transition เฉพาะจุดที่ช่วยบอกสถานะ (`150ms–200ms ease-out`) ห้ามใส่แอนิเมชันเด้งหรือหมุนค้างที่รบกวนสายตาผู้ใช้
+
+### 10. Three.js / WebGL2 / WebGPU 3D Viewer Standards (`mrdoob/three.js r187+`)
+- เมื่อเขียนโค้ด 3D / Three.js ให้เปิดอ่าน `.agents/skills/threejs-expert/SKILL.md` ก่อนเสมอ
+- **ห้ามใช้ API ที่ถูกถอดหรือ Deprecated แล้ว:** ใช้ `three/addons/*` (ห้ามใช้ `three/examples/jsm/*`), ใช้ `HDRLoader` / `UltraHDRLoader` (ห้ามใช้ `RGBELoader`), และใช้ `renderer.outputColorSpace = THREE.SRGBColorSpace` (ห้ามใช้ `outputEncoding`)
+- **บังคับจำกัดสเปกและคืนค่าการ์ดจอ:** ต้องตั้ง `renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))`, ใช้ `renderer.setAnimationLoop(animate)`, ปิดท้าย `EffectComposer` ด้วย `OutputPass`, และต้องมีฟังก์ชัน `scene.traverse()` เพื่อ `.dispose()` ทั้ง `geometry`, `material`, `texture`, และ `renderer` เมื่อปิดหน้าจอเสมอ

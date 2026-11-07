@@ -14,6 +14,7 @@ fi
 
 if [ -n "$FILE_PATH" ]; then
   echo "last_agent=$MODE | last_edited_file=$FILE_PATH | updated_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .agent-last-state.log
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "implementer" --status "working" --detail "✂️ Surgical Edit: $FILE_PATH" --file "$FILE_PATH" >/dev/null 2>&1 || true
 fi
 
 if [ -f "$FILE_PATH" ]; then

@@ -1,6 +1,6 @@
 # Project Overview & Universal Agent Governance
 > ใช้ร่วมกันทั้ง **Claude Code** (`.claude/`) และ **Antigravity / VS Code** (`.agents/`)
-> **Upstream Architectures:** [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`garrytan/gstack`](https://github.com/garrytan/gstack) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) • [`heydamir/unslop`](https://github.com/heydamir/unslop)
+> **Upstream Architectures:** [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`garrytan/gstack`](https://github.com/garrytan/gstack) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) • [`heydamir/unslop`](https://github.com/heydamir/unslop) • [`mrdoob/three.js`](https://github.com/mrdoob/three.js)
 
 ## 0. Auto-Detect Tech Stack & Quick Commands (รองรับหลายภาษาอัตโนมัติ)
 ให้ตรวจสอบไฟล์ตั้งต้นในโปรเจกต์เพื่อเลือกใช้คำสั่งรันเทสต์และตรวจโค้ดให้ตรงกับภาษาที่ใช้จริงโดยอัตโนมัติ:
@@ -30,6 +30,8 @@
 | **"ปรับโครงสร้าง / เชื่อมต่อหลายโมดูล" (>3 ไฟล์)** | **Complex Task** | เรียก `explorer` sub-agent สำรวจไฟล์ที่เกี่ยวข้อง แล้วสรุปแผนไม่เกิน 10 บรรทัดรอผู้ใช้ยืนยัน |
 | **"เทสต์พัง / บั๊กหน้า... / Error..."** | แก้บั๊ก / วิเคราะห์ปัญหา | เรียก `debugger` sub-agent (ใช้กฎ `0-Strike Missing Spec` และ `2-Strike Bug Limit`) |
 | **"ช่วยตรวจโค้ด / รีวิวให้หน่อย"** | ตรวจสอบคุณภาพและความปลอดภัย | เรียก `reviewer` sub-agent (ตรวจเฉพาะ `[BLOCKER]` ห้ามติจุกจิก จบภายในไม่เกิน 2 รอบ) |
+| **"สร้าง 3D Viewer / Three.js / WebGL"** | งานแสดงผล 3 มิติบนเว็บ | โหลด `threejs-expert` (มาตรฐาน `mrdoob/three.js r187+`: `three/addons/*`, `HDRLoader`, `OutputPass`, `dispose()`) |
+| **"เปิดจอ 3D / เปิดมอนิเตอร์ 3D"** | เปิดศูนย์บัญชาการ 3D เรียลไทม์ | รัน `bash .claude/hooks/open-hud.sh` เพื่อเปิด 3D Command & Monitor Center |
 
 ---
 
