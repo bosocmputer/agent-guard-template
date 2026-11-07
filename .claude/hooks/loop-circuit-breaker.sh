@@ -6,10 +6,10 @@ INPUT=$(cat)
 
 if echo "$INPUT" | grep -q '"toolCall"'; then
   MODE="antigravity"
-  COMMAND=$(echo "$INPUT" | grep -o '"CommandLine"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"CommandLine"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+  COMMAND=$(echo "$INPUT" | grep -oE '"CommandLine"[[:space:]]*:[[:space:]]*"(\\.|[^"\\])*"' | head -1 | sed -E 's/^"CommandLine"[[:space:]]*:[[:space:]]*"//;s/"$//;s/\\"/"/g')
 else
   MODE="claude"
-  COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+  COMMAND=$(echo "$INPUT" | grep -oE '"command"[[:space:]]*:[[:space:]]*"(\\.|[^"\\])*"' | head -1 | sed -E 's/^"command"[[:space:]]*:[[:space:]]*"//;s/"$//;s/\\"/"/g')
 fi
 
 allow_action() {

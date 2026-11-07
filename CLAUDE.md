@@ -1,6 +1,6 @@
 # Project Overview & Universal Agent Governance
 > ใช้ร่วมกันทั้ง **Claude Code** (`.claude/`) และ **Antigravity / VS Code** (`.agents/`)
-> **Upstream Architectures:** [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) • [`heydamir/unslop`](https://github.com/heydamir/unslop)
+> **Upstream Architectures:** [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`garrytan/gstack`](https://github.com/garrytan/gstack) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) • [`heydamir/unslop`](https://github.com/heydamir/unslop)
 
 ## 0. Auto-Detect Tech Stack & Quick Commands (รองรับหลายภาษาอัตโนมัติ)
 ให้ตรวจสอบไฟล์ตั้งต้นในโปรเจกต์เพื่อเลือกใช้คำสั่งรันเทสต์และตรวจโค้ดให้ตรงกับภาษาที่ใช้จริงโดยอัตโนมัติ:
@@ -48,14 +48,16 @@
 ---
 
 ## 3. Integrity, Git Safety & Security Rules
-1. **Test & Linter Integrity (ห้ามโกงผลเทสต์):**
-   - ห้ามแก้ไขค่าคาดหวัง (`expect`/`assert`), ลบเทสต์, หรือใส่ `.skip` / `.only` ในไฟล์เทสต์เดิมเพื่อให้เทสต์ผ่านแบบผิดๆ
-   - ห้ามใส่ `@ts-ignore`, `@ts-expect-error`, หรือ `eslint-disable` เพื่อซ่อนปัญหาโดยไม่ได้รับอนุญาตจากผู้ใช้
+1. **Gate Integrity & Anti-Reward-Hacking (`garrytan/gstack RH-1..RH-16 & PL-2`):**
+   - ห้ามแก้ไขค่าคาดหวัง (`expect`/`assert`), ลบเทสต์, ใส่ `.skip` / `.only` (`RH-1`), หรือผ่อนปรนตัวเลขเกณฑ์/เวลา Timeout (`RH-15`) เพื่อให้เทสต์ผ่านแบบผิดๆ
+   - ห้ามเขียนดัก `if (process.env.NODE_ENV === 'test')` หรือ `if (process.env.CI)` ในโค้ดทำงานจริงเพื่อลัดวงจรผลเทสต์ (`RH-12`)
+   - ห้ามใส่ `@ts-ignore`, `@ts-expect-error`, `eslint-disable`, `# type: ignore`, หรือ `// nolint` เพื่อซ่อนปัญหา (`RH-13`)
+   - **Zero-Run Green (`PL-2`):** หากรันเทสต์ได้ `Exit Code 0` แต่รันไป `0 ข้อ (0 tests ran)` ถือว่าเทสต์ล้มเหลว ต้องแก้พาธ/ตัวกรองและรันใหม่จนมีเทสต์รันจริง (`tests_ran >= 1`)
 2. **Git & Dependency Safety:**
-   - ห้ามรัน `git checkout .`, `git restore`, `git reset --hard`, `git clean -f`, หรือ `git push --force` เพราะจะทำลายโค้ดที่ผู้ใช้เขียนค้างไว้แต่ยังไม่ได้ Commit
-   - ห้ามรัน `npm install`, `pnpm add`, หรือ `yarn add` เพิ่มแพ็กเกจใหม่โดยไม่ถามผู้ใช้ก่อน
+   - ห้ามรัน `git checkout .`, `git restore`, `git reset --hard`, `git clean -f`, หรือ `git push --force` / `+main` เพราะจะทำลายโค้ดที่ผู้ใช้เขียนค้างไว้แต่ยังไม่ได้ Commit
+   - ห้ามรันคำสั่งติดตั้งแพ็กเกจใหม่ (`npm install`, `pnpm add`, `flutter pub add`, `go get`, `pip install`, `cargo add`) โดยไม่ถามผู้ใช้ก่อน
 3. **Secrets & Database Protection:**
-   - ห้ามอ่าน แก้ไข แสดงผล หรือ Commit ไฟล์ `.env*`, `*.key`, `*.pem`, `*.sqlite`, `*.db` เด็ดขาด (ดูโครงสร้างตัวแปรจาก `.env.example` แทน)
+   - ห้ามอ่าน แก้ไข แสดงผล หรือ Commit ไฟล์ `.env*`, `*.key`, `*.pem`, `*.keystore`, `*.jks`, `*.p12`, `*.sqlite`, `*.db` เด็ดขาด (ดูโครงสร้างตัวแปรจาก `.env.example` แทน)
 
 ---
 
