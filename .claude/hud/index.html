@@ -1416,7 +1416,7 @@
         desc: 'วิเคราะห์ภาพรวม วางแผนแบ่งงานให้ลูกทีม และคุมกฎความปลอดภัยรวมถึงตัดเบรกเกอร์เมื่อแก้บั๊กวนลูป',
         simKey: 'opus_plan',
         modelCode: 'opus',
-        pos: new THREE.Vector3(0, 0.18, 0),
+        pos: new THREE.Vector3(0, 0, 0),
         camPos: new THREE.Vector3(0, 4.9, 5.8),
         camTarget: new THREE.Vector3(0, 1.15, -0.15),
         accent: 0xa855f7,
@@ -1663,162 +1663,240 @@
     const officeGroup = new THREE.Group();
     scene.add(officeGroup);
 
-    // พื้นไม้โอ๊ค Voxel โทนอบอุ่นมีมิติ (Warm Honey-Oak Parquet — แก้ปัญหาพื้นขาวจืด!)
+    // พื้นสำนักงานโมเดิร์นไร้รอยต่อ (Seamless Architectural Satin Micro-Cement — เนียนกริบ ไม่มีลายอิฐและไม่มีเส้นร่องกระเบื้อง 100%)
     function createVoxelFloorTexture() {
       const c = document.createElement('canvas');
       c.width = 1024;
       c.height = 1024;
       const ctx = c.getContext('2d');
 
-      // สีพื้นร่องไม้เข้ม
-      ctx.fillStyle = '#5c3d24';
+      // ไล่แสงนุ่มนวลแบบสตูดิโอสถาปัตยกรรมสมัยใหม่ (Warm Alabaster ➔ Soft Greige Stone)
+      const grad = ctx.createRadialGradient(512, 490, 60, 512, 512, 720);
+      grad.addColorStop(0.0, '#e5e0d6');
+      grad.addColorStop(0.55, '#dad4c8');
+      grad.addColorStop(1.0, '#c8c1b4');
+      ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 1024, 1024);
 
-      const plankPalette = [
-        '#c89664',
-        '#be8b59',
-        '#b4804f',
-        '#d1a06e',
-        '#a97646',
-        '#c3915f',
-      ];
-
-      const rowH = 64;
-      const colW = 128;
-      for (let y = 0; y < 1024; y += rowH) {
-        const rowIdx = y / rowH;
-        const shift = (rowIdx % 2) * (colW / 2);
-        for (let x = -colW; x < 1024; x += colW) {
-          const px = x + shift;
-          const colorIdx = Math.abs((rowIdx * 7 + Math.floor(x / colW) * 13)) % plankPalette.length;
-          ctx.fillStyle = plankPalette[colorIdx];
-          ctx.fillRect(px + 3, y + 3, colW - 6, rowH - 6);
-
-          // เส้นลายไม้ Voxel ด้านในแผ่นไม้
-          ctx.fillStyle = 'rgba(255, 240, 220, 0.08)';
-          ctx.fillRect(px + 8, y + 8, colW - 16, 10);
-          ctx.fillStyle = 'rgba(60, 35, 15, 0.12)';
-          ctx.fillRect(px + 8, y + rowH - 18, colW - 16, 8);
-        }
+      // เติมเนื้อสัมผัส Satin Micro-Grain ละเอียดพิเศษระดับ ±1.5 RGB เพื่อให้ผิวพื้นดูเนียนสมจริงและไม่มีรอยต่อ
+      const imgData = ctx.getImageData(0, 0, 1024, 1024);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const p = (i >> 2);
+        const grain = (((p * 1103515245 + 12345) >>> 16) & 3) - 1.5;
+        d[i] = Math.min(255, Math.max(0, d[i] + grain));
+        d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + grain));
+        d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + grain));
       }
+      ctx.putImageData(imgData, 0, 0);
 
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(3.5, 2.6);
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
       return tex;
     }
 
-    // ฐาน Diorama ชั้นล่าง + ขอบทอง + พื้นไม้โอ๊ค Voxel
-    addVoxelBox(officeGroup, 16.8, 0.44, 12.6, 0, -0.34, 0, 0x161922, { roughness: 0.55, metalness: 0.2 });
-    addVoxelBox(officeGroup, 16.3, 0.08, 12.1, 0, -0.09, 0, 0xb48a3e, { roughness: 0.28, metalness: 0.72 });
+    // เงา Ambient Occlusion นุ่มนวลใต้พรมแต่ละโต๊ะ (แทนเส้นขอบแข็งบนพื้น)
+    function createSoftFloorShadowTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(128, 128, 24, 128, 128, 124);
+      g.addColorStop(0.0, 'rgba(15, 19, 28, 0.22)');
+      g.addColorStop(0.65, 'rgba(15, 19, 28, 0.08)');
+      g.addColorStop(1.0, 'rgba(15, 19, 28, 0.0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 256, 256);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+    const softFloorShadowTex = createSoftFloorShadowTexture();
+
+    // ฐานสถาปัตยกรรมโมเดิร์นสีเทาเข้ม + พื้นสตูดิโอไร้รอยต่อ
+    const plinthMesh = new THREE.Mesh(
+      new RoundedBoxGeometry(16.5, 0.38, 12.3, 4, 0.08),
+      getVoxelMat(0x161922, { roughness: 0.6, metalness: 0.15 })
+    );
+    plinthMesh.position.set(0, -0.26, 0);
+    officeGroup.add(plinthMesh);
 
     const studioFloorMat = new THREE.MeshPhysicalMaterial({
       map: createVoxelFloorTexture(),
-      roughness: 0.44,
-      clearcoat: 0.22,
-      clearcoatRoughness: 0.3,
+      roughness: 0.58,
+      metalness: 0.02,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.45,
     });
     const studioFloor = new THREE.Mesh(
-      new RoundedBoxGeometry(16.0, 0.14, 11.8, 3, 0.03),
+      new RoundedBoxGeometry(16.0, 0.14, 11.8, 4, 0.05),
       studioFloorMat
     );
-    studioFloor.position.y = -0.05;
+    studioFloor.position.y = -0.06;
     studioFloor.receiveShadow = true;
     officeGroup.add(studioFloor);
 
-    // บัวพื้นและขอบกั้นห้องไม้โอ๊คเข้มรอบทิศ (ทำให้พื้นดูเป็นห้องสถาปัตยกรรมสมบูรณ์)
-    addVoxelBox(officeGroup, 16.0, 0.12, 0.16, 0, 0.06, -5.82, 0x3b2618, { roughness: 0.5 });
-    addVoxelBox(officeGroup, 0.16, 0.12, 11.8, -7.92, 0.06, 0, 0x3b2618, { roughness: 0.5 });
-    addVoxelBox(officeGroup, 0.16, 0.12, 11.8, 7.92, 0.06, 0, 0x3b2618, { roughness: 0.5 });
-    addVoxelBox(officeGroup, 16.0, 0.07, 0.14, 0, 0.035, 5.83, 0x3b2618, { roughness: 0.5 });
+    // บัวเชิงผนังด้านหลังและผนังหลักทรงเรขาคณิตคมชัด (ไม่ใช้ addVoxelBox ยืดสัดส่วนจนขอบโค้งเบี้ยว)
+    const baseboardMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(16.0, 0.1, 0.12),
+      getVoxelMat(0x1b1f2a, { roughness: 0.6 })
+    );
+    baseboardMesh.position.set(0, 0.05, -5.74);
+    officeGroup.add(baseboardMesh);
 
-    // ผนังด้านหลัง (ยกระดับความสูงเป็น 4.2m เพื่อให้ป้ายไม่โดนบัง)
-    const backWallMat = getVoxelMat(0x272b38, { roughness: 0.75 });
-    const backWall = new THREE.Mesh(new RoundedBoxGeometry(16.0, 4.2, 0.28, 2, 0.04), backWallMat);
+    const backWallMat = getVoxelMat(0x252a37, { roughness: 0.78 });
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(16.0, 4.2, 0.28), backWallMat);
     backWall.position.set(0, 2.1, -5.9);
     backWall.receiveShadow = true;
     officeGroup.add(backWall);
 
-    // คิ้วบัวบนยอดผนังด้านหลัง
-    addVoxelBox(officeGroup, 16.1, 0.14, 0.36, 0, 4.22, -5.88, 0x4a321f, { roughness: 0.45 });
+    // คิ้วขอบบนผนังสถาปัตยกรรมโมเดิร์นสีเทาเข้ม
+    const topCornice = new THREE.Mesh(
+      new THREE.BoxGeometry(16.04, 0.12, 0.34),
+      getVoxelMat(0x181c26, { roughness: 0.5 })
+    );
+    topCornice.position.set(0, 4.22, -5.88);
+    officeGroup.add(topCornice);
 
-    // ระแนงไม้ Acoustic Voxel ด้านหลังตรงกลาง
-    for (let i = -7; i <= 7; i++) {
-      addVoxelBox(officeGroup, 0.12, 3.9, 0.1, i * 0.34, 2.05, -5.72, 0x6b4423, { roughness: 0.42 });
+    // ผนังระแนงไม้ Acoustic ตรงกลางแบบสถาปัตยกรรมสมัยใหม่ (มีแผ่นหลังสีเข้มและกรอบบน-ล่างคมกริบ ไม่โผล่หัวมนเหมือนรั้ว)
+    const slatPanelBack = new THREE.Mesh(
+      new THREE.BoxGeometry(4.76, 4.06, 0.04),
+      getVoxelMat(0x141821, { roughness: 0.85 })
+    );
+    slatPanelBack.position.set(0, 2.12, -5.75);
+    officeGroup.add(slatPanelBack);
+
+    const slatWoodMat = getVoxelMat(0x6e4726, { roughness: 0.48 });
+    const slatGeo = new THREE.BoxGeometry(0.075, 4.02, 0.06);
+    for (let i = -14; i <= 14; i++) {
+      const slat = new THREE.Mesh(slatGeo, slatWoodMat);
+      slat.position.set(i * 0.16, 2.12, -5.72);
+      slat.castShadow = true;
+      slat.receiveShadow = true;
+      officeGroup.add(slat);
     }
 
-    // หน้าต่างกระจก Loft ซ้าย-ขวา (เปลี่ยนสีท้องฟ้าตามโหมด กลางวัน ☀️ / กลางคืน 🌙)
+    // หน้าต่างกระจก Loft ซ้าย-ขวา (กรอบเหลี่ยมคมชัด ไม่บิดโค้ง)
     const windowSkyMat = new THREE.MeshStandardMaterial({
       color: 0x7dd3fc,
       emissive: 0x38bdf8,
-      emissiveIntensity: 0.45,
+      emissiveIntensity: 0.42,
       roughness: 0.15,
     });
 
     function createLoftWindow(wx) {
       const wg = new THREE.Group();
-      wg.position.set(wx, 2.25, -5.72);
-      // กรอบหน้าต่างอลูมิเนียมดำ
-      addVoxelBox(wg, 3.1, 2.2, 0.1, 0, 0, 0, 0x181b24, { roughness: 0.35 });
-      // กระจกท้องฟ้า
-      const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.86, 1.96), windowSkyMat);
-      glass.position.set(0, 0, 0.055);
+      wg.position.set(wx, 2.25, -5.73);
+      const frameMat = getVoxelMat(0x171a24, { roughness: 0.4 });
+      const blindMat = getVoxelMat(0xe2e8f0, { roughness: 0.6 });
+
+      const outerFrame = new THREE.Mesh(new THREE.BoxGeometry(3.1, 2.2, 0.09), frameMat);
+      wg.add(outerFrame);
+
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.88, 1.98), windowSkyMat);
+      glass.position.set(0, 0, 0.05);
       wg.add(glass);
-      // ซี่หน้าต่าง Loft + มู่ลี่ไม้ด้านบน
-      addVoxelBox(wg, 0.06, 1.96, 0.12, -0.95, 0, 0.02, 0x181b24, {});
-      addVoxelBox(wg, 0.06, 1.96, 0.12, 0.95, 0, 0.02, 0x181b24, {});
-      addVoxelBox(wg, 2.86, 0.06, 0.12, 0, 0.15, 0.02, 0x181b24, {});
+
+      const mullionV1 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.98, 0.11), frameMat);
+      mullionV1.position.set(-0.95, 0, 0.01);
+      wg.add(mullionV1);
+      const mullionV2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.98, 0.11), frameMat);
+      mullionV2.position.set(0.95, 0, 0.01);
+      wg.add(mullionV2);
+      const mullionH = new THREE.Mesh(new THREE.BoxGeometry(2.88, 0.05, 0.11), frameMat);
+      mullionH.position.set(0, 0.18, 0.01);
+      wg.add(mullionH);
+
       for (let b = 0; b < 4; b++) {
-        addVoxelBox(wg, 2.82, 0.04, 0.08, 0, 0.85 - b * 0.12, 0.04, 0xd6d3d1, { roughness: 0.6 });
+        const blind = new THREE.Mesh(new THREE.BoxGeometry(2.84, 0.035, 0.07), blindMat);
+        blind.position.set(0, 0.86 - b * 0.12, 0.03);
+        wg.add(blind);
       }
       officeGroup.add(wg);
     }
-    createLoftWindow(-4.55);
-    createLoftWindow(4.55);
+    createLoftWindow(-4.85);
+    createLoftWindow(4.85);
 
-    // ป้ายชื่อสตูดิโอความละเอียดสูง 1024x256 (ไม่ล้นขอบทอง 100% + แยกแผ่นหน้าชัดเจน + ยกสูงที่ y = 3.32)
+    // ป้ายสตูดิโอสไตล์โมเดิร์นมินิมอล (ไร้กรอบทองซ้อนหลายชั้น และไม่ถูกยืดมุมโค้งเบี้ยว)
     function createWallSignTexture() {
       const c = document.createElement('canvas');
       c.width = 1024;
-      c.height = 256;
+      c.height = 200;
       const ctx = c.getContext('2d');
 
-      ctx.fillStyle = '#11141d';
-      ctx.fillRect(0, 0, 1024, 256);
+      // พื้นหลังสีเดียวกับตัวป้าย 3D (#151924) เพื่อให้กลืนเป็นชิ้นเดียวกันไร้รอยต่อ
+      ctx.fillStyle = '#151924';
+      ctx.fillRect(0, 0, 1024, 200);
 
-      ctx.strokeStyle = '#d4af37';
-      ctx.lineWidth = 8;
-      ctx.strokeRect(16, 16, 992, 224);
+      // เส้นคาดด้านบนบางเฉียบสไตล์โมเดิร์น
+      const grad = ctx.createLinearGradient(180, 0, 844, 0);
+      grad.addColorStop(0, 'rgba(168, 85, 247, 0)');
+      grad.addColorStop(0.25, 'rgba(168, 85, 247, 0.65)');
+      grad.addColorStop(0.5, 'rgba(56, 189, 248, 0.75)');
+      grad.addColorStop(0.75, 'rgba(34, 197, 94, 0.65)');
+      grad.addColorStop(1, 'rgba(34, 197, 94, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(140, 22, 744, 3);
 
-      ctx.strokeStyle = 'rgba(212, 175, 55, 0.32)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(28, 28, 968, 200);
-
+      // ชื่อสตูดิโอหลัก คมชัด สะอาดตา
       ctx.textAlign = 'center';
       ctx.fillStyle = '#f8fafc';
-      ctx.font = '700 42px Inter, sans-serif';
-      ctx.fillText('AGENT GUARD VOXEL STUDIO', 512, 108, 900);
+      ctx.font = '700 44px Inter, -apple-system, sans-serif';
+      ctx.fillText('AGENT GUARD STUDIO', 512, 96);
 
-      ctx.fillStyle = '#fde68a';
-      ctx.font = '600 22px "JetBrains Mono", monospace';
-      ctx.fillText('OPUS ARCHITECT  •  HAIKU SCOUT  •  SONNET CODER  •  2-STRIKE QA', 512, 176, 900);
+      // บรรทัดรองแสดงทีมโมเดลแบบมินิมอลพร้อมจุดสีประจำแผนก
+      const roles = [
+        { label: 'OPUS ARCHITECT', color: '#a855f7', x: 205 },
+        { label: 'HAIKU SCOUT', color: '#14b8a6', x: 415 },
+        { label: 'SONNET CODER', color: '#3b82f6', x: 620 },
+        { label: '2-STRIKE QA', color: '#22c55e', x: 825 },
+      ];
+      ctx.font = '600 19px "JetBrains Mono", monospace';
+      roles.forEach((r) => {
+        ctx.fillStyle = r.color;
+        ctx.beginPath();
+        ctx.arc(r.x - ( ctx.measureText(r.label).width / 2 ) - 12, 146, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText(r.label, r.x, 153);
+      });
 
       const t = new THREE.CanvasTexture(c);
       t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 4;
       return t;
     }
 
     const wallSignGroup = new THREE.Group();
-    wallSignGroup.position.set(0, 3.32, -5.64);
-    addVoxelBox(wallSignGroup, 4.3, 1.04, 0.12, 0, 0, 0, 0xd4af37, { metalness: 0.75, roughness: 0.25 });
-    addVoxelBox(wallSignGroup, 4.18, 0.92, 0.13, 0, 0, 0.01, 0x11141d, { roughness: 0.4 });
+    wallSignGroup.position.set(0, 3.3, -5.65);
+
+    // แผ่นฐาน Backlit ซ่อนไฟนุ่มนวลด้านหลังป้าย (ใช้ RoundedBoxGeometry สัดส่วนจริง ไม่ยืดเบี้ยว)
+    const signBackplate = new THREE.Mesh(
+      new RoundedBoxGeometry(4.24, 0.86, 0.04, 4, 0.03),
+      new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        emissive: 0x38bdf8,
+        emissiveIntensity: 0.18,
+        roughness: 0.35,
+      })
+    );
+    signBackplate.position.set(0, 0, -0.02);
+    wallSignGroup.add(signBackplate);
+
+    // ตัวบอดี้ป้ายสีเข้ม Matte Obsidian สีเดียวกับแผ่น Canvas ด้านหน้า (#151924)
+    const signBody = new THREE.Mesh(
+      new RoundedBoxGeometry(4.18, 0.8, 0.08, 4, 0.025),
+      new THREE.MeshBasicMaterial({ color: 0x151924 })
+    );
+    wallSignGroup.add(signBody);
+
     const wallSignFace = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.12, 0.88),
+      new THREE.PlaneGeometry(4.06, 0.74),
       new THREE.MeshBasicMaterial({ map: createWallSignTexture() })
     );
-    wallSignFace.position.set(0, 0, 0.078);
+    wallSignFace.position.set(0, 0, 0.042);
     wallSignGroup.add(wallSignFace);
     officeGroup.add(wallSignGroup);
 
@@ -1852,56 +1930,6 @@
     }
     createVoxelTree(-6.9, 4.7);
     createVoxelTree(6.9, 4.7);
-
-    // เวทียกพื้น Voxel ตรงกลางสำหรับโต๊ะหัวหน้า Opus (กว้าง 4.6 x ลึก 3.6)
-    addVoxelBox(officeGroup, 4.6, 0.16, 3.6, 0, 0.08, 0, 0x3b2618, { roughness: 0.42 });
-    addVoxelBox(officeGroup, 4.7, 0.05, 3.7, 0, 0.16, 0, 0xd4af37, { roughness: 0.28, metalness: 0.75 });
-
-    // รางไฟส่งข้อมูลแบบแบนฝังเรียบไปกับพื้นไม้ (Flush Voxel Floor Conduits — แทนท่อประปาสีเทา!)
-    const pathwayMap = {};
-    ['explorer', 'implementer', 'debugger', 'reviewer'].forEach((key) => {
-      const targetPos = DESK_INFO[key].pos;
-      const sx = targetPos.x > 0 ? 2.35 : -2.35;
-      const sz = targetPos.z > 0 ? 1.85 : -1.85;
-      const startVec = new THREE.Vector3(sx, 0.012, sz);
-      const endVec = new THREE.Vector3(targetPos.x, 0.012, targetPos.z);
-      const midVec = new THREE.Vector3().lerpVectors(startVec, endVec, 0.5);
-      const dist = startVec.distanceTo(endVec);
-      const angle = Math.atan2(endVec.x - startVec.x, endVec.z - startVec.z);
-
-      // รางฐานสีเข้มฝังพื้น
-      const baseStrip = new THREE.Mesh(
-        new THREE.BoxGeometry(0.14, 0.012, dist),
-        getVoxelMat(0x1e2430, { roughness: 0.5 })
-      );
-      baseStrip.position.copy(midVec);
-      baseStrip.rotation.y = angle;
-      officeGroup.add(baseStrip);
-
-      // เส้นไฟ LED ตรงกลางราง
-      const ledMat = new THREE.MeshStandardMaterial({
-        color: DESK_INFO[key].accent,
-        emissive: DESK_INFO[key].accent,
-        emissiveIntensity: 0.25,
-        roughness: 0.2,
-      });
-      const ledStrip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.016, dist), ledMat);
-      ledStrip.position.copy(midVec);
-      ledStrip.position.y = 0.015;
-      ledStrip.rotation.y = angle;
-      officeGroup.add(ledStrip);
-
-      // ก้อนแสงวิ่งตามรางเมื่อโต๊ะกำลังทำงาน
-      const pulseMesh = new THREE.Mesh(
-        new RoundedBoxGeometry(0.12, 0.04, 0.28, 2, 0.01),
-        new THREE.MeshBasicMaterial({ color: DESK_INFO[key].accent })
-      );
-      pulseMesh.rotation.y = angle;
-      pulseMesh.visible = false;
-      officeGroup.add(pulseMesh);
-
-      pathwayMap[key] = { startVec, endVec, mat: ledMat, pulseMesh };
-    });
 
     // =========================================================================
     // 5. ปั้นตัวละครพนักงาน 3D Voxel Art (แก้จุดนั่งทับโต๊ะ 100% — มือวางบนคีย์บอร์ด ขาแตะพื้น)
@@ -2111,31 +2139,13 @@
       const isBoss = key === 'core';
       const dk = key;
 
-      // 1. พรมทอสีเทาเข้ม (Dark Slate Woven Rug) + ขอบไฟเรืองแสง (ไม่ล้นขอบเวทีหัวหน้า!)
-      const rugW = isBoss ? 3.7 : 3.0;
-      const rugD = isBoss ? 2.5 : 2.2;
-      addVoxelBox(group, rugW, 0.025, rugD, 0, 0.012, -0.08, 0x1c202b, { roughness: 0.85 }, dk);
-
+      // 1. สถานะไฟ LED หน้าโต๊ะ (พื้นห้องไร้แผ่นพรมสี่เหลี่ยมทึบ เพื่อให้พื้นสำนักงานเรียบเนียนไร้รอยต่อ 100%)
       const borderMat = new THREE.MeshStandardMaterial({
         color: cfg.accent,
         emissive: cfg.accent,
         emissiveIntensity: 0.45,
         roughness: 0.25,
       });
-      // ขอบไฟ 4 ด้านรอบพรม (แทนวงแหวนกลมที่ล้นตกขอบเวที!)
-      const bThick = 0.055;
-      const bFront = new THREE.Mesh(new THREE.BoxGeometry(rugW + 0.06, 0.03, bThick), borderMat);
-      bFront.position.set(0, 0.018, -0.08 + rugD / 2);
-      group.add(bFront);
-      const bBack = new THREE.Mesh(new THREE.BoxGeometry(rugW + 0.06, 0.03, bThick), borderMat);
-      bBack.position.set(0, 0.018, -0.08 - rugD / 2);
-      group.add(bBack);
-      const bLeft = new THREE.Mesh(new THREE.BoxGeometry(bThick, 0.03, rugD), borderMat);
-      bLeft.position.set(-rugW / 2, 0.018, -0.08);
-      group.add(bLeft);
-      const bRight = new THREE.Mesh(new THREE.BoxGeometry(bThick, 0.03, rugD), borderMat);
-      bRight.position.set(rugW / 2, 0.018, -0.08);
-      group.add(bRight);
 
       // 2. โต๊ะทำงาน Voxel (ศูนย์กลางที่ z = +0.26, ขอบหลังอยู่ที่ z = -0.20..-0.24 ไม่ชนตัวละครที่ z = -0.64!)
       const deskW = isBoss ? 2.45 : 2.1;
@@ -2197,12 +2207,7 @@
       leftMonGroup.add(screenMeshBack);
 
       // แถบไฟสถานะทรงต่ำด้านหน้าโต๊ะ (ไม่บังคางตัวละครเหมือนจอโฮโลแกรมเดิม!)
-      const holoMat = new THREE.MeshStandardMaterial({
-        color: cfg.accent,
-        emissive: cfg.accent,
-        emissiveIntensity: 0.55,
-        roughness: 0.2,
-      });
+      const holoMat = borderMat;
       const frontBar = new THREE.Mesh(new RoundedBoxGeometry(0.84, 0.04, 0.04, 2, 0.01), holoMat);
       frontBar.position.set(0, 0.905, deskZ + deskD / 2 - 0.08);
       group.add(frontBar);
@@ -2380,7 +2385,7 @@
     officeGroup.add(workFolderGroup);
 
     const DESK_REST_POS = {
-      core: new THREE.Vector3(0.76, 1.09, 0.08),
+      core: new THREE.Vector3(0.76, 0.91, 0.08),
       explorer: new THREE.Vector3(-4.6 + 0.64, 0.91, -3.1 + 0.08),
       implementer: new THREE.Vector3(-4.6 + 0.64, 0.91, 3.2 + 0.08),
       debugger: new THREE.Vector3(4.6 + 0.64, 0.91, -3.1 + 0.08),
@@ -3104,8 +3109,8 @@
     function updateSpeechBubbles(activeNode, speechText, phase, strikeCount) {
       const keys = ['core', 'explorer', 'implementer', 'debugger', 'reviewer'];
       const cleanSpeech =
-        speechText && speechText.length > 56
-          ? speechText.slice(0, 54) + '…'
+        speechText && speechText.length > 85
+          ? speechText.slice(0, 82) + '…'
           : speechText;
       keys.forEach((k) => {
         const el = document.getElementById(`speech-${k}`);
@@ -3451,7 +3456,7 @@
         const vc = ws.voxelChar;
         const phaseOffset = idx * 1.7;
 
-        // ขอบพรมเรืองแสงตามสถานะ (หากติดเบรกเกอร์ให้กะพริบสีแดงที่โต๊ะนั้น)
+        // แถบไฟสถานะหน้าโต๊ะเรืองแสงตามสถานะ (หากติดเบรกเกอร์ให้กะพริบสีแดงที่โต๊ะนั้น)
         if (isActive && isGlobalDanger) {
           ws.borderMat.color.setHex(0xef4444);
           ws.borderMat.emissive.setHex(0xef4444);
@@ -3466,7 +3471,6 @@
             : 0.28;
         }
 
-        ws.holoMat.emissiveIntensity = isActive ? 0.95 : 0.35;
         ws.screenMat.emissiveIntensity = isActive ? 0.92 : 0.52;
         ws.lampBulbMat.emissiveIntensity = isActive || isNightMode ? 1.15 : 0.4;
 
@@ -3522,18 +3526,6 @@
           ws.sirenMesh.material.emissiveIntensity = isGlobalDanger
             ? 1.6 + Math.sin(elapsed * 16) * 0.8
             : 0.2;
-        }
-      });
-
-      // รางไฟฝังพื้น + ก้อนแสงวิ่งเฉพาะเส้นทางที่กำลังทำงาน
-      Object.entries(pathwayMap).forEach(([key, pathObj]) => {
-        const isAct = key === currentActiveNode;
-        pathObj.mat.emissiveIntensity = isAct ? 0.95 : 0.18;
-        pathObj.pulseMesh.visible = isAct;
-        if (isAct) {
-          const t = (elapsed * 0.9) % 1.0;
-          pathObj.pulseMesh.position.lerpVectors(pathObj.startVec, pathObj.endVec, t);
-          pathObj.pulseMesh.position.y = 0.026;
         }
       });
 
