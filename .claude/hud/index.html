@@ -3550,7 +3550,8 @@
           if (topCountEl) topCountEl.textContent = liveCatalog.items.length;
 
           const projBadge = document.getElementById('proj-name-badge');
-          if (projBadge && data.project) projBadge.textContent = data.project;
+          const projName = data.projectName || data.project;
+          if (projBadge && projName) projBadge.textContent = projName;
 
           const nextSkillName = data.activeSkill || 'common-ground';
           const nextCmd = data.activeCommand || data.activePromptFile || '.claude/commands/plan.md';
@@ -3713,43 +3714,71 @@
       }
     }
 
-    async function pollQuota() {
+    async function pollQuota(forceRefresh = false) {
       try {
-        const res = await fetch('/api/quota?t=' + Date.now(), { cache: 'no-store' });
+        const qs = forceRefresh ? 'refresh=1&t=' + Date.now() : 't=' + Date.now();
+        const res = await fetch('/api/quota?' + qs, { cache: 'no-store' });
         if (!res.ok) return;
         const q = await res.json();
         const claude = q.claudeCode || q.claude || {};
         const agy = q.antigravity || q.agy || {};
 
-        const cPct = claude.fiveHour?.usedPct ?? null;
         const cEl = document.getElementById('q-claude-5h-pct');
         const cBar = document.getElementById('q-claude-5h-bar');
-        if (cPct !== null && !isNaN(Number(cPct))) {
-          const n = Math.min(100, Math.max(0, Number(cPct)));
-          if (cEl) cEl.textContent = `${n.toFixed(1)}%`;
-          if (cBar) cBar.style.width = `${n}%`;
+        const cRemRaw = claude.rem5h !== undefined && claude.rem5h !== '-' ? Number(claude.rem5h) : null;
+        if (cRemRaw !== null && !isNaN(cRemRaw)) {
+          const rem = Math.min(100, Math.max(0, cRemRaw));
+          const resetTxt = claude.reset5h && claude.reset5h !== '-' ? `รีเซ็ต ${claude.reset5h}` : '';
+          const rem7Txt = claude.rem7d && claude.rem7d !== '-' ? ` • 7d ${claude.rem7d}%` : '';
+          if (rem <= 0) {
+            if (cEl) {
+              cEl.textContent = `ติด Limit 0% (${resetTxt}${rem7Txt})`;
+              cEl.style.color = '#f87171';
+            }
+            if (cBar) {
+              cBar.style.width = '100%';
+              cBar.style.background = '#ef4444';
+            }
+          } else {
+            if (cEl) {
+              cEl.textContent = `เหลือ ${rem}% (${resetTxt}${rem7Txt})`;
+              cEl.style.color = rem <= 20 ? '#fbbf24' : '';
+            }
+            if (cBar) {
+              cBar.style.width = `${rem}%`;
+              cBar.style.background = rem <= 20 ? '#f59e0b' : 'var(--accent-opus)';
+            }
+          }
         } else {
-          if (cEl) cEl.textContent = claude.rem5h || 'พร้อมใช้งาน';
-          if (cBar) cBar.style.width = '18%';
+          if (cEl) cEl.textContent = 'พร้อมใช้งาน';
+          if (cBar) cBar.style.width = '50%';
         }
 
-        const aPct = agy.gemini?.fiveHourUsedPct ?? null;
         const aEl = document.getElementById('q-agy-gemini-pct');
         const aBar = document.getElementById('q-agy-gemini-bar');
-        if (aPct !== null && !isNaN(Number(aPct))) {
-          const n = Math.min(100, Math.max(0, Number(aPct)));
-          if (aEl) aEl.textContent = `${n.toFixed(1)}%`;
-          if (aBar) aBar.style.width = `${n}%`;
+        const gRemRaw = agy.gemini5h !== undefined && agy.gemini5h !== '-' ? Number(agy.gemini5h) : null;
+        if (gRemRaw !== null && !isNaN(gRemRaw)) {
+          const gRem = Math.min(100, Math.max(0, gRemRaw));
+          const cAgyTxt = agy.claude5h && agy.claude5h !== '-' ? ` • Claude ${agy.claude5h}%` : '';
+          const gResetTxt = agy.gemini5hReset && agy.gemini5hReset !== '-' ? ` (รีเซ็ต ${agy.gemini5hReset})` : '';
+          if (aEl) {
+            aEl.textContent = `Gemini เหลือ ${gRem}%${cAgyTxt}${gResetTxt}`;
+            aEl.style.color = gRem <= 15 ? '#fbbf24' : '';
+          }
+          if (aBar) {
+            aBar.style.width = `${gRem}%`;
+            aBar.style.background = gRem <= 15 ? '#f59e0b' : '#3b82f6';
+          }
         } else {
-          if (aEl) aEl.textContent = agy.gemini5h || 'พร้อมใช้งาน';
-          if (aBar) aBar.style.width = '14%';
+          if (aEl) aEl.textContent = 'พร้อมใช้งาน';
+          if (aBar) aBar.style.width = '50%';
         }
       } catch (_) {}
     }
 
     document
       .getElementById('btn-refresh-quota')
-      ?.addEventListener('click', () => pollQuota());
+      ?.addEventListener('click', () => pollQuota(true));
 
     // =========================================================================
     // 12. อัปเดตตำแหน่งป้ายชื่อ 3D และลูกโป่งคำพูดให้เกาะติดตัวละคร Voxel
