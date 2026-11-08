@@ -63,11 +63,12 @@ chmod +x .claude/hooks/*.sh
 ```
 
 ### วิธีที่ 2: นำไปใส่ในโปรเจกต์เดิมที่มีอยู่แล้ว
-ก๊อปปี้แค่ 4 ส่วนนี้ไปวางที่โฟลเดอร์นอกสุด (Root) ของโปรเจกต์คุณ:
+ก๊อปปี้แค่ 5 ส่วนนี้ไปวางที่โฟลเดอร์นอกสุด (Root) ของโปรเจกต์คุณ:
 1. ไฟล์ `AGENTS.md`
 2. ไฟล์ `CLAUDE.md`
-3. โฟลเดอร์ `.agents/`
-4. โฟลเดอร์ `.claude/`
+3. ไฟล์ `GEMINI.md`
+4. โฟลเดอร์ `.agents/`
+5. โฟลเดอร์ `.claude/`
 
 จากนั้นรันคำสั่งเปิดสิทธิ์สคริปต์ 1 ครั้ง:
 ```bash
@@ -78,7 +79,7 @@ chmod +x .claude/hooks/*.sh
 รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์เดิม เพื่ออัปเดตเฉพาะไฟล์มาตรฐานของ Template โดย**ไม่ลบ** Skill เสริมที่เคยดึงเพิ่มไว้ (`install-skill.sh`) และไม่กระทบโค้ดในโปรเจกต์:
 ```bash
 git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update && \
-rsync -a /tmp/agt-update/CLAUDE.md /tmp/agt-update/AGENTS.md /tmp/agt-update/.claude /tmp/agt-update/.agents ./ && \
+rsync -a /tmp/agt-update/CLAUDE.md /tmp/agt-update/AGENTS.md /tmp/agt-update/GEMINI.md /tmp/agt-update/.claude /tmp/agt-update/.agents ./ && \
 chmod +x .claude/hooks/*.sh && \
 rm -rf /tmp/agt-update
 ```
