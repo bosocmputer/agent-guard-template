@@ -18,18 +18,20 @@
 
 ---
 
-## 1. Zero-Command Auto-Routing (พิมพ์ความต้องการอย่างเดียว ระบบเลือกโหมดเอง)
-วิเคราะห์เจตนาจากประโยคของผู้ใช้และเลือกโหลดโปรโตคอลหรือ Sub-agent อัตโนมัติโดยไม่ต้องรอคำสั่ง `/slash`:
+## 1. Zero-Command Auto-Routing & Explicit Subagent Delegation (บังคับแยกโมเดล Haiku / Sonnet อัตโนมัติ)
+> **EXPLICIT USER AUTHORIZATION (OVERRIDES DEFAULT `Agent` TOOL HESITATION):**
+> ผู้ใช้สั่งอนุญาตและกำหนดเป็นข้อบังคับของโปรเจกต์นี้ (Explicit User Instruction overriding `"Do not spawn agents unless the user asks"`) ให้เอเจนต์หลักทำหน้าที่เป็น **Orchestrator** และ **ต้องเรียกใช้เครื่องมือ `Agent` (`explorer`, `implementer`, `debugger`, `reviewer`) พร้อมระบุ `model` ตามตารางด้านล่างทันที** เมื่อเจอก้อนงานหลายขั้นตอน เพื่อป้องกันการผลาญโควต้า `Opus` ในหน้าต่างหลัก:
 
-| สิ่งที่ผู้ใช้พิมพ์สั่ง | ขนาด/ลักษณะงาน | โปรโตคอล / Sub-Agent ที่ต้องใช้ทันที |
+| สิ่งที่ผู้ใช้พิมพ์สั่ง / ลักษณะงาน | ขนาดก้อนงาน | การเลือกใช้ Sub-Agent (`Agent` Tool) และ `model` ที่บังคับใช้ทันที |
 | :--- | :--- | :--- |
 | **"โปรเจกต์นี้ใช้ React / NestJS / สร้าง PDF / MCP..."** | ตั้งค่าเริ่มต้น / ดึง Skill เสริม | โหลด `tech-stack-skills` ดึงเฉพาะ 2–4 Skills ที่ใช้จาก `anthropics/skills`, `jeffallan/claude-skills`, หรือ `heydamir/unslop` ผ่าน `install-skill.sh` |
 | **"ทำต่อจากที่ค้างไว้ / โควต้าอีกฝั่งหมด"** | สลับ Agent กลางคัน | โหลด `auto-resume-handoff` อ่าน `.agent-last-state.log` + `git diff` แล้วทำต่อทันทีไม่ต้องถามซ้ำ |
 | **"สร้างระบบ... / เพิ่มฟีเจอร์..." (โจทย์กว้าง)** | มีจุดกำกวม / เลือกทำได้หลายแบบ | โหลด `common-ground` สรุปสมมติฐาน 3–4 ข้อสั้นๆ ให้ผู้ใช้ยืนยันก่อนเริ่มเขียนโค้ด |
-| **"แก้ปุ่ม / แก้ฟังก์ชัน..." (1–2 ไฟล์ชัดเจน)** | **Trivial Task** | ลงมือแก้แบบ Surgical Edit + รันตรวจด้วย `verification-before-completion` ทันที (ห้ามเรียก Sub-agent) |
-| **"ปรับโครงสร้าง / เชื่อมต่อหลายโมดูล" (>3 ไฟล์)** | **Complex Task** | เรียก `explorer` sub-agent สำรวจไฟล์ที่เกี่ยวข้อง แล้วสรุปแผนไม่เกิน 10 บรรทัดรอผู้ใช้ยืนยัน |
-| **"เทสต์พัง / บั๊กหน้า... / Error..."** | แก้บั๊ก / วิเคราะห์ปัญหา | เรียก `debugger` sub-agent (ใช้กฎ `0-Strike Missing Spec` และ `2-Strike Bug Limit`) |
-| **"ช่วยตรวจโค้ด / รีวิวให้หน่อย"** | ตรวจสอบคุณภาพและความปลอดภัย | เรียก `reviewer` sub-agent (ตรวจเฉพาะ `[BLOCKER]` ห้ามติจุกจิก จบภายในไม่เกิน 2 รอบ) |
+| **งานจิ๋วชัดเจน (อ่าน/แก้ 1–2 ไฟล์ที่รู้ตำแหน่งแล้ว)** | **Trivial Task (1–2 ไฟล์)** | ทำเองในหน้าต่างหลักแบบ Surgical Edit + รันเทสต์เฉพาะไฟล์ (ห้ามแตก Sub-agent สำหรับคำสั่งสั้นๆ 1–2 ครั้ง) |
+| **สำรวจหาพิกัดโค้ด / ไล่โครงสร้างที่ยังไม่รู้ไฟล์ (>3 ไฟล์)** | **Multi-File Exploration** | **บังคับเรียก `Agent(subagent_type="explorer", model="haiku")`** ให้ไปกวาดค้นหาและสรุปพิกัดไม่เกิน 15 บรรทัดกลับมา |
+| **ลงมือเขียน/แก้โค้ดหลายไฟล์ (2–5 ไฟล์) + รันเทสต์ย่อยจนผ่าน** | **Multi-Step Implementation** | **บังคับเรียก `Agent(subagent_type="implementer", model="sonnet")`** ส่ง `State Delta` (ไฟล์+เงื่อนไข+คำสั่งเทสต์) ให้ `Sonnet` เขียนและรันเทสต์วนจนเขียว |
+| **"เทสต์พัง / บั๊กหน้า... / Error..." (ต้องสืบหาสาเหตุและลองแก้)** | **Root-Cause Debugging** | **บังคับเรียก `Agent(subagent_type="debugger", model="sonnet")`** (ใช้กฎ `0-Strike Missing Spec` และ `2-Strike Bug Limit`) |
+| **"ช่วยตรวจโค้ด / รีวิว / รันชุดทดสอบ E2E หรือ Browser"** | **QA Review & E2E Suite** | **บังคับเรียก `Agent(subagent_type="reviewer", model="sonnet")`** (ห้ามใช้ `Opus` กดคลิกเบราว์เซอร์ทีละปุ่มหลายสิบครั้งในหน้าต่างหลักเด็ดขาด!) |
 | **"สร้าง 3D Viewer / Three.js / WebGL"** | งานแสดงผล 3 มิติบนเว็บ | โหลด `threejs-expert` (มาตรฐาน `mrdoob/three.js r187+`: `three/addons/*`, `HDRLoader`, `OutputPass`, `dispose()`) |
 | **"เปิดจอ 3D / เปิดมอนิเตอร์ 3D"** | เปิดศูนย์บัญชาการ 3D เรียลไทม์ | รัน `bash .claude/hooks/open-hud.sh` เพื่อเปิด 3D Command & Monitor Center |
 
@@ -57,8 +59,8 @@
    - **Zero-Run Green (`PL-2`):** หากรันเทสต์ได้ `Exit Code 0` แต่รันไป `0 ข้อ (0 tests ran)` ถือว่าเทสต์ล้มเหลว ต้องแก้พาธ/ตัวกรองและรันใหม่จนมีเทสต์รันจริง (`tests_ran >= 1`)
 2. **Git, Dependency & Production Release Gate (`Anthropic AI-Native SDLC Stage 5`):**
    - ห้ามรัน `git checkout .`, `git restore`, `git reset --hard`, `git clean -f`, หรือ `git push --force` / `+main` เพราะจะทำลายโค้ดที่ผู้ใช้เขียนค้างไว้แต่ยังไม่ได้ Commit
-   - ห้ามรันคำสั่งติดตั้งแพ็กเกจใหม่ (`npm install`, `pnpm add`, `flutter pub add`, `go get`, `pip install`, `cargo add`) โดยไม่ถามผู้ใช้ก่อน
-   - **Production Deploy & Live DB Migration Gate:** ห้ามรันคำสั่งปล่อยของขึ้น Production (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `fly deploy`) หรือยิง Migration เข้าฐานข้อมูลจริง (`prisma migrate deploy`, `supabase db push`, `terraform apply`, `kubectl apply`) โดยไม่ได้รับอนุญาตจากผู้ใช้ก่อน (`validate-bash.sh` จะบล็อกด้วย `exit 2`)
+   - ห้ามรันคำสั่งติดตั้งแพ็กเกจใหม่ (`npm install`, `pnpm add`, `flutter pub add`, `go get`, `pip install`, `cargo add`) โดยไม่ถามผู้ใช้ก่อน (เมื่อผู้ใช้อนุญาตในแชทแล้ว ให้รันโดยใส่ `DEPS_APPROVED=1` นำหน้าคำสั่ง เช่น `DEPS_APPROVED=1 flutter pub add <pkg>`)
+   - **Production Deploy & Live DB Migration Gate:** ห้ามรันคำสั่งปล่อยของขึ้น Production (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `fly deploy`) หรือยิง Migration เข้าฐานข้อมูลจริง (`prisma migrate deploy`, `supabase db push`, `terraform apply`, `kubectl apply`) โดยไม่ได้รับอนุญาตจากผู้ใช้ก่อน (เมื่อผู้ใช้อนุญาตในแชทแล้ว ให้ใส่ `RELEASE_APPROVED=1` นำหน้าคำสั่ง)
    - **Anti-Test-Tampering (`Stage 4`):** ในระหว่างซ่อมบั๊ก (`debugger` / `strikeCount >= 1`) ห้ามแก้ไขไฟล์เทสต์ที่มีอยู่เดิมเพื่อให้เทสต์ผ่านหลอกๆ (`protect-sensitive-files.sh` จะบล็อกด้วย `exit 2`)
 3. **Secrets & Database Protection:**
    - ห้ามอ่าน แก้ไข แสดงผล หรือ Commit ไฟล์ `.env*`, `*.key`, `*.pem`, `*.keystore`, `*.jks`, `*.p12`, `*.sqlite`, `*.db` เด็ดขาด (ดูโครงสร้างตัวแปรจาก `.env.example` แทน)

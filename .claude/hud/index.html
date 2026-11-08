@@ -3556,8 +3556,8 @@
       if (th && th.text) {
         boxEl.textContent = th.text;
         if (timeEl) {
-          const isTh = String(th.kind || '').toUpperCase() === 'THOUGHT' || th.kind === 'thinking';
-          const kindLbl = isTh ? '💭 ความคิด' : '💬 สรุปผล';
+          const ku = String(th.kind || '').toUpperCase();
+          const kindLbl = ku === 'SUBAGENT' ? '🤖 Subagent จริง' : (ku === 'THOUGHT' || th.kind === 'thinking' ? '💭 ความคิด' : '💬 สรุปผล');
           timeEl.textContent = `${kindLbl} • ${th.time || 'ล่าสุด'}`;
         }
       } else {
@@ -3814,8 +3814,8 @@
             .slice(0, 6)
             .map((th) => {
               const deskCfg = DESK_INFO[th.desk] || DESK_INFO.core;
-              const isTh = String(th.kind || '').toUpperCase() === 'THOUGHT' || th.kind === 'thinking';
-              const kindBadge = isTh ? '💭 ความคิด' : '💬 สรุปผล';
+              const ku = String(th.kind || '').toUpperCase();
+              const kindBadge = ku === 'SUBAGENT' ? '🤖 Subagent จริง' : (ku === 'THOUGHT' || th.kind === 'thinking' ? '💭 ความคิด' : '💬 สรุปผล');
               return `
                 <div class="flat-row" style="cursor:pointer;" onclick="window.focusDesk('${escapeHtml(th.desk || 'core')}', true)">
                   <div class="fr-top">

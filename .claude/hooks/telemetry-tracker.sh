@@ -405,7 +405,21 @@ def extract_live_session_thoughts(root_dir):
             if not isinstance(c, dict):
                 continue
             ctype = c.get("type")
-            if ctype in ("thinking", "text"):
+            if ctype == "tool_use" and c.get("name") == "Agent":
+                inp = c.get("input") or {}
+                st = str(inp.get("subagent_type") or "implementer").lower()
+                sm = str(inp.get("model") or ("haiku" if "explor" in st else "sonnet")).upper()
+                sdesc = str(inp.get("description") or inp.get("prompt") or "")[:180]
+                s_desk = "explorer" if "explor" in st else ("debugger" if "debug" in st else ("reviewer" if "review" in st else "implementer"))
+                item = {
+                    "time": t_str or now_local,
+                    "kind": "SUBAGENT",
+                    "desk": s_desk,
+                    "text": f"🤖 [Subagent จริง: {sm}] เรียก {st} — {sdesc}",
+                }
+                thoughts.append(item)
+                desk_thoughts[s_desk] = item
+            elif ctype in ("thinking", "text"):
                 raw_txt = (c.get("thinking") if ctype == "thinking" else c.get("text")) or ""
                 raw_txt = re.sub(r"<system-reminder>.*?</system-reminder>", " ", raw_txt, flags=re.S)
                 raw_txt = re.sub(r"<ide_opened_file>.*?</ide_opened_file>", " ", raw_txt, flags=re.S)
@@ -601,6 +615,42 @@ if mode_type == "stdin":
                 push_used_item("READ", short_target, rel_target, "explorer", f"{tool_name}: {rel_target}")
             state["currentAction"] = f"🔍 ฝ่ายสำรวจใช้ {tool_name} ค้นหา: {rel_target or short_target}"
             state["liveSpeech"] = f"ใช้ {tool_name} สแกนไฟล์ [{short_target}] เจอพิกัดแล้วค่ะ! ช่วยประหยัดโควต้าสมองใหญ่ไปได้อีก 1 รอบ ⚡"
+
+    elif stage == "agent":
+        t_in = payload.get("tool_input") or (payload.get("toolCall") or {}).get("args") or {}
+        sub_type = str(t_in.get("subagent_type") or t_in.get("TypeName") or "implementer").strip()
+        sub_low = sub_type.lower()
+        if "explor" in sub_low or sub_low == "research":
+            sub_desk = "explorer"
+            default_m = "haiku"
+            sub_skill = "tech-stack-skills"
+        elif "debug" in sub_low:
+            sub_desk = "debugger"
+            default_m = "sonnet"
+            sub_skill = "root-cause-debug"
+        elif "review" in sub_low:
+            sub_desk = "reviewer"
+            default_m = "sonnet"
+            sub_skill = "pragmatic-review"
+        else:
+            sub_desk = "implementer"
+            default_m = "sonnet"
+            sub_skill = "verification-before-completion"
+        sub_model = str(t_in.get("model") or t_in.get("Model") or default_m).lower()
+        sub_desc = humanize_detail(str(t_in.get("description") or t_in.get("Role") or t_in.get("prompt") or sub_type))
+        state["activeNode"] = sub_desk
+        state["activeModel"] = sub_model
+        state["systemStatus"] = "working"
+        state["liveEmotion"] = "working"
+        state["activeAgentFile"] = f".claude/agents/{sub_desk}.md"
+        state["activeSkill"] = sub_skill
+        state["activeSkillFile"] = f".claude/skills/{sub_skill}/SKILL.md"
+        state["activeRuleFile"] = ".claude/rules/model-routing.md"
+        state["activeHook"] = ".claude/hooks/telemetry-tracker.sh (Subagent Spawn)"
+        state["currentAction"] = f"🤖 [Subagent จริง: {sub_model.upper()}] แตกงานให้ {sub_type}: {sub_desc}"
+        state["liveSpeech"] = f"🤖 แตก Subagent จริง [{sub_type} • {sub_model.upper()}] มารับงาน [{sub_desc}] ช่วยประหยัดโควต้าหน้าต่างหลัก Opus แล้วครับ!"
+        stats["subagentSpawns"] = int(stats.get("subagentSpawns", 0)) + 1
+        push_used_item("SUBAGENT", f"{sub_type} ({sub_model.upper()})", state["activeAgentFile"], sub_desk, f"🤖 [Subagent จริง: {sub_model.upper()}] {sub_desc}")
 
     elif stage == "stop":
         term_reason = payload.get("terminationReason") or "COMPLETED"
@@ -855,10 +905,12 @@ PYEOF
 fi
 
 if [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "antigravity" ]; then
-  if [ "$HOOK_STAGE" = "read" ] || [ "$HOOK_STAGE" = "stop" ]; then
+  if [ "$HOOK_STAGE" = "read" ] || [ "$HOOK_STAGE" = "stop" ] || [ "$HOOK_STAGE" = "agent" ]; then
     printf '{"decision":"allow"}\n'
   else
     printf '{}\n'
   fi
+elif [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "claude" ] && [ "$HOOK_STAGE" = "prompt" ]; then
+  echo "[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตล่วงหน้าอย่างเป็นทางการให้เรียกใช้เครื่องมือ Agent ทันทีเมื่อเจอก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ Agent(subagent_type='explorer', model='haiku') | แก้โค้ดหลายไฟล์+รันเทสต์ย่อย ➔ Agent(subagent_type='implementer', model='sonnet') | ซ่อมบั๊ก ➔ Agent(subagent_type='debugger', model='sonnet') | รีวิว/รัน E2E ➔ Agent(subagent_type='reviewer', model='sonnet')) เพื่อประหยัดโควต้าหน้าต่างหลัก"
 fi
 exit 0

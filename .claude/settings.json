@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Agent",
       "Bash(node --test*)",
       "Bash(npm test*)",
       "Bash(npm run build*)",
@@ -111,6 +112,15 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/telemetry-tracker.sh\" --hook-stdin read"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/telemetry-tracker.sh\" --hook-stdin agent"
           }
         ]
       }

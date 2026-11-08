@@ -16,8 +16,8 @@ if [ -f ".agent-last-state.log" ]; then
 fi
 
 GIT_DIRTY=""
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  GIT_DIRTY=$(git status --short 2>/dev/null | head -n 5 | tr '\n' '; ')
+if git --no-optional-locks rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  GIT_DIRTY=$(git --no-optional-locks status --short 2>/dev/null | head -n 5 | tr '\n' '; ')
 fi
 
 if [ -n "$CHECKPOINT" ] || [ -n "$GIT_DIRTY" ]; then
