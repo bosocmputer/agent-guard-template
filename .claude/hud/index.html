@@ -833,8 +833,8 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      height: 44px;
-      padding: 0 8px;
+      height: 46px;
+      padding: 0 7px;
       background: var(--bg-surface);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
@@ -843,17 +843,184 @@
       box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
     }
 
-    .dock-select {
-      height: 30px;
-      padding: 0 8px;
-      border-radius: 7px;
+    /* Custom Select Popover Component (shadcn/ui & Linear Style — แทน native <select> ของเบราว์เซอร์) */
+    .ui-select {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .ui-select-trigger {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 8px;
       border: 1px solid var(--border-subtle);
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .ui-select-trigger:hover {
+      background: rgba(255, 255, 255, 0.085);
+      border-color: var(--border-strong);
+    }
+
+    .ui-select.open .ui-select-trigger {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.24);
+      box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+    }
+
+    .ui-select-value {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ui-select-value svg {
+      width: 13px;
+      height: 13px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .ui-select-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .ui-select-chevron {
+      width: 13px;
+      height: 13px;
+      color: var(--text-muted);
+      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .ui-select.open .ui-select-chevron {
+      transform: rotate(180deg);
+      color: var(--text-primary);
+    }
+
+    .ui-select-content {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      min-width: 276px;
+      width: max-content;
+      padding: 6px;
+      background: rgba(14, 17, 25, 0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 80;
+    }
+
+    .ui-select.open .ui-select-content {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .ui-select-label {
+      padding: 5px 8px 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      margin-bottom: 2px;
+    }
+
+    .ui-select-item {
+      width: 100%;
+      padding: 7px 9px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
       color: var(--text-secondary);
       font-family: var(--font-sans);
-      font-size: 11.5px;
-      outline: none;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       cursor: pointer;
+      text-align: left;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .ui-select-item:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text-primary);
+    }
+
+    .ui-select-item.selected {
+      background: rgba(168, 85, 247, 0.12);
+      color: var(--text-primary);
+    }
+
+    .ui-item-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ui-item-left svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    .ui-item-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .ui-item-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .ui-item-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .ui-item-check {
+      width: 14px;
+      height: 14px;
+      color: #c084fc;
+      opacity: 0;
+      flex-shrink: 0;
+    }
+
+    .ui-select-item.selected .ui-item-check {
+      opacity: 1;
     }
 
     .dock-input {
@@ -1340,16 +1507,129 @@
     </div>
 
     <form class="dock-form" id="prompt-form">
-      <select class="dock-select" id="select-engine" aria-label="เลือกค่าย AI">
-        <option value="claude">Claude Code</option>
-        <option value="antigravity">Antigravity</option>
-      </select>
+      <input type="hidden" id="select-engine" value="claude" />
+      <input type="hidden" id="select-model" value="sonnet" />
 
-      <select class="dock-select" id="select-model" aria-label="เลือกโมเดล">
-        <option value="opus">Opus (วางแผน)</option>
-        <option value="sonnet" selected>Sonnet (เขียนโค้ด)</option>
-        <option value="haiku">Haiku (สำรวจไว 15x)</option>
-      </select>
+      <!-- Custom Component 1: Engine Selector Popover -->
+      <div class="ui-select" id="dropdown-engine">
+        <button
+          type="button"
+          class="ui-select-trigger"
+          onclick="window.toggleCustomSelect('dropdown-engine', event)"
+          aria-haspopup="listbox"
+          aria-label="เลือกค่าย AI"
+        >
+          <span class="ui-select-value" id="trigger-engine-val">
+            <i data-lucide="terminal" style="color:#c084fc"></i>
+            <span>Claude Code</span>
+          </span>
+          <i data-lucide="chevron-down" class="ui-select-chevron"></i>
+        </button>
+
+        <div class="ui-select-content" role="listbox">
+          <div class="ui-select-label">เลือก CLI Engine</div>
+          <button
+            type="button"
+            class="ui-select-item selected"
+            data-val="claude"
+            onclick="window.selectEngineOption('claude', 'Claude Code', 'terminal', '#c084fc')"
+          >
+            <div class="ui-item-left">
+              <i data-lucide="terminal" style="color:#c084fc"></i>
+              <div class="ui-item-text">
+                <span class="ui-item-title">Claude Code</span>
+                <span class="ui-item-desc">รันผ่าน `.claude/` Hooks & Subagents</span>
+              </div>
+            </div>
+            <i data-lucide="check" class="ui-item-check"></i>
+          </button>
+
+          <button
+            type="button"
+            class="ui-select-item"
+            data-val="antigravity"
+            onclick="window.selectEngineOption('antigravity', 'Antigravity', 'sparkles', '#38bdf8')"
+          >
+            <div class="ui-item-left">
+              <i data-lucide="sparkles" style="color:#38bdf8"></i>
+              <div class="ui-item-text">
+                <span class="ui-item-title">Antigravity</span>
+                <span class="ui-item-desc">สลับค่ายรับช่วงงานต่อผ่าน `.agents/`</span>
+              </div>
+            </div>
+            <i data-lucide="check" class="ui-item-check"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Custom Component 2: Model Selector Popover -->
+      <div class="ui-select" id="dropdown-model">
+        <button
+          type="button"
+          class="ui-select-trigger"
+          onclick="window.toggleCustomSelect('dropdown-model', event)"
+          aria-haspopup="listbox"
+          aria-label="เลือกโมเดล"
+        >
+          <span class="ui-select-value" id="trigger-model-val">
+            <span class="dot" style="background:var(--accent-sonnet)"></span>
+            <span>Sonnet</span>
+            <span class="ui-select-sub">เขียนโค้ด</span>
+          </span>
+          <i data-lucide="chevron-down" class="ui-select-chevron"></i>
+        </button>
+
+        <div class="ui-select-content" role="listbox">
+          <div class="ui-select-label">เลือกโมเดลตามหน้าที่ (Model Routing)</div>
+          <button
+            type="button"
+            class="ui-select-item"
+            data-val="opus"
+            onclick="window.selectModelOption('opus', 'Opus', 'วางแผน', 'var(--accent-opus)')"
+          >
+            <div class="ui-item-left">
+              <span class="dot" style="background:var(--accent-opus);width:8px;height:8px;"></span>
+              <div class="ui-item-text">
+                <span class="ui-item-title">Opus (หัวหน้าวางแผน)</span>
+                <span class="ui-item-desc">วิเคราะห์สถาปัตยกรรม & คุมกฎ 2-Strike</span>
+              </div>
+            </div>
+            <i data-lucide="check" class="ui-item-check"></i>
+          </button>
+
+          <button
+            type="button"
+            class="ui-select-item selected"
+            data-val="sonnet"
+            onclick="window.selectModelOption('sonnet', 'Sonnet', 'เขียนโค้ด', 'var(--accent-sonnet)')"
+          >
+            <div class="ui-item-left">
+              <span class="dot" style="background:var(--accent-sonnet);width:8px;height:8px;"></span>
+              <div class="ui-item-text">
+                <span class="ui-item-title">Sonnet (ลงมือเขียนโค้ด)</span>
+                <span class="ui-item-desc">แก้ไขโค้ดเฉพาะจุด & ตรวจรับเทสต์จริง</span>
+              </div>
+            </div>
+            <i data-lucide="check" class="ui-item-check"></i>
+          </button>
+
+          <button
+            type="button"
+            class="ui-select-item"
+            data-val="haiku"
+            onclick="window.selectModelOption('haiku', 'Haiku', 'สำรวจไว 15x', 'var(--accent-haiku)')"
+          >
+            <div class="ui-item-left">
+              <span class="dot" style="background:var(--accent-haiku);width:8px;height:8px;"></span>
+              <div class="ui-item-text">
+                <span class="ui-item-title">Haiku (ฝ่ายสำรวจไฟล์)</span>
+                <span class="ui-item-desc">ค้นหาพิกัดไฟล์เร็วสูง ประหยัดโควต้า 15 เท่า</span>
+              </div>
+            </div>
+            <i data-lucide="check" class="ui-item-check"></i>
+          </button>
+        </div>
+      </div>
 
       <input
         type="text"
@@ -1358,7 +1638,7 @@
         placeholder="สั่งงานทีม AI เป็นภาษาไทย หรือคลิกที่ตัวละคร 3D เพื่อดูการ์ดความสามารถ..."
       />
 
-      <button type="button" class="action-btn" onclick="window.toggleSimPopover()" title="เปิด/ปิดถาดจำลองสถานการณ์">
+      <button type="button" class="action-btn" onclick="window.toggleSimPopover(event)" title="เปิด/ปิดถาดจำลองสถานการณ์">
         <i data-lucide="sliders-horizontal"></i> <span>จำลองเหตุการณ์</span>
       </button>
 
@@ -2514,9 +2794,71 @@
       });
     };
 
-    window.toggleSimPopover = function () {
+    window.closeAllCustomSelects = function () {
+      document.querySelectorAll('.ui-select.open').forEach((el) => el.classList.remove('open'));
+    };
+
+    window.toggleCustomSelect = function (dropdownId, e) {
+      if (e) e.stopPropagation();
+      const target = document.getElementById(dropdownId);
+      if (!target) return;
+      const wasOpen = target.classList.contains('open');
+      window.closeAllCustomSelects();
+      document.getElementById('sim-popover')?.classList.remove('open');
+      if (!wasOpen) {
+        target.classList.add('open');
+      }
+    };
+
+    window.selectEngineOption = function (val, title, iconName, colorHex) {
+      const hiddenEl = document.getElementById('select-engine');
+      if (hiddenEl) hiddenEl.value = val;
+
+      const trigEl = document.getElementById('trigger-engine-val');
+      if (trigEl) {
+        trigEl.innerHTML = `<i data-lucide="${iconName}" style="color:${colorHex}"></i><span>${escapeHtml(title)}</span>`;
+        if (window.lucide) window.lucide.createIcons();
+      }
+
+      document.querySelectorAll('#dropdown-engine .ui-select-item').forEach((btn) => {
+        btn.classList.toggle('selected', btn.dataset.val === val);
+      });
+      window.closeAllCustomSelects();
+    };
+
+    window.selectModelOption = function (val, title, subText, dotColor) {
+      const hiddenEl = document.getElementById('select-model');
+      if (hiddenEl) hiddenEl.value = val;
+
+      const trigEl = document.getElementById('trigger-model-val');
+      if (trigEl) {
+        trigEl.innerHTML = `
+          <span class="dot" style="background:${dotColor}"></span>
+          <span>${escapeHtml(title)}</span>
+          <span class="ui-select-sub">${escapeHtml(subText)}</span>
+        `;
+      }
+
+      document.querySelectorAll('#dropdown-model .ui-select-item').forEach((btn) => {
+        btn.classList.toggle('selected', btn.dataset.val === val);
+      });
+      window.closeAllCustomSelects();
+    };
+
+    window.toggleSimPopover = function (e) {
+      if (e) e.stopPropagation();
+      window.closeAllCustomSelects();
       document.getElementById('sim-popover')?.classList.toggle('open');
     };
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.ui-select')) {
+        window.closeAllCustomSelects();
+      }
+      if (!e.target.closest('.sim-popover') && !e.target.closest('[onclick*="toggleSimPopover"]')) {
+        document.getElementById('sim-popover')?.classList.remove('open');
+      }
+    });
 
     // วาดรายการความสามารถแบบ Flat Divider Rows (แสดงเฉพาะชื่อภาษาไทยสั้นๆ ไม่เทภาษาอังกฤษยาวๆ!)
     function renderRoleArchitecture(deskKey) {
@@ -2813,6 +3155,7 @@
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         window.closeTemplateModal();
+        window.closeAllCustomSelects();
         document.getElementById('sim-popover')?.classList.remove('open');
       }
     });
@@ -2847,6 +3190,15 @@
       if (dotEl) dotEl.style.background = cfg.accentCss;
       if (tryBtn) {
         tryBtn.onclick = () => window.runSim(cfg.simKey);
+      }
+
+      // ซิงค์ Custom Model Dropdown ให้ตรงกับโต๊ะตัวละครที่คลิกเลือกอัตโนมัติ
+      if (cfg.modelCode === 'opus') {
+        window.selectModelOption('opus', 'Opus', 'วางแผน', 'var(--accent-opus)');
+      } else if (cfg.modelCode === 'haiku') {
+        window.selectModelOption('haiku', 'Haiku', 'สำรวจไว 15x', 'var(--accent-haiku)');
+      } else {
+        window.selectModelOption('sonnet', 'Sonnet', 'เขียนโค้ด', 'var(--accent-sonnet)');
       }
 
       renderRoleArchitecture(deskKey);
