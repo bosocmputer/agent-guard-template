@@ -1,6 +1,6 @@
 # Project Overview & Universal Agent Governance
 > ใช้ร่วมกันทั้ง **Claude Code** (`.claude/`) และ **Antigravity / VS Code** (`.agents/`)
-> **Upstream Architectures:** [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`garrytan/gstack`](https://github.com/garrytan/gstack) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) • [`heydamir/unslop`](https://github.com/heydamir/unslop) • [`mrdoob/three.js`](https://github.com/mrdoob/three.js)
+> **Upstream Architectures:** [`anthropics/skills`](https://github.com/anthropics/skills) • [Anthropic AI-Native SDLC Playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook) • [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`garrytan/gstack`](https://github.com/garrytan/gstack) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) • [`heydamir/unslop`](https://github.com/heydamir/unslop) • [`mrdoob/three.js`](https://github.com/mrdoob/three.js)
 
 ## 0. Auto-Detect Tech Stack & Quick Commands (รองรับหลายภาษาอัตโนมัติ)
 ให้ตรวจสอบไฟล์ตั้งต้นในโปรเจกต์เพื่อเลือกใช้คำสั่งรันเทสต์และตรวจโค้ดให้ตรงกับภาษาที่ใช้จริงโดยอัตโนมัติ:
@@ -23,7 +23,7 @@
 
 | สิ่งที่ผู้ใช้พิมพ์สั่ง | ขนาด/ลักษณะงาน | โปรโตคอล / Sub-Agent ที่ต้องใช้ทันที |
 | :--- | :--- | :--- |
-| **"โปรเจกต์นี้ใช้ React / NestJS..."** | ตั้งค่าเริ่มต้น / แจ้ง Tech Stack | โหลด `tech-stack-skills` ดึงเฉพาะ 2–4 Skills ที่ใช้จาก `jeffallan/claude-skills` ผ่าน `install-skill.sh` |
+| **"โปรเจกต์นี้ใช้ React / NestJS / สร้าง PDF / MCP..."** | ตั้งค่าเริ่มต้น / ดึง Skill เสริม | โหลด `tech-stack-skills` ดึงเฉพาะ 2–4 Skills ที่ใช้จาก `anthropics/skills`, `jeffallan/claude-skills`, หรือ `heydamir/unslop` ผ่าน `install-skill.sh` |
 | **"ทำต่อจากที่ค้างไว้ / โควต้าอีกฝั่งหมด"** | สลับ Agent กลางคัน | โหลด `auto-resume-handoff` อ่าน `.agent-last-state.log` + `git diff` แล้วทำต่อทันทีไม่ต้องถามซ้ำ |
 | **"สร้างระบบ... / เพิ่มฟีเจอร์..." (โจทย์กว้าง)** | มีจุดกำกวม / เลือกทำได้หลายแบบ | โหลด `common-ground` สรุปสมมติฐาน 3–4 ข้อสั้นๆ ให้ผู้ใช้ยืนยันก่อนเริ่มเขียนโค้ด |
 | **"แก้ปุ่ม / แก้ฟังก์ชัน..." (1–2 ไฟล์ชัดเจน)** | **Trivial Task** | ลงมือแก้แบบ Surgical Edit + รันตรวจด้วย `verification-before-completion` ทันที (ห้ามเรียก Sub-agent) |
@@ -55,9 +55,11 @@
    - ห้ามเขียนดัก `if (process.env.NODE_ENV === 'test')` หรือ `if (process.env.CI)` ในโค้ดทำงานจริงเพื่อลัดวงจรผลเทสต์ (`RH-12`)
    - ห้ามใส่ `@ts-ignore`, `@ts-expect-error`, `eslint-disable`, `# type: ignore`, หรือ `// nolint` เพื่อซ่อนปัญหา (`RH-13`)
    - **Zero-Run Green (`PL-2`):** หากรันเทสต์ได้ `Exit Code 0` แต่รันไป `0 ข้อ (0 tests ran)` ถือว่าเทสต์ล้มเหลว ต้องแก้พาธ/ตัวกรองและรันใหม่จนมีเทสต์รันจริง (`tests_ran >= 1`)
-2. **Git & Dependency Safety:**
+2. **Git, Dependency & Production Release Gate (`Anthropic AI-Native SDLC Stage 5`):**
    - ห้ามรัน `git checkout .`, `git restore`, `git reset --hard`, `git clean -f`, หรือ `git push --force` / `+main` เพราะจะทำลายโค้ดที่ผู้ใช้เขียนค้างไว้แต่ยังไม่ได้ Commit
    - ห้ามรันคำสั่งติดตั้งแพ็กเกจใหม่ (`npm install`, `pnpm add`, `flutter pub add`, `go get`, `pip install`, `cargo add`) โดยไม่ถามผู้ใช้ก่อน
+   - **Production Deploy & Live DB Migration Gate:** ห้ามรันคำสั่งปล่อยของขึ้น Production (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `fly deploy`) หรือยิง Migration เข้าฐานข้อมูลจริง (`prisma migrate deploy`, `supabase db push`, `terraform apply`, `kubectl apply`) โดยไม่ได้รับอนุญาตจากผู้ใช้ก่อน (`validate-bash.sh` จะบล็อกด้วย `exit 2`)
+   - **Anti-Test-Tampering (`Stage 4`):** ในระหว่างซ่อมบั๊ก (`debugger` / `strikeCount >= 1`) ห้ามแก้ไขไฟล์เทสต์ที่มีอยู่เดิมเพื่อให้เทสต์ผ่านหลอกๆ (`protect-sensitive-files.sh` จะบล็อกด้วย `exit 2`)
 3. **Secrets & Database Protection:**
    - ห้ามอ่าน แก้ไข แสดงผล หรือ Commit ไฟล์ `.env*`, `*.key`, `*.pem`, `*.keystore`, `*.jks`, `*.p12`, `*.sqlite`, `*.db` เด็ดขาด (ดูโครงสร้างตัวแปรจาก `.env.example` แทน)
 
@@ -67,3 +69,10 @@
 - รายงานเฉพาะสิ่งที่รันตรวจสอบจริงในเทิร์นนี้ พร้อมระบุ **`คำสั่งที่รัน`** และ **`ผลลัพธ์จริงจาก Terminal`**
 - สิ่งที่ยังไม่ได้รันทดสอบ (เช่น ไม่มี Server หรือยังไม่ได้รัน E2E) ให้ระบุตรงๆ ว่า **"ยังไม่ได้รันทดสอบ"**
 - ห้ามใช้คำพูดเคลมเกินจริง เช่น `"เสร็จสมบูรณ์ 100%"`, `"สมบูรณ์แบบ"`, `"ไม่มีบั๊กแน่นอน"`
+
+---
+
+## 5. Known Project Pitfalls (`Anthropic SDLC Playbook Stage 3 — 2-Repeat Memory`)
+> กฎเหล็ก: เมื่อ AI ทำผิดพลาดเรื่องเดิมในโปรเจกต์นี้ซ้ำเป็นครั้งที่ 2 ให้สรุปบทเรียนสั้นๆ 1 บรรทัดเพิ่มไว้ด้านล่างนี้เสมอ (ทั้งใน `CLAUDE.md` และ `AGENTS.md`) เพื่อป้องกันการทำผิดซ้ำในแชทถัดไป
+- ห้ามแก้ไฟล์เทสต์เดิมเพื่อลดความเข้มงวดของ `expect`/`assert` เวลาซ่อมบั๊ก ให้แก้ที่โค้ดต้นเหตุเท่านั้น
+- เมื่อแก้ไขกฎหรือทักษะใน `.claude/` ต้องซิงค์ให้ตรงกับ `.agents/` เสมอเพื่อรองรับการสลับค่ายระหว่าง Claude Code และ Antigravity IDE

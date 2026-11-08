@@ -4,7 +4,7 @@ description: Use when about to claim a task is complete, fixed, or passing, or b
 ---
 # Verification Before Completion (`obra/superpowers` + `garrytan/gstack` Gate Integrity)
 
-> **Reference Architecture:** [`obra/superpowers`](https://github.com/obra/superpowers) (`skills/verification-before-completion/SKILL.md`) & [`garrytan/gstack`](https://github.com/garrytan/gstack) (`review/gate-integrity.md` — `PL-1/PL-2 Zero-Run Green` & `RH-2 Proof-Class Inflation`)
+> **Reference Architecture:** [`obra/superpowers`](https://github.com/obra/superpowers) (`skills/verification-before-completion/SKILL.md`), [`garrytan/gstack`](https://github.com/garrytan/gstack) (`review/gate-integrity.md` — `PL-1/PL-2 Zero-Run Green` & `RH-2 Proof-Class Inflation`), & [`anthropics/skills`](https://github.com/anthropics/skills) (`skills/webapp-testing/SKILL.md` — Reconnaissance-Then-Action)
 
 ## 1. The Iron Law
 > **NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE (`tests_ran >= 1`).**
@@ -27,7 +27,9 @@ Before making any claim of success ("Done", "Fixed", "Tests pass"):
      - **Flutter / Dart:** `flutter analyze`
      - **Python:** `ruff check .` or `mypy .`
      - **Rust:** `cargo check`
-   - **Tier 3 (Non-Blocking Smoke Check):** Check active ports via `lsof -i :<port>` and test via `curl -s -i` (never run `npm run dev`, `go run`, or `flutter run` in the foreground where it hangs).
+   - **Tier 3 (Non-Blocking Smoke & Web UI Reconnaissance — `anthropics/skills/webapp-testing`):**
+     - Check active ports via `lsof -i :<port>` and test endpoints via `curl -s -i` (never run `npm run dev`, `go run`, or `flutter run` in the foreground where it hangs).
+     - For dynamic web UIs tested via browser/Playwright: always wait for `networkidle` before inspecting DOM, verify zero uncaught `console.error` / `pageerror` exceptions, and inspect rendered DOM/screenshots before claiming visual or interactive changes work.
 3. **READ & CHECK FOR ZERO-RUN GREEN (`gstack PL-1 / PL-2`):**
    - Read the full terminal output, check the exit code, and verify the actual test count (`tests_ran >= 1`).
    - **Zero-Run Green Trap (`PL-2`):** If a test command exits with code `0` but ran **`0 tests`** (e.g., `0 passing, 0 failing`, `No tests found`, `no tests ran`, or `go test` `[no test files]` due to a wrong filter/path), **treat it as a FAILED verification (`ZERO-RUN`)**. Fix the test path/filter and re-run until at least 1 real test executes.

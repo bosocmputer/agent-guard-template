@@ -46,4 +46,11 @@ if echo "$COMMAND" | grep -qE '(npm (install|i) [a-zA-Z0-9@_]|pnpm add |yarn add
   block_action "ห้ามติดตั้งแพ็กเกจหรือ Library ใหม่โดยไม่ถามผู้ใช้ก่อนตามกฎ No Unapproved Dependencies"
 fi
 
+# 4. ดักจับการปล่อยของขึ้น Production หรือยิง Migration ฐานข้อมูลจริงโดยไม่ผ่านคนอนุมัติ (Anthropic AI-Native SDLC Playbook Stage 5 — Approval Gate)
+if [ "${RELEASE_APPROVED:-0}" != "1" ] && ! echo "$COMMAND" | grep -q 'RELEASE_APPROVED=1'; then
+  if echo "$COMMAND" | grep -qE '(vercel([[:space:]]+deploy)?[[:space:]]+.*--prod|netlify[[:space:]]+deploy.*--prod|firebase[[:space:]]+deploy|wrangler[[:space:]]+(deploy|publish)|fly(ctl)?[[:space:]]+deploy|prisma[[:space:]]+migrate[[:space:]]+deploy|prisma[[:space:]]+db[[:space:]]+push.*--accept-data-loss|supabase[[:space:]]+db[[:space:]]+(push|reset)|drizzle-kit[[:space:]]+push|terraform[[:space:]]+(apply|destroy)|kubectl[[:space:]]+(apply|delete)|helm[[:space:]]+(upgrade|uninstall))'; then
+    block_action "ระงับคำสั่ง Deploy ขึ้น Production หรือแก้ไขฐานข้อมูลจริงโดยพลการ (Stage 5 Approval Gate: ต้องให้ผู้ใช้อนุมัติก่อน)"
+  fi
+fi
+
 allow_action

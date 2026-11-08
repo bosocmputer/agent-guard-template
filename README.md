@@ -185,15 +185,15 @@ bash .claude/hooks/open-hud.sh
 
 ---
 
-### Use Case ที่ 1: เริ่มโปรเจกต์ใหม่ แล้วอยากให้ AI เก่งเฉพาะทางในภาษานั้นๆ
-แทนที่จะยัดคู่มือทุกภาษาไว้ในโปรเจกต์จนเปลืองโควต้า คุณสามารถสั่งให้ AI ดึงเฉพาะคู่มือของภาษาที่ใช้จริงมาจากคลัง [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) ได้เลย
+### Use Case ที่ 1: เริ่มโปรเจกต์ใหม่ แล้วอยากให้ AI เก่งเฉพาะทาง (รองรับทั้ง `anthropics/skills` และ `jeffallan/claude-skills`)
+แทนที่จะยัดคู่มือทุกภาษาและทุกเครื่องมือไว้ในโปรเจกต์จนเปลืองโควต้า คุณสามารถสั่งให้ AI ดึงเฉพาะคู่มือที่ใช้จริงมาจากคลัง Official [`anthropics/skills`](https://github.com/anthropics/skills) (19 ทักษะทางการ เช่น `frontend-design`, `webapp-testing`, `mcp-builder`, `claude-api`, `pdf`, `docx`, `xlsx`, `pptx`) หรือ [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) (67 ทักษะภาษา/เฟรมเวิร์ก) ได้ทันที
 
 > 💬 **คุณพิมพ์แค่:**
-> *"โปรเจกต์นี้ใช้ React, Tailwind และ NestJS ช่วยดึง skill ที่เกี่ยวข้องมาลงให้หน่อย"*
+> *"โปรเจกต์นี้ใช้ React, Tailwind, NestJS และต้องออกรายงาน PDF ช่วยดึง skill ที่เกี่ยวข้องมาลงให้หน่อย"*
 
 **สิ่งที่ระบบทำให้อัตโนมัติ:**
-1. AI จะรันสคริปต์ `install-skill.sh` ไปดึงเฉพาะคู่มือ `react-expert`, `tailwind-expert`, และ `nestjs-expert` มาวางให้ทั้งใน `.claude/skills/` และ `.agents/skills/`
-2. หลังจากนั้น เวลาคุณสั่งแก้หน้าเว็บ React หรือแก้ API ใน NestJS AI จะเปิดอ่านคู่มือของภาษานั้นเองโดยอัตโนมัติ
+1. AI จะรันสคริปต์ `install-skill.sh` ไปดึงเฉพาะคู่มือ `react-expert`, `tailwind-expert`, `nestjs-expert`, และ `pdf` มาวางให้ทั้งใน `.claude/skills/` (สำหรับ Claude Code) และ `.agents/skills/` (สำหรับ Antigravity IDE) พร้อมอัปเดตหน้าจอ 3D Voxel Studio อัตโนมัติ
+2. หลังจากนั้น เวลาคุณสั่งแก้หน้าเว็บ React, แก้ API ใน NestJS, หรือสร้างไฟล์ PDF AI จะเปิดอ่านคู่มือของงานนั้นเองโดยอัตโนมัติ
 
 ---
 
@@ -312,13 +312,13 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 
 ### 6. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh` — Deterministic Function Nodes)
 แทนที่จะเปลืองโควต้าให้ AI คอยระวังเอง งานที่ตายตัวจะถูกควบคุมด้วยสคริปต์ Bash ที่ทำงานอัตโนมัติทั้งใน Claude Code (`.claude/settings.json`) และ Antigravity (`.agents/hooks.json`) โดย**ไม่เสียโควต้า AI แม้แต่ Token เดียว**:
-* **`validate-bash.sh`:** ใช้ตัวสกัด JSON ที่ปลอดภัยต่อเครื่องหมายฟันหนูซ้อน (`\"` — ป้องกันช่องโหว่คำสั่งพ่วงท้ายอย่าง `git commit -m "wip" && rm -rf /`), ดักจับการพลางคำสั่งด้วย `${IFS}` / `base64 -d | sh`, บล็อกคำสั่งอันตราย (`rm -rf`, `git push --force` / `+main`, `git restore` / `git checkout .`), และบล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`)
-* **`protect-sensitive-files.sh`:** บล็อกการอ่านหรือแก้ไขไฟล์ความลับ (`.env`, `.pem`, `.key`, `.keystore`, `.jks`, `.p12`) และห้ามแก้ไฟล์ Lockfile โดยตรง (`package-lock.json`, `pubspec.lock`, `go.sum`, `poetry.lock`, `Cargo.lock`)
+* **`validate-bash.sh`:** ใช้ตัวสกัด JSON ที่ปลอดภัยต่อเครื่องหมายฟันหนูซ้อน (`\"` — ป้องกันช่องโหว่คำสั่งพ่วงท้ายอย่าง `git commit -m "wip" && rm -rf /`), ดักจับการพลางคำสั่งด้วย `${IFS}` / `base64 -d | sh`, บล็อกคำสั่งอันตราย (`rm -rf`, `git push --force` / `+main`, `git restore` / `git checkout .`), บล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`), และ **บล็อกการแอบสั่ง Deploy ขึ้น Production หรือยิง Migration ฐานข้อมูลจริงโดยไม่ผ่านคนอนุมัติ (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `prisma migrate deploy`, `supabase db push`, `terraform apply`, `kubectl apply` — Stage 5 Approval Gate)**
+* **`protect-sensitive-files.sh`:** บล็อกการอ่านหรือแก้ไขไฟล์ความลับ (`.env`, `.pem`, `.key`, `.keystore`, `.jks`, `.p12`), ห้ามแก้ไฟล์ Lockfile โดยตรง (`package-lock.json`, `pubspec.lock`, `go.sum`, `poetry.lock`, `Cargo.lock`), และ **ป้องกัน AI แอบแก้ไขไฟล์เทสต์ที่มีอยู่เดิม (`*.test.*`, `*.spec.*`, `*_test.*`) ในระหว่างซ่อมบั๊กเพื่อให้เทสต์ผ่านหลอกๆ (Stage 4 Anti-Test-Tampering Guard)**
 * **`post-edit-format.sh`:** จัด Format โค้ดอัตโนมัติตามภาษา (`prettier`, `gofmt`, `dart format`, `ruff format`, `rustfmt`) และบันทึกจุดแก้ล่าสุดลง `.agent-last-state.log` ทุกครั้ง
 * **`loop-circuit-breaker.sh`:** นับจำนวนครั้งที่ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำๆ ถ้าเกิน 3 ครั้งจะตัดเบรกเกอร์บังคับหยุดทันที
 * **`auto-resume.sh`:** ตรวจหาไฟล์ `.agent-last-state.log` และ `git status` ตอนเปิดแชทใหม่ เพื่อส่งต่องานค้างให้อัตโนมัติ
 * **`telemetry-tracker.sh` & `open-hud.sh`:** บันทึกสถานะการทำงานสดจากทุก Hook ลงไฟล์ `.claude/.telemetry.json` และเปิดเซิร์ฟเวอร์ศูนย์บัญชาการ 3D (`.claude/hud/index.html`) พร้อมระบบเช็กโควต้าคงเหลือจริงของทั้ง Claude Code และ Antigravity
-* **`install-skill.sh`:** ดึงเฉพาะโฟลเดอร์ Skill ที่สั่งจาก `jeffallan/claude-skills` หรือ `heydamir/unslop` มาติดตั้งให้ทั้ง 2 โปรแกรมพร้อมกันภายในไม่กี่วินาที
+* **`install-skill.sh`:** ดึงเฉพาะโฟลเดอร์ Skill ที่สั่งจาก [`anthropics/skills`](https://github.com/anthropics/skills) (19 Official Skills), [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) (67 Tech Stack Skills), หรือ [`heydamir/unslop`](https://github.com/heydamir/unslop) มาติดตั้งให้ทั้ง Claude Code (`.claude/skills/`) และ Antigravity IDE (`.agents/skills/`) พร้อมกันภายในไม่กี่วินาที
 
 ---
 
@@ -382,6 +382,7 @@ project-root/
 
 ## 📚 มาตรฐานและงานวิจัยที่นำมาพัฒนา (Built On)
 
+* **[Anthropic AI-Native SDLC Playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook) & [`anthropics/skills`](https://github.com/anthropics/skills):** ผสานกลไก *Stage 4 Anti-Test-Tampering Guard* (บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก), *Stage 5 Production Approval Gate* (บล็อกการสั่ง Deploy ขึ้น Production หรือ Migrate DB จริงโดยพลการ), *Stage 3 2-Repeat Pitfall Memory* (`CLAUDE.md` / `AGENTS.md`), กฎ *5 AI Design Tells* จาก `frontend-design`, *Reconnaissance-Then-Action* จาก `webapp-testing`, และระบบดึง Official Skills ทั้ง 19 ตัวผ่าน `install-skill.sh`
 * **Anthropic Claude Code Official Specification & Engineering:** ใช้การจำกัด `model`, `maxTurns`, `disallowedTools`, และการ Preload `skills` ในระดับ Sub-agent Frontmatter ร่วมกับ `$CLAUDE_PROJECT_DIR` Hooks และรูปแบบ *Effective Harnesses for Long-Running Agents*
 * **Antigravity Customization System (`.agents/`):** รองรับ Progressive Disclosure ของ Rules/Skills และ JSON Lifecycle Hooks (`hooks.json`)
 * **[`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills):** กฎ 4 ข้อของ Karpathy (*Think Before Coding*, *Simplicity First*, *Surgical Changes*, *Goal-Driven Execution*)
