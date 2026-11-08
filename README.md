@@ -353,7 +353,8 @@ bash .claude/hooks/open-hud.sh
 | **`/plan <โจทย์>`** | ก่อนเริ่มงานใหญ่ที่ต้องแก้เกิน 3 ไฟล์ | ส่ง `explorer` (`Haiku`) สแกนหาไฟล์และสรุปแผนไม่เกิน 12 บรรทัด (ห้ามแก้ไฟล์จนกว่าคุณจะอนุมัติ) |
 | **`/common-ground <โจทย์>`** | ก่อนสร้างฟีเจอร์ใหม่ที่มีเงื่อนไขซับซ้อน | สกัดสมมติฐาน 3–4 ข้อ + ขอบเขตที่จะไม่ทำ (*YAGNI*) มาถามให้ตรงกันก่อนลงมือ |
 | **`/fix <อาการบั๊ก>`** | เมื่อเทสต์พังหรือเจออาการบั๊ก | วิเคราะห์ต้นตอ 4 ขั้นตอน + ล็อกไฟล์เทสต์เดิม (`Stage 4`) + ตัดเบรกเกอร์เมื่อแก้ไม่ผ่านครบ 2 ครั้ง (`2-Strike`) |
-| **`/review`** | เมื่อเขียนโค้ดเสร็จและต้องการตรวจก่อนส่ง | ส่ง `reviewer` ตรวจเฉพาะ `[BLOCKER]` และช่องโหว่ความปลอดภัย (ไม่จับผิดเรื่องสวยงาม จบใน 2 รอบ) |
+| **`/review`** | เมื่อเขียนโค้ดเสร็จและต้องการตรวจก่อนส่ง | ส่ง `reviewer` ตรวจเฉพาะ `[BLOCKER]` และช่องโหว่ความปลอดภัย พร้อมกรอง False-Positive ตามเกณฑ์ Cloudflare (จบใน 2 รอบ) |
+| **`/security-audit`** | เมื่อต้องการตรวจความปลอดภัยเชิงลึกก่อนปล่อยของ | ส่ง `explorer` (`Haiku`) หาพื้นผิวโจมตี + `reviewer` (`Sonnet`) ไล่เส้นทาง `entrypoint ➔ sink` แยก `[CONFIRMED]` ออกจาก `[NEEDS_VALIDATION]` (Cloudflare Protocol) |
 | **`/verify`** | ก่อนประกาศว่างานเสร็จสมบูรณ์ | รันเทสต์จริง + ดักจับ `0 tests ran` + รัน Type/Build Check พร้อมแสดงผลลัพธ์จริง |
 | **`/handoff`** | ก่อนล้างแชท `/clear` หรือก่อนสลับค่าย AI | สรุปงานที่เสร็จแล้ว งานที่ค้าง และคำสั่งถัดไปลง `TASK_STATE.md` ไม่เกิน 15 บรรทัด |
 
@@ -378,11 +379,12 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`testing-and-api.md` (`obra/superpowers` TDD & OWASP API Security):** โหลดเฉพาะตอนแก้ไฟล์เทสต์หรือ API บังคับเทสต์กับโค้ดจริง (ห้าม Mock ฟังก์ชันที่กำลังเทสต์), แก้บั๊กต้องเห็นเทสต์พังก่อนแก้จริง (*Verify RED*), และบังคับตรวจสิทธิ์เข้าถึงข้อมูล (ป้องกันช่องโหว่ IDOR/BOLA)
 * **`ui-anti-slop.md` (`heydamir/unslop` 1-Pass UI & 3D Standards):** โหลดเฉพาะตอนแก้ไฟล์หน้าบ้าน บังคับเกณฑ์ออกแบบ UI 9 ด้าน และกฎมาตรฐาน Three.js `r187+` ตั้งแต่การเขียนโค้ดรอบแรก
 
-### 3. ตำราเฉพาะทางที่เปิดอ่านเมื่อถึงจังหวะใช้งาน (`skills/*/SKILL.md` — 8 ไฟล์)
+### 3. ตำราเฉพาะทางที่เปิดอ่านเมื่อถึงจังหวะใช้งาน (`skills/*/SKILL.md` — 9 ไฟล์)
 ใช้เทคนิค **Progressive Disclosure** (ปกติจะซ่อนเนื้อหาไว้เพื่อประหยัดโควต้า และจะเปิดอ่านเฉพาะเมื่อคำสั่งของคุณตรงกับเรื่องนั้น):
 * **`common-ground`:** สกัดสมมติฐานที่ซ่อนอยู่ 3–4 ข้อพร้อมระบุขอบเขตที่จะไม่ทำ (*YAGNI Out of Scope*) มาถามคุณก่อนเริ่มเขียนฟีเจอร์ใหม่
 * **`root-cause-debug`:** บังคับ 4 ขั้นตอนหาต้นตอบั๊ก พร้อมเบรกเกอร์ **`0-Strike`** (ถ้าขาดสูตรธุรกิจให้หยุดถามทันที ห้ามเดาเลข) และ **`2-Strike`** (ลองแก้ไม่เกิน 2 ครั้ง ถ้ายังพังให้คืนค่าไฟล์เดิมแล้วสรุปทางเลือก A/B มาถามคุณ)
-* **`pragmatic-review`:** ตรวจโค้ดเฉพาะจุดที่เป็นอันตราย (**Blocker-Only** + **Enum Completeness** ตรวจไฟล์ที่เกี่ยวข้องนอก `git diff` + **Gate Integrity `RH-1..RH-16`** ดักจับ AI แอบแก้เงื่อนไขเทสต์หรือเขียน `if (NODE_ENV === 'test')` โกงผลเทสต์) ห้ามติเรื่องความสวยงาม และบังคับจบภายในไม่เกิน **2 รอบ (`MAX_ROUNDS = 2`)**
+* **`pragmatic-review`:** ตรวจโค้ดเฉพาะจุดที่เป็นอันตราย (**Blocker-Only** + **Cloudflare False-Positive Gate** แยก `[BLOCKER]` ออกจาก `[NEEDS_VALIDATION]` + **Enum Completeness** ตรวจไฟล์ที่เกี่ยวข้องนอก `git diff` + **Gate Integrity `RH-1..RH-16`** ดักจับ AI แอบแก้เงื่อนไขเทสต์หรือเขียน `if (NODE_ENV === 'test')` โกงผลเทสต์) ห้ามติเรื่องความสวยงาม และบังคับจบภายในไม่เกิน **2 รอบ (`MAX_ROUNDS = 2`)**
+* **`security-audit` (`cloudflare/security-audit-skill` Protocol):** ตรวจความปลอดภัยเชิงลึกโดยบังคับครบ 6 องค์ประกอบ (`Lower-Trust Principal`, `Input/Action`, `Intended Control`, `Crossed Boundary`, `Impact`, และเส้นทาง `entrypoint ➔ propagation ➔ sink`) เจาะจงช่องโหว่ `DATA-ISOLATION-AND-LIFECYCLE` (เช่น `SECURITY DEFINER` ลืมล็อก `shop_id` หรือการส่งคำสั่งซิงก์ย้อนหลังจากสิทธิ์ที่ถูกยกเลิกไปแล้ว) และตัดปัญหา AI มโนช่องโหว่หลอก
 * **`verification-before-completion`:** กฎเหล็กห้ามพูดว่า *"เสร็จแล้ว"* ถ้ายังไม่ได้รันคำสั่งเทสต์สดในเทิร์นนั้น พร้อมดักจับ **`Zero-Run Green (PL-2)`** (ถ้ารันได้ `Exit Code 0` แต่รันเทสต์ไป `0 ข้อ` ถือว่าไม่ผ่าน ต้องรันเทสต์จริงอย่างน้อย 1 ข้อเสมอ)
 * **`db-migration`:** กฎแก้ไขฐานข้อมูลแบบ Zero-Downtime (*Expand & Contract*), ห้ามแก้ไฟล์ Migration เก่า, บังคับใส่ Index ที่ Foreign Key, ห้ามยิง Query ในลูป (N+1), และบังคับใช้ Transaction
 * **`auto-resume-handoff`:** ขั้นตอนกู้คืนงานค้าง 3 จังหวะ (อ่าน `.agent-last-state.log` ➔ เช็ก `git diff` ➔ รันเทสต์เช็กสถานะปัจจุบัน) เมื่อสลับโปรแกรมหลังโควต้าหมด
@@ -394,14 +396,15 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`explorer.md` (`model: haiku`, สูงสุด 6 รอบ):** ค้นหาไฟล์และจุดเชื่อมต่อแบบอ่านอย่างเดียว (ห้ามแก้ไฟล์) ใช้โมเดล `haiku` ที่เร็วและประหยัดโควต้ากว่า 10–20 เท่า
 * **`implementer.md` (`model: sonnet`, สูงสุด 15 รอบ):** คนลงมือเขียนและแก้โค้ดแบบ Surgical Edit พร้อมผูกตำรา `verification-before-completion`, `db-migration`, และ `threejs-expert`
 * **`debugger.md` (`model: sonnet`, สูงสุด 10 รอบ):** คนวิเคราะห์และแก้บั๊กตามกฎ `0-Strike` / `2-Strike` พร้อมผูกตำรา `root-cause-debug`
-* **`reviewer.md` (`model: sonnet`, สูงสุด 8 รอบ):** คนตรวจโค้ดแบบอ่านอย่างเดียว (ห้ามแอบแก้ไฟล์เอง) พร้อมผูกตำรา `pragmatic-review`
+* **`reviewer.md` (`model: sonnet`, สูงสุด 8 รอบ):** คนตรวจโค้ดแบบอ่านอย่างเดียว (ห้ามแอบแก้ไฟล์เอง) พร้อมผูกตำรา `pragmatic-review` และ `security-audit`
 
-### 5. คำสั่งลัดเมื่อต้องการสั่งตรง (`.claude/commands/*.md` — 6 คำสั่ง)
+### 5. คำสั่งลัดเมื่อต้องการสั่งตรง (`.claude/commands/*.md` — 7 คำสั่ง)
 ถึงแม้ระบบจะเลือกโหมดให้อัตโนมัติอยู่แล้ว แต่ถ้าคุณอยากสั่งบังคับโหมดเองใน Claude Code ก็พิมพ์คำสั่งลัดเหล่านี้ได้ทันที:
 * `/plan` — สำรวจและวางแผนงานใหญ่ไม่เกิน 12 บรรทัดก่อนเขียนโค้ด
 * `/common-ground` — สรุปสมมติฐานและขอบเขตงานให้ตรงกันก่อนทำฟีเจอร์ใหม่
 * `/fix` — วิเคราะห์และแก้บั๊กด้วยกฎ `0-Strike` / `2-Strike`
 * `/review` — ตรวจรีวิวโค้ดเฉพาะ `[BLOCKER]` ไม่เกิน 2 รอบ
+* `/security-audit` — ตรวจความปลอดภัยเชิงลึก (`entrypoint ➔ sink`) ตามแนวทาง Cloudflare
 * `/verify` — รันเทสต์ + ตรวจ Type/Analyze + เช็กพอร์ตยืนยันผลจริง
 * `/handoff` — บันทึกสถานะงานค้างลง `TASK_STATE.md` ก่อนล้างแชท (`/clear`) หรือก่อนสลับโปรแกรม
 
@@ -412,7 +415,8 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`post-edit-format.sh`:** จัด Format โค้ดอัตโนมัติตามภาษา (`prettier`, `gofmt`, `dart format`, `ruff format`, `rustfmt`) และบันทึกจุดแก้ล่าสุดลง `.agent-last-state.log` ทุกครั้ง
 * **`loop-circuit-breaker.sh`:** นับจำนวนครั้งที่ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำๆ ถ้าเกิน 3 ครั้งจะตัดเบรกเกอร์บังคับหยุดทันที
 * **`auto-resume.sh`:** ตรวจหาไฟล์ `.agent-last-state.log` และ `git status` ตอนเปิดแชทใหม่ เพื่อส่งต่องานค้างให้อัตโนมัติ
-* **`telemetry-tracker.sh` & `open-hud.sh`:** บันทึกสถานะการทำงานสดจากทุก Hook ลงไฟล์ `.claude/.telemetry.json` และเปิดเซิร์ฟเวอร์ศูนย์บัญชาการ 3D (`.claude/hud/index.html`) พร้อมระบบเช็กโควต้าคงเหลือจริงของทั้ง Claude Code และ Antigravity
+* **`telemetry-tracker.sh` & `open-hud.sh`:** บันทึกสถานะการทำงานสดจากทุก Hook ลงไฟล์ `.claude/.telemetry.json` พร้อมสกัดหลักฐานการใช้โมเดลและ Subagent จริง (`sessionProof`) จากไฟล์ `.jsonl` และเปิดเซิร์ฟเวอร์ศูนย์บัญชาการ 3D (`.claude/hud/index.html`)
+* **`audit-session-proof.sh`:** สคริปต์ตรวจพิสูจน์ผลการทำงานจริง (`bash .claude/hooks/audit-session-proof.sh`) สแกนไฟล์ประวัติแชท `.jsonl` และ `subagents/*.jsonl` ของโปรเจกต์เพื่อสรุปตัวเลขจริงว่าแต่ละแชทใช้ `Opus` / `Sonnet` / `Haiku` กี่รอบ แตก Subagent จริงกี่ครั้ง และลดภาระ `Opus` ไปกี่เปอร์เซ็นต์
 * **`install-skill.sh`:** ดึงเฉพาะโฟลเดอร์ Skill ที่สั่งจาก [`anthropics/skills`](https://github.com/anthropics/skills) (19 Official Skills), [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) (67 Tech Stack Skills), หรือ [`heydamir/unslop`](https://github.com/heydamir/unslop) มาติดตั้งให้ทั้ง Claude Code (`.claude/skills/`) และ Antigravity IDE (`.agents/skills/`) พร้อมกันภายในไม่กี่วินาที
 
 ---
@@ -445,8 +449,9 @@ project-root/
 │       ├── auto-resume-handoff/SKILL.md        # 3-Phase Harness รับไม้ต่ออัตโนมัติ (Anthropic Long-Running Harness)
 │       ├── common-ground/SKILL.md              # Socratic Discovery & YAGNI Scope (obra/superpowers brainstorming)
 │       ├── db-migration/SKILL.md               # Zero-Downtime Migration (supabase/agent-skills + postgres-pro)
-│       ├── pragmatic-review/SKILL.md           # Blocker-Only Review ไม่เกิน 2 รอบ (obra/superpowers + gstack)
+│       ├── pragmatic-review/SKILL.md           # Blocker-Only Review ไม่เกิน 2 รอบ (obra/superpowers + gstack + Cloudflare Gate)
 │       ├── root-cause-debug/SKILL.md           # 4-Phase Debugging (obra/superpowers) + 0/2-Strike Breaker
+│       ├── security-audit/SKILL.md             # ตรวจความปลอดภัยเชิงลึก 6-Element Invariant (cloudflare/security-audit-skill)
 │       ├── tech-stack-skills/SKILL.md          # ดึง Skill จาก anthropics/skills (19 ตัว) & jeffallan/claude-skills (67 ตัว)
 │       ├── threejs-expert/SKILL.md             # คู่มือผู้เชี่ยวชาญ Three.js r187+ (3D Viewer, HDRLoader, OutputPass, Disposal)
 │       └── verification-before-completion/     # Iron Law & 5-Step Gate Function (Test + Zero-Run Check + Build + Playwright Recon)
@@ -462,7 +467,7 @@ project-root/
     │   └── reviewer.md                         # ตรวจเฉพาะ Blocker แบบ Read-only (sonnet, maxTurns: 8 + skills preload)
     ├── rules/                                  # กฎโหลดตาม Path ไฟล์ (ชุดเดียวกับ .agents/rules)
     ├── skills/                                 # ทักษะอัตโนมัติ (ชุดเดียวกับ .agents/skills)
-    ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /verify, /handoff)
+    ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /security-audit, /verify, /handoff)
     └── hooks/                                  # 🛡️ สคริปต์ยามรักษาความปลอดภัย Dual-Mode (Claude + Antigravity)
         ├── auto-resume.sh                      # ฉีดสถานะงานค้างเข้าแชทใหม่อัตโนมัติ (SessionStart)
         ├── validate-bash.sh                    # บล็อก rm -rf, git restore ทับโค้ด, ลง pkg มั่ว & กั้น Deploy Prod (Stage 5 Gate)
@@ -470,6 +475,7 @@ project-root/
         ├── loop-circuit-breaker.sh             # บล็อกเมื่อ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน 3 ครั้ง
         ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึกจุด Checkpoint ล่าสุด
         ├── telemetry-tracker.sh                # บันทึกสถานะการทำงานสดจากทุก Hook ลง .claude/.telemetry.json
+        ├── audit-session-proof.sh              # พิสูจน์ผลสัดส่วนโมเดล Opus/Sonnet/Haiku และ Subagent จริงจากไฟล์ .jsonl
         ├── open-hud.sh                         # เปิดเซิร์ฟเวอร์ 3D Command & Monitor Center + เช็กโควต้าจริง
         └── install-skill.sh                    # ดึง Skill จาก anthropics/skills & jeffallan/claude-skills แบบ Sparse Checkout
 ```
@@ -477,6 +483,8 @@ project-root/
 ---
 
 ## 📚 มาตรฐานและงานวิจัยที่นำมาพัฒนา (Built On)
+
+* **[`cloudflare/security-audit-skill`](https://github.com/cloudflare/security-audit-skill):** สกัดระบบ *6-Element Concrete Invariant & Traceability (`entrypoint ➔ propagation ➔ sink`)*, ตัวกรอง *False-Positive Gate* (แยก `[CONFIRMED]` ออกจาก `[NEEDS_VALIDATION]` และ `[HARDENING]`), และคู่มือตรวจ *Multi-Tenant Data Isolation & Lifecycle Replay (`DATA-ISOLATION-AND-LIFECYCLE`)* มาฝังใน `pragmatic-review` และ `security-audit`
 
 * **[Anthropic AI-Native SDLC Playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook) & [`anthropics/skills`](https://github.com/anthropics/skills):** ผสานกลไก *Stage 4 Anti-Test-Tampering Guard* (บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก), *Stage 5 Production Approval Gate* (บล็อกการสั่ง Deploy ขึ้น Production หรือ Migrate DB จริงโดยพลการ), *Stage 3 2-Repeat Pitfall Memory* (`CLAUDE.md` / `AGENTS.md`), กฎ *5 AI Design Tells* จาก `frontend-design`, *Reconnaissance-Then-Action* จาก `webapp-testing`, และระบบดึง Official Skills ทั้ง 19 ตัวผ่าน `install-skill.sh`
 * **Anthropic Claude Code Official Specification & Engineering:** ใช้การจำกัด `model`, `maxTurns`, `disallowedTools`, และการ Preload `skills` ในระดับ Sub-agent Frontmatter ร่วมกับ `$CLAUDE_PROJECT_DIR` Hooks และรูปแบบ *Effective Harnesses for Long-Running Agents*
