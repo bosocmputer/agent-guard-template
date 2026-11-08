@@ -40,7 +40,7 @@
 | **Claude Code CLI (`claude`)** หรือ **VS Code Extension** | ใช้งานระบบกฎ `.claude/`, ลูกมือ 4 ตำแหน่ง (`.claude/agents/`), สั่งงานจากช่องแชทล่างจอ 3D และดึง **% โควต้าคงเหลือราย 5 ชม. จริง** | `npm install -g @anthropic-ai/claude-code` แล้วรัน `claude` เพื่อ Login |
 | **Antigravity IDE / CLI (`agy`)** | ใช้งานระบบกฎ `.agents/` ใน Antigravity IDE, รับไม้ต่องานค้างอัตโนมัติเมื่อโควต้า Claude เต็ม และเช็กโควต้าฝั่ง Antigravity | ติดตั้งผ่านโปรแกรม Antigravity IDE (มีคำสั่ง `agy` ให้ในตัว) |
 
-> 💡 **หมายเหตุ:** ต่อให้เครื่องของคุณยังไม่ได้ติดตั้ง `claude` หรือ `agy` คุณก็ยังสามารถรัน `bash .claude/hooks/open-hud.sh` เพื่อเปิดหน้าจอ **3D Voxel Studio** สำรวจผังไฟล์จริงทั้ง 34 รายการ และกดปุ่ม **"จำลองเหตุการณ์"** เพื่อดูการทำงานของทีม AI ทั้ง 5 แผนกได้ทันที
+> 💡 **หมายเหตุ:** ต่อให้เครื่องของคุณยังไม่ได้ติดตั้ง `claude` หรือ `agy` คุณก็ยังสามารถรัน `bash .claude/hooks/open-hud.sh` เพื่อเปิดหน้าจอ **3D Voxel Studio** สำรวจผังไฟล์จริงทั้งหมด และกดปุ่ม **"จำลองเหตุการณ์"** เพื่อดูการทำงานของทีม AI ทั้ง 5 แผนกได้ทันที
 
 ### 3. เครื่องมือจัด Format โค้ดอัตโนมัติ (ไม่บังคับ — มีเฉพาะภาษาที่โปรเจกต์คุณใช้จริง)
 สคริปต์ `post-edit-format.sh` จะตรวจหา Formatter ในเครื่องอัตโนมัติเมื่อ AI แก้ไฟล์ภาษานั้นๆ **(ถ้าไม่มีในเครื่อง สคริปต์จะข้ามไปอย่างปลอดภัย ไม่เกิด Error ใดๆ)**:
@@ -109,16 +109,16 @@ bash .claude/hooks/open-hud.sh
   3. **โต๊ะซ้ายล่าง — ฝ่ายลงมือเขียนโค้ด (`Sonnet Coder`):** รับพิกัดบรรทัดมาแก้โค้ดเฉพาะจุด (`Surgical Edit`) พร้อมกองแฟ้มงาน 3D บนโต๊ะที่เพิ่มขึ้นตามจำนวนไฟล์จริงที่ถูกแก้ไข
   4. **โต๊ะขวาบน — ช่างซ่อมบั๊ก (`2-Strike Debugger`):** วิเคราะห์ต้นตอบั๊กพร้อม **เสาไฟสัญญาณ 3 ระดับ (เขียว ➔ ส้ม ➔ แดง)** บนโต๊ะ หากแก้พังครบ 2 ครั้งแล้วยังไม่ผ่าน เบรกเกอร์จะตัดทันทีเพื่อไม่ให้ผลาญโควต้าฟรี
   5. **โต๊ะขวาล่าง — ฝ่ายตรวจรับงาน (`Sonnet QA Verifier`):** รันคำสั่งเทสต์จริงและเช็กว่ามีเทสต์ถูกรันจริงก่อนส่งมอบงาน
-* **ทำงานอย่างไร:** ทุกครั้งที่ AI ใน CLI เริ่มทำงาน สคริปต์ Hook (`telemetry-tracker.sh`) จะส่งสัญญาณมาที่ฉาก 3D ทำให้ **แฟ้มงานสีทอง 3D ลอยส่งต่อข้ามโต๊ะ**, หน้าจอมอนิเตอร์จิ๋วบนโต๊ะเปลี่ยนชื่อ Skill สดๆ, และตัวละครพูดสถานะงานปัจจุบันเป็นภาษาไทย
+* **ทำงานอย่างไร:** ทุกครั้งที่ AI ใน CLI เริ่มทำงาน สคริปต์ Hook (`telemetry-tracker.sh`) จะส่งสัญญาณมาที่ฉาก 3D ทำให้ **แฟ้มงานสีทอง 3D ลอยส่งต่อข้ามโต๊ะ**, หน้าจอมอนิเตอร์จิ๋วบนโต๊ะเปลี่ยนชื่อ Skill สดๆ, และ **ดึงข้อความความคิดสด (`💭 thinking` & `💬 สรุปผล`) จากไฟล์ Session `.jsonl` ของทั้ง Claude Code และ Antigravity มาแสดงบนลูกโป่งคำพูดของตัวละครแต่ละบทบาทแบบเรียลไทม์** (รวมถึงขึ้นป้าย `🤖 [Subagent จริง: SONNET/HAIKU/FLASH]` เมื่อมีการแตก Subagent จริง)
 
 ---
 
-#### 2. คลิกที่ตัวละครเพื่อเปิดดูการ์ดความสามารถประจำโต๊ะ + เลือกโมเดล (`Progressive Disclosure Drawer & Custom Select`)
+#### 2. คลิกที่ตัวละครเพื่อเปิดดูความคิดสด + การ์ดความสามารถประจำโต๊ะ + เลือกโมเดล (`Progressive Disclosure Drawer & Custom Select`)
 ![คลิกตัวละครเพื่อเปิดแผงข้อมูลประจำโต๊ะและเลือกโมเดล](docs/screenshots/02-character-drawer-select.jpg)
 
 * **คืออะไร:** แทนที่จะเทตัวหนังสือทุกอย่างไว้เต็มหน้าจอ ระบบใช้หลัก **Progressive Disclosure 3 ระดับ**:
   * เมื่อคลิกที่ **ตัวละคร 3D** หรือปุ่มชื่อโต๊ะด้านบน กล้องจะซูมเข้าไปหาตัวละครนั้น (ตัวละครจะหันมามองกล้อง) พร้อมสไลด์เปิด **แผงข้อมูลประจำโต๊ะ (`Slide-Over Context Drawer`)** ทางด้านขวา
-  * แสดงรายการ **การ์ดความสามารถ (`Skills`)**, **คำสั่งลัด (`Commands`)**, และ **กฎประจำตำแหน่ง (`Agent / Rules`)** ที่สแกนสดจากโฟลเดอร์ `.claude/` และ `.agents/`
+  * แท็บที่ 1 แสดง **`💭 ความคิดและการตัดสินใจล่าสุดของบทบาทนี้`** คู่กับรายการ **การ์ดความสามารถ (`Skills`)**, **คำสั่งลัด (`Commands`)**, และ **กฎประจำตำแหน่ง (`Agent / Rules`)** ที่สแกนสดจากโฟลเดอร์ `.claude/` และ `.agents/` (และแท็บที่ 3 รวบรวมกระแสความคิดสดของทุกแผนกเรียงตามเวลาจริง)
   * ด้านล่างมี **Custom Select Popover Component** สำหรับเลือกสลับค่าย (`Claude Code` / `Antigravity`) และเลือกโมเดล (`Opus`, `Sonnet`, `Haiku`) หรือพิมพ์สั่งงานเป็นภาษาไทยได้โดยตรง
 
 ---
@@ -127,14 +127,14 @@ bash .claude/hooks/open-hud.sh
 ![โหมดกลางคืน Lo-Fi และการแจ้งเตือนซ่อมบั๊ก 2-Strike](docs/screenshots/03-night-lofi-debugger.jpg)
 
 * **คืออะไร:** กดปุ่ม **`กลางวัน / กลางคืน (Lo-Fi)`** ที่มุมขวาบนเพื่อสลับบรรยากาศห้องทำงานเป็นโหมดกลางคืน ท้องฟ้าด้านนอกหน้าต่าง Loft จะเปลี่ยนเป็นสีน้ำเงินเข้ม พร้อมเปิดไฟโคมตั้งโต๊ะทองเหลือง (`PointLight`) ให้แสงอบอุ่นสบายตาขณะเปิดมอนิเตอร์ทิ้งไว้ข้างจอเขียนโค้ด
-* **ทดลองจำลองเหตุการณ์ได้ทันที:** กดปุ่ม **`ชมทีมทำงาน`** (ด้านบน) เพื่อดูแอนิเมชันส่งต่องานครบทั้ง 5 แผนกอัตโนมัติ หรือกดปุ่ม **`จำลองเหตุการณ์`** (ด้านล่าง) เพื่อทดสอบสถานการณ์ทั้ง 8 รูปแบบ (รวมถึงตอนติดเบรกเกอร์ `3/3` และตอนบล็อกคำสั่งอันตราย `rm -rf`)
+* **ทดลองจำลองเหตุการณ์ได้ทันที:** กดปุ่ม **`ชมทีมทำงาน`** (ด้านบน) เพื่อดูแอนิเมชันส่งต่องานครบทั้ง 5 แผนกอัตโนมัติ หรือกดปุ่ม **`จำลองเหตุการณ์`** (ด้านล่าง) เพื่อทดสอบสถานการณ์ทั้ง 10 รูปแบบ (รวมถึงตอนติดเบรกเกอร์ `3/3`, บล็อกคำสั่งอันตราย `rm -rf`, Stage 4 Anti-Test-Tampering, และ Stage 5 Production Approval Gate)
 
 ---
 
-#### 4. หน้าต่างสำรวจผังไฟล์จริงทั้ง 34 รายการ (`Live Workspace File Explorer — 100% Zero-Hardcode`)
+#### 4. หน้าต่างสำรวจผังไฟล์จริงทั้งหมด (`Live Workspace File Explorer — 100% Zero-Hardcode`)
 ![หน้าต่างสำรวจผังไฟล์จริงที่สแกนสดจากดิสก์](docs/screenshots/04-live-file-explorer.jpg)
 
-* **คืออะไร:** กดปุ่ม **`ผังไฟล์จริง (34)`** ที่แถบด้านบน หรือกดปุ่ม **`อ่านไฟล์`** ในแผงด้านขวา เพื่อเปิดหน้าต่างอ่านเนื้อหาไฟล์จริง (`CLAUDE.md`, `AGENTS.md`, `SKILL.md`, `rules/*.md`, `hooks/*.sh`) ที่สแกนสดจากดิสก์ของคุณแบบเรียลไทม์ พร้อมปุ่ม **`นำความสามารถนี้ไปใช้งาน`** ในคลิกเดียว
+* **คืออะไร:** กดปุ่ม **`ผังไฟล์จริง`** ที่แถบด้านบน หรือกดปุ่ม **`อ่านไฟล์`** ในแผงด้านขวา เพื่อเปิดหน้าต่างอ่านเนื้อหาไฟล์จริง (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `SKILL.md`, `rules/*.md`, `hooks/*.sh`) ที่สแกนสดจากดิสก์ของคุณแบบเรียลไทม์ พร้อมปุ่ม **`นำความสามารถนี้ไปใช้งาน`** ในคลิกเดียว
 
 ---
 
@@ -148,11 +148,11 @@ bash .claude/hooks/open-hud.sh
 | **🟣 `Opus`** | **สถาปนิกใหญ่ (Architect)** คิดวิเคราะห์ซับซ้อนเก่งมาก แต่ทำงานช้ากว่า | **กินโควต้าหนักมาก (หมดไวกว่าหลายเท่า)** | **ใช้เฉพาะ 15% ของงาน** ตอนคิดโครงสร้างระบบใหญ่ หรือตอนแก้บั๊กที่ `Sonnet` ลองแก้ครบ 2 ครั้งแล้วยังติด |
 | **⚡ `Haiku`** | **ลูกมือวิ่งหาเอกสาร** เร็วมากแต่ไม่เหมาะกับงานคิดซับซ้อน | **ประหยัดสุดๆ (ถูกกว่า 10–20 เท่า)** | **ไม่ต้องกดเลือกเอง** เพราะ Template นี้ตั้งให้ตัวค้นหาไฟล์ (`explorer.md`) ใช้ `Haiku` อยู่เบื้องหลังให้อัตโนมัติแล้ว |
 
-> **💡 ความลับที่ Template นี้ตั้งค่าช่วยคุณไว้แล้วใน `.claude/agents/`:**
-> ปกติถ้าคุณเปิด **`Opus`** ไว้ในหน้าแชทหลัก แล้วสั่งงาน ระบบของ Claude Code จะใช้ `Opus` กับลูกมือทุกตัวจนโควต้าไหลเป็นน้ำ แต่ใน Template นี้ เราล็อกค่าในไฟล์ `.claude/agents/` ไว้ให้แล้วว่า:
-> * ลูกมือค้นหาไฟล์ (`explorer.md`) ➔ บังคับใช้ **`haiku`** เสมอ
-> * ลูกมือเขียนโค้ด/แก้บั๊ก/ตรวจโค้ด (`implementer.md`, `debugger.md`, `reviewer.md`) ➔ บังคับใช้ **`sonnet`** เสมอ
-> *(หมายเหตุ: เราใช้ชื่อย่อ `sonnet` และ `haiku` ตามมาตรฐาน Official ของ Claude Code เพื่อให้ระบบดึงรุ่นล่าสุดให้อัตโนมัติโดยไม่ต้องคอยแก้เลขรุ่นในไฟล์)*
+> **💡 กลไกปลดล็อกการแตก Subagent อัตโนมัติ (`Explicit Subagent Override` สำหรับทั้ง Claude Code & Antigravity):**
+> ใน Claude Code รุ่นใหม่ (`v2.1.318+`) ระบบพื้นฐานของเครื่องมือ `Agent` จะลังเลไม่กล้าแตก Subagent เองหากผู้ใช้ไม่พิมพ์สั่งชื่อตรงๆ ทำให้เผลอรันทุกคำสั่งบน `Opus` จนโควต้าหมดไว Template นี้จึงฝังคำสั่ง **`[MODEL-ROUTING AUTHORIZED]`** ผ่านทั้ง `CLAUDE.md`, `AGENTS.md`, `.claude/rules/model-routing.md` และ Hook `UserPromptSubmit` / `PreInvocation` เพื่อบังคับแยกงานก้อนใหญ่ให้โดยอัตโนมัติ:
+> * **งานจิ๋ว 1–2 ไฟล์:** ทำในหน้าต่างหลักทันที (ไม่แตก Subagent ให้เสีย Cold-Start Token ฟรี)
+> * **ก้อนงานสำรวจ >3 ไฟล์ (`explorer`):** แตก `Agent(subagent_type="explorer", model="haiku")` (Claude) หรือ `invoke_subagent(TypeName="research", Model="flash")` (Antigravity)
+> * **ก้อนงานเขียนโค้ด 2–5 ไฟล์ + รันเทสต์ย่อย (`implementer`) / ซ่อมบั๊ก (`debugger`) / รัน E2E (`reviewer`):** แตก Subagent ไปรันบน **`sonnet`** (Claude) หรือ **`self` / `browser`** (Antigravity) เพื่อไม่ให้หน้าต่างหลัก `Opus` ต้องเสียโควต้ากดคลิกเบราว์เซอร์หรือวนรันเทสต์เองหลายสิบรอบ!
 
 ### วิธีเปลี่ยน Model ในหน้าแชทหลักของ Claude Code:
 * **ใน VS Code Extension:** กดคลิกที่ชื่อโมเดลตรงแถบด้านล่างของช่องพิมพ์แชท แล้วเลือก `Sonnet` หรือ `Opus`
@@ -367,8 +367,9 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **ทำหน้าที่เป็น Auto-Router (ตัวคัดแยกงานอัตโนมัติ):** วิเคราะห์ประโยคที่คุณพิมพ์ว่าควรทำเองทันที (งานแก้ 1–2 ไฟล์) หรือควรส่งให้ลูกมือเฉพาะทางทำ (งานใหญ่ >3 ไฟล์ / งานแก้บั๊ก / งานรีวิว)
 * **ตาราง Auto-Detect 5 ภาษาหลัก:** ตรวจจับจากไฟล์ในโปรเจกต์อัตโนมัติว่าเป็น **Node.js/TypeScript** (`package.json`), **Go** (`go.mod`), **Flutter/Dart** (`pubspec.yaml`), **Python** (`pyproject.toml`), หรือ **Rust** (`Cargo.toml`) เพื่อเลือกคำสั่งรันเทสต์เฉพาะไฟล์ให้ถูกต้องโดยที่คุณไม่ต้องตั้งค่าเอง
 
-### 2. กฎเหล็กที่โหลดตามชนิดไฟล์ (`rules/*.md` — 4 ไฟล์)
+### 2. กฎเหล็กที่โหลดตามชนิดไฟล์ (`rules/*.md` — 5 ไฟล์)
 อยู่ใน `.claude/rules/` และ `.agents/rules/` จะถูกดึงมาใช้เฉพาะเมื่อ AI กำลังแก้ไฟล์ที่ตรงกับงานนั้น:
+* **`model-routing.md` (Explicit Subagent Delegation & Quota Guard):** บังคับเกณฑ์การแยกก้อนงานหลายขั้นตอนไปรันใน Subagent (`explorer=haiku/flash`, `implementer/debugger/reviewer=sonnet`) และห้ามใช้หน้าต่างหลัก `Opus` กดคลิกเบราว์เซอร์วนลูปเกิน 5 ครั้ง
 * **`code-simplicity.md` (Karpathy 4 Principles):** บังคับ *Think Before Coding* (คิดก่อนทำ), *Simplicity First* (ทำวิธีที่ง่ายที่สุด ห้ามสร้าง Class/Helper เผื่ออนาคต), *Surgical Changes* (แก้เฉพาะบรรทัดที่สั่ง), และ *Goal-Driven Execution* (ตั้งเป้าหมายการเทสต์ก่อนจบงาน)
 * **`execution-discipline.md` (Context Hygiene & Graph `State-Delta`):**
   * ห้ามกวาดอ่านไฟล์ทั้งโปรเจกต์เข้าหน้าแชทหลัก
@@ -406,7 +407,7 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 
 ### 6. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh` — Deterministic Function Nodes)
 แทนที่จะเปลืองโควต้าให้ AI คอยระวังเอง งานที่ตายตัวจะถูกควบคุมด้วยสคริปต์ Bash ที่ทำงานอัตโนมัติทั้งใน Claude Code (`.claude/settings.json`) และ Antigravity (`.agents/hooks.json`) โดย**ไม่เสียโควต้า AI แม้แต่ Token เดียว**:
-* **`validate-bash.sh`:** ใช้ตัวสกัด JSON ที่ปลอดภัยต่อเครื่องหมายฟันหนูซ้อน (`\"` — ป้องกันช่องโหว่คำสั่งพ่วงท้ายอย่าง `git commit -m "wip" && rm -rf /`), ดักจับการพลางคำสั่งด้วย `${IFS}` / `base64 -d | sh`, บล็อกคำสั่งอันตราย (`rm -rf`, `git push --force` / `+main`, `git restore` / `git checkout .`), บล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`), และ **บล็อกการแอบสั่ง Deploy ขึ้น Production หรือยิง Migration ฐานข้อมูลจริงโดยไม่ผ่านคนอนุมัติ (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `prisma migrate deploy`, `supabase db push`, `terraform apply`, `kubectl apply` — Stage 5 Approval Gate)**
+* **`validate-bash.sh`:** ใช้ตัวสกัด JSON ที่ปลอดภัยต่อเครื่องหมายฟันหนูซ้อน (`\"` — ป้องกันช่องโหว่คำสั่งพ่วงท้ายอย่าง `git commit -m "wip" && rm -rf /`), ดักจับการพลางคำสั่งด้วย `${IFS}` / `base64 -d | sh`, บล็อกคำสั่งอันตราย (`rm -rf`, `git push --force` / `+main`, `git restore` / `git checkout .`), บล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add` — เมื่อคุณอนุญาตในแชทแล้ว AI สามารถใส่ `DEPS_APPROVED=1` นำหน้าเพื่อรันได้ทันที), และ **บล็อกการแอบสั่ง Deploy ขึ้น Production หรือยิง Migration ฐานข้อมูลจริงโดยไม่ผ่านคนอนุมัติ (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `prisma migrate deploy`, `supabase db push`, `terraform apply`, `kubectl apply` — Stage 5 Approval Gate ปลดล็อกด้วย `RELEASE_APPROVED=1`)**
 * **`protect-sensitive-files.sh`:** บล็อกการอ่านหรือแก้ไขไฟล์ความลับ (`.env`, `.pem`, `.key`, `.keystore`, `.jks`, `.p12`), ห้ามแก้ไฟล์ Lockfile โดยตรง (`package-lock.json`, `pubspec.lock`, `go.sum`, `poetry.lock`, `Cargo.lock`), และ **ป้องกัน AI แอบแก้ไขไฟล์เทสต์ที่มีอยู่เดิม (`*.test.*`, `*.spec.*`, `*_test.*`) ในระหว่างซ่อมบั๊กเพื่อให้เทสต์ผ่านหลอกๆ (Stage 4 Anti-Test-Tampering Guard)**
 * **`post-edit-format.sh`:** จัด Format โค้ดอัตโนมัติตามภาษา (`prettier`, `gofmt`, `dart format`, `ruff format`, `rustfmt`) และบันทึกจุดแก้ล่าสุดลง `.agent-last-state.log` ทุกครั้ง
 * **`loop-circuit-breaker.sh`:** นับจำนวนครั้งที่ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำๆ ถ้าเกิน 3 ครั้งจะตัดเบรกเกอร์บังคับหยุดทันที
@@ -435,6 +436,7 @@ project-root/
 ├── .agents/                                    # ⚡ ตั้งค่าอัตโนมัติสำหรับ Antigravity (VS Code)
 │   ├── hooks.json                              # ผูก SessionStart, PreInvocation, PreToolUse, PostToolUse, Stop
 │   ├── rules/
+│   │   ├── model-routing.md                    # กฎคัดแยกโมเดลอัตโนมัติ (Haiku/Flash สำรวจ ➔ Sonnet เขียนโค้ด/ซ่อมบั๊ก/รันเทสต์)
 │   │   ├── code-simplicity.md                  # Karpathy 4 Principles (Think, Simplicity, Surgical, Goal-Driven)
 │   │   ├── execution-discipline.md             # Context Hygiene (trailofbits) + Graph State-Delta (ADK 2) & Safe Rollback
 │   │   ├── testing-and-api.md                  # Real Testing (obra/superpowers TDD) & OWASP API Security
