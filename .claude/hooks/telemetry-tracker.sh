@@ -344,11 +344,13 @@ def humanize_detail(raw_d):
 def infer_thought_desk(txt, tool_names=None, tool_descs=None):
     low = (txt + " " + " ".join(tool_descs or [])).lower()
     t_names = set(tool_names or [])
-    if any(k in low for k in ("err:", "error", "has no const", "removing `const`", "failed", "ไม่ผ่าน", "เทสต์ตก", "บั๊ก", "ซ่อม", "แก้ให้ผ่าน", "exception")):
+    if any(k in low for k in ("สรุปสถานะ", "สิ่งที่ให้คุณทำ", "ขั้นตอนต่อไป", "ตั้งงานเบื้องหลัง", "ตั้งงานรอบใหม่ไว้เบื้องหลัง", "wait for stable", "wait for github")):
+        return "core"
+    if any(k in low for k in ("err:", "error", "504", "ยังตก", "flaky", "has no const", "removing `const`", "failed", "ไม่ผ่าน", "เทสต์ตก", "บั๊ก", "ซ่อม", "แก้ให้ผ่าน", "exception")):
         return "debugger"
     if any(k in low for k in ("ขอดู signature", "ฝั่งแอปจะอ่าน", "ขออ่าน", "ขอดู", "checking how", "ดูโครงสร้าง", "read the ", "read shift", "find ", "check billrecord", "สำรวจ")):
         return "explorer"
-    if any(k in low for k in ("pgtap ผ่าน", "ci ผ่าน", "ci ของ", "ทดสอบผ่าน", "result: pass", "e2e", "รันเทสต์", "เทสต์ผ่าน", "red → green", "ยืนยันแล้ว")):
+    if any(k in low for k in ("pgtap ผ่าน", "ci ผ่าน", "ทดสอบผ่าน", "result: pass", "e2e ทั้งชุดรัน", "รันเทสต์", "เทสต์ผ่าน", "red → green", "ยืนยันแล้ว")):
         return "reviewer"
     if "Edit" in t_names or "Write" in t_names or any(k in low for k in ("ต่อไปจะเขียน", "ต่อไปฝั่งแอปจะ", "ออกแบบหน้า", "เพิ่มปุ่ม", "สร้างไฟล์", "เขียนฝั่งแอป", "writing tests", "implement", "จะผ่านตัวกลางเดียว", "เขียนเทสต์", "เพิ่มการตรวจ", "restoring the real code", "อัปเดต", "แก้ไข")):
         return "implementer"
@@ -713,14 +715,14 @@ if mode_type == "stdin":
             state["currentAction"] = "🔴 โควต้าเต็ม (MAX_TOKEN_BUDGET_EXCEEDED) — แนะนำสลับค่าย AI!"
             state["liveSpeech"] = "โควต้าฝั่งนี้เต็มแล้วครับเจ้านาย! กดปุ่มสลับค่าย AI เพื่อรับไม้ต่อจากจุดเดิมได้ทันทีครับ 🔄"
         else:
-            state["activeNode"] = "reviewer"
+            state["activeNode"] = state.get("liveThoughtDesk") or "core"
             state["systemStatus"] = "ready"
             state["liveEmotion"] = "verified"
-            state["activeAgentFile"] = ".claude/agents/reviewer.md"
-            state["activeSkill"] = "verification-before-completion"
-            state["activeSkillFile"] = ".claude/skills/verification-before-completion/SKILL.md"
-            state["currentAction"] = "✅ ดำเนินการเสร็จสิ้น พร้อมรับคำสั่งถัดไป"
-            state["liveSpeech"] = "ตรวจสอบและส่งมอบงานรอบนี้เรียบร้อยครับเจ้านาย! พร้อมรับคำสั่งต่อไปได้เลย 🏆"
+            state["activeAgentFile"] = "CLAUDE.md" if engine == "claude" else "AGENTS.md"
+            state["activeSkill"] = state.get("activeSkill") or "common-ground"
+            state["activeSkillFile"] = f".claude/skills/{state['activeSkill']}/SKILL.md"
+            state["currentAction"] = "✅ จบรอบการตอบล่าสุด (พร้อมรับคำสั่งถัดไป หรือรันงานเบื้องหลัง)"
+            state["liveSpeech"] = "สรุปผลรอบนี้เรียบร้อยครับเจ้านาย! พร้อมรับคำสั่งต่อไปได้เลยครับ"
 
     if stage in ("prompt", "read"):
         if engine == "claude":
@@ -908,12 +910,18 @@ if agent_thoughts:
     latest_th = agent_thoughts[0]
     state["liveThought"] = latest_th["text"]
     state["liveThoughtDesk"] = latest_th["desk"]
+    if stage == "stop" or state.get("systemStatus") == "ready":
+        state["activeNode"] = latest_th["desk"]
+        if any(k in latest_th["text"] for k in ("ตั้งงานเบื้องหลัง", "ตั้งงานรอบใหม่ไว้เบื้องหลัง", "รันอยู่เบื้องหลัง")):
+            state["currentAction"] = f"⏳ รันงานเบื้องหลังรอผล: {latest_th['text'][:75]}..."
     # หากกำลังทำงานปกติ (ไม่ได้ติดบล็อกและไม่ใช่จังหวะเพิ่งแตก Subagent) ให้แสดงความคิดของโต๊ะที่กำลังแอคทีฟบนลูกโป่งคำพูด!
     if state.get("systemStatus") != "blocked" and int(state.get("strikeCount") or 0) < 2 and stage != "agent":
         active_d = state.get("activeNode", "core")
-        th_for_desk = (desk_thoughts.get(active_d) or latest_th).get("text", "")
+        chosen_th = desk_thoughts.get(active_d) or latest_th
+        th_for_desk = chosen_th.get("text", "")
+        th_icon = "💬" if chosen_th.get("kind") == "REPLY" else "💭"
         if th_for_desk:
-            state["liveSpeech"] = f"💭 {th_for_desk}"
+            state["liveSpeech"] = f"{th_icon} {th_for_desk}"
 
 # กรองเฉพาะไฟล์ที่มีอยู่จริงบนดิสก์เท่านั้น (ป้องกันไฟล์จำลองค้างเก่า)
 valid_touched = [

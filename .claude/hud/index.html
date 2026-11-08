@@ -3577,11 +3577,14 @@
       keys.forEach((k) => {
         const el = document.getElementById(`speech-${k}`);
         if (!el) return;
-        const thText = liveDeskThoughts[k]?.text || '';
+        const thObj = liveDeskThoughts[k];
+        const thText = thObj?.text || '';
+        const thKind = String(thObj?.kind || '').toUpperCase();
+        const thIcon = thKind === 'REPLY' ? '💬' : (thKind === 'SUBAGENT' ? '🤖' : '💭');
         if (k === activeNode) {
           let msg = '';
           if (!isDanger && thText) {
-            msg = `💭 ${compactOneLine(thText, 128)}`;
+            msg = thText.startsWith('🤖') ? compactOneLine(thText, 128) : `${thIcon} ${compactOneLine(thText, 128)}`;
           } else {
             msg = compactOneLine(speechText, 110);
           }
@@ -3593,7 +3596,7 @@
             el.classList.remove('visible', 'danger-speech');
           }
         } else if (k === hoveredDeskKey && thText) {
-          el.textContent = `💭 ${compactOneLine(thText, 128)}`;
+          el.textContent = thText.startsWith('🤖') ? compactOneLine(thText, 128) : `${thIcon} ${compactOneLine(thText, 128)}`;
           el.classList.add('visible');
           el.classList.remove('danger-speech');
         } else {
@@ -3670,6 +3673,14 @@
               nextNode,
               `ส่งแฟ้มงาน ➔ ${DESK_INFO[nextNode]?.shortName || nextNode}`
             );
+            const mCode = String(data.activeModel || DESK_INFO[nextNode]?.modelCode || 'opus').toLowerCase();
+            if (mCode.includes('opus')) {
+              window.selectModelOption('opus', 'Opus', 'วางแผน', 'var(--accent-opus)');
+            } else if (mCode.includes('haiku') || mCode.includes('flash')) {
+              window.selectModelOption('haiku', 'Haiku', 'สำรวจไว 15x', 'var(--accent-haiku)');
+            } else {
+              window.selectModelOption('sonnet', 'Sonnet', 'เขียนโค้ด', 'var(--accent-sonnet)');
+            }
           }
           currentActiveNode = nextNode;
           currentActionText = nextAction;
