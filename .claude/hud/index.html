@@ -3489,12 +3489,37 @@
     // =========================================================================
     // 11. ซิงค์ข้อมูลสดจาก `.claude/.telemetry.json` และ `/api/quota`
     // =========================================================================
+    function compactOneLine(rawStr, maxLen = 92) {
+      if (!rawStr) return '';
+      let s = String(rawStr)
+        .replace(/<ide_opened_file>[\s\S]*?<\/ide_opened_file>/g, ' ')
+        .replace(/<ide_selection>[\s\S]*?<\/ide_selection>/g, ' ')
+        .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, ' ')
+        .trim();
+      const wMatch = s.match(/open\(['"]([^'"]+)['"]\s*,\s*['"]w/);
+      if (wMatch) {
+        return `✍️ แก้ไขไฟล์จริง: ${wMatch[1]}`;
+      }
+      if (s.includes('<<') || s.includes('\n')) {
+        const fMatches = s.match(/[A-Za-z0-9_./-]+\.(?:dart|sql|ts|tsx|js|py|go|rs|sh|md|json)/g) || [];
+        const uniq = [...new Set(fMatches.map((f) => f.split('/').pop()))].slice(0, 3);
+        if (uniq.length > 0) {
+          if (s.startsWith('🧪')) return `🧪 รันตรวจผลจริง (${uniq.join(', ')})`;
+          if (s.startsWith('🔍')) return `🔍 สแกนโค้ด (${uniq.join(', ')})`;
+          return `⚡ รันสคริปต์จัดการไฟล์ (${uniq.join(', ')})`;
+        }
+        s = s.split('\n')[0];
+      }
+      s = s
+        .replace(/(🔍 Inspecting:\s*|🧪 Verifying:\s*|⚡ Bash:\s*)cd\s+[^;&|]+[;&]+\s*/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s;
+    }
+
     function updateSpeechBubbles(activeNode, speechText, phase, strikeCount) {
       const keys = ['core', 'explorer', 'implementer', 'debugger', 'reviewer'];
-      const cleanSpeech =
-        speechText && speechText.length > 85
-          ? speechText.slice(0, 82) + '…'
-          : speechText;
+      const cleanSpeech = compactOneLine(speechText, 85);
       keys.forEach((k) => {
         const el = document.getElementById(`speech-${k}`);
         if (!el) return;
@@ -3626,7 +3651,7 @@
           hudBadge.textContent =
             DESK_INFO[currentActiveNode]?.shortName || 'โต๊ะหัวหน้า (Opus)';
         }
-        if (hudAction) hudAction.textContent = nextAction;
+        if (hudAction) hudAction.textContent = compactOneLine(nextAction, 86);
         if (skCode) skCode.textContent = data.activeSkill || 'common-ground';
         if (cmCode) {
           const rawCmd = data.activeCommand || data.activePromptFile || 'CLAUDE.md';
@@ -3643,7 +3668,7 @@
           (stats.claudeCalls || 0) + (stats.antigravityCalls || 0);
         setTxt('calls-counter-txt', `${totalCalls} ครั้ง`);
         setTxt('active-model-txt', (data.activeModel || 'opus').toUpperCase());
-        setTxt('current-action-txt', nextAction);
+        setTxt('current-action-txt', compactOneLine(nextAction, 110));
         setTxt(
           'live-card-skill-path',
           data.activeSkillFile ||
@@ -3685,10 +3710,21 @@
         const usedHistEl = document.getElementById('used-items-history-list');
         const usedHist = data.usedItemsHistory || [];
         if (usedHistEl && usedHist.length > 0) {
-          usedHistEl.innerHTML = usedHist
-            .slice(0, 8)
+          // กรองรายการซ้ำติดกันและตัดบรรทัดคำสั่งยาวให้กระชับอ่านง่าย
+          const dedupedHist = [];
+          for (const uh of usedHist) {
+            if (uh.kind === 'HOOK' && String(uh.name || '').includes('loop-circuit-breaker') && data.systemStatus === 'working') {
+              continue;
+            }
+            const prev = dedupedHist[dedupedHist.length - 1];
+            if (prev && prev.name === uh.name && prev.path === uh.path) continue;
+            dedupedHist.push(uh);
+            if (dedupedHist.length >= 8) break;
+          }
+          usedHistEl.innerHTML = dedupedHist
             .map((uh) => {
               const path = uh.path || 'CLAUDE.md';
+              const cleanDet = compactOneLine(uh.detail || path, 92);
               return `
                 <div class="flat-row">
                   <div class="fr-top">
@@ -3696,7 +3732,7 @@
                     <span class="fr-badge">${escapeHtml(uh.time || '')}</span>
                   </div>
                   <div class="fr-bottom">
-                    <span class="fr-path">${escapeHtml(uh.detail || path)}</span>
+                    <span class="fr-path">${escapeHtml(cleanDet)}</span>
                     <button class="mini-btn" onclick="window.openTemplateModal('${escapeHtml(path)}')">ดูไฟล์</button>
                   </div>
                 </div>
@@ -3708,6 +3744,13 @@
         if (data.lastAssistantReply) {
           setTxt('ai-reply-box', data.lastAssistantReply);
           setTxt('reply-status-txt', data.commandStatus || 'เสร็จสิ้น');
+        } else if (Array.isArray(data.events) && data.events.length > 0) {
+          const evLines = data.events
+            .slice(0, 4)
+            .map((ev) => `[${ev.time || ''}] ${compactOneLine(ev.detail || '', 88)}`)
+            .join('\n');
+          setTxt('ai-reply-box', evLines);
+          setTxt('reply-status-txt', `${(data.activeEngine || 'claude').toUpperCase()} สด`);
         }
       } catch (err) {
         console.warn('Telemetry poll error:', err);

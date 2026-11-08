@@ -110,13 +110,44 @@ def infer_desk_for_file(rel_path, meta, title, text):
         return "explorer"
     if "debug" in rel_path or "fix.md" in rel_path or "/fix" in low or "loop-circuit" in rel_path or "2-strike" in low:
         return "debugger"
-    if "review" in rel_path or "verify" in rel_path or "verification" in rel_path or "testing-and-api" in rel_path:
+    if "review" in rel_path or "verify" in rel_path or "verification" in rel_path or "testing-and-api" in rel_path or "webapp-testing" in rel_path:
         return "reviewer"
-    if "implementer" in rel_path or "threejs" in rel_path or "db-migration" in rel_path or "ui-anti-slop" in rel_path or "code-simplicity" in rel_path or "post-edit" in rel_path:
+    impl_keywords = (
+        "implementer", "threejs", "db-migration", "ui-anti-slop", "code-simplicity",
+        "post-edit", "flutter", "react", "nextjs", "nestjs", "golang", "python",
+        "rust", "postgres", "tailwind", "frontend-design", "unslop", "pdf", "docx",
+        "xlsx", "pptx", "mcp-builder", "claude-api",
+    )
+    if any(k in rel_path.lower() or k in low for k in impl_keywords):
         return "implementer"
     return "core"
 
+FRIENDLY_THAI_LABELS = {
+    "flutter-expert": "ผู้เชี่ยวชาญ Flutter 3+ & Dart (State, GoRouter, Widget & Performance)",
+    "react-expert": "ผู้เชี่ยวชาญ React 19 & Server/Client Components",
+    "nextjs-developer": "ผู้เชี่ยวชาญ Next.js App Router & Full-Stack Web",
+    "nestjs-expert": "ผู้เชี่ยวชาญ NestJS, DI, Guards & Clean API",
+    "golang-pro": "ผู้เชี่ยวชาญ Go (Goroutines, Channels & Microservices)",
+    "python-pro": "ผู้เชี่ยวชาญ Python ยุคใหม่, Type Hints & Asyncio",
+    "rust-engineer": "ผู้เชี่ยวชาญ Rust (Ownership, Lifetimes & Tokio)",
+    "postgres-pro": "ผู้เชี่ยวชาญ PostgreSQL, Indexing & Query Tuning",
+    "tailwind-expert": "ผู้เชี่ยวชาญ Tailwind CSS & Design Tokens",
+    "frontend-design": "ออกแบบ UI ระดับ Production ไร้กลิ่นอาย AI (Anthropic Official)",
+    "webapp-testing": "ทดสอบหน้าเว็บจริงด้วย Playwright & Reconnaissance (Anthropic Official)",
+    "mcp-builder": "สร้าง MCP Server เชื่อมต่อระบบภายนอก (Anthropic Official)",
+    "claude-api": "พัฒนาแอปด้วย Claude API & Anthropic SDK (Anthropic Official)",
+    "pdf": "สร้าง อ่าน และจัดการไฟล์เอกสาร PDF อัตโนมัติ (Anthropic Official)",
+    "docx": "สร้างและแก้ไขเอกสาร Word .docx อัตโนมัติ (Anthropic Official)",
+    "xlsx": "สร้างตารางและสูตรคำนวณ Excel .xlsx อัตโนมัติ (Anthropic Official)",
+    "pptx": "สร้างสไลด์นำเสนอ PowerPoint .pptx อัตโนมัติ (Anthropic Official)",
+    "unslop": "สแกนและล้าง AI UI Slop ครบ 9 ด้าน (heydamir/unslop)",
+    "ui-anti-slop": "กฎออกแบบ UI สะอาดไร้กลิ่นอาย AI (unslop + frontend-design + Three.js)",
+}
+
 def friendly_power_name(rel_path, meta, title):
+    base_slug = os.path.basename(os.path.dirname(rel_path)) if rel_path.endswith("/SKILL.md") else os.path.splitext(os.path.basename(rel_path))[0]
+    if base_slug in FRIENDLY_THAI_LABELS:
+        return FRIENDLY_THAI_LABELS[base_slug]
     desc = str(meta.get("description", "")).strip()
     if re.match(r"^[\u0E00-\u0E7F]", desc):
         return re.sub(r"\s*\([^)]*\)", "", desc).strip()[:100]
@@ -251,7 +282,59 @@ if os.path.exists(t_file):
 now_local = datetime.now().strftime("%H:%M:%S")
 stats = state["stats"]
 
+def clean_prompt_text(raw_p):
+    if not raw_p:
+        return ""
+    s = str(raw_p)
+    # ลบแท็กที่ IDE แนบมาอัตโนมัติ เช่น <ide_opened_file>...</ide_opened_file> หรือ <system-reminder>...</system-reminder>
+    s = re.sub(r"<ide_opened_file>.*?</ide_opened_file>", " ", s, flags=re.S)
+    s = re.sub(r"<ide_selection>.*?</ide_selection>", " ", s, flags=re.S)
+    s = re.sub(r"<system-reminder>.*?</system-reminder>", " ", s, flags=re.S)
+    s = " ".join(s.split()).strip()
+    if len(s) > 150:
+        s = s[:147] + "..."
+    return s
+
+def humanize_detail(raw_d):
+    if not raw_d:
+        return ""
+    s = str(raw_d).strip()
+    # บีบอัดคำสั่งหลายบรรทัดหรือ Heredoc ยาวๆ ให้เป็นข้อความสรุป 1 บรรทัดที่อ่านง่าย
+    w_match = re.search(r"open\(['\"]([^'\"]+)['\"][[:space:]]*,[[:space:]]*['\"]w", s)
+    if w_match:
+        target_f = w_match.group(1)
+        return f"✍️ แก้ไขไฟล์จริง: {target_f}"
+    if "<<" in s or "\n" in s:
+        first_ln = s.splitlines()[0].strip()
+        first_ln = re.sub(r"^(🔍 Inspecting:|🧪 Verifying:|⚡ Bash:)\s*", "", first_ln)
+        first_ln = re.sub(r"^cd\s+[^;&|]+[;&]+\s*", "", first_ln)
+        # ดึงชื่อไฟล์ที่เกี่ยวข้องในสคริปต์ถ้ามี
+        f_matches = re.findall(r"([A-Za-z0-9_./-]+\.(?:dart|sql|ts|tsx|js|py|go|rs|sh|md|json))", s)
+        if f_matches:
+            uniq_f = []
+            for fm in f_matches:
+                bn = os.path.basename(fm)
+                if bn not in uniq_f:
+                    uniq_f.append(bn)
+            files_str = ", ".join(uniq_f[:3])
+            if s.startswith("🧪"):
+                return f"🧪 รันตรวจผลจริง ({files_str})"
+            elif s.startswith("🔍"):
+                return f"🔍 สแกนโค้ด ({files_str})"
+            return f"⚡ รันสคริปต์จัดการไฟล์ ({files_str})"
+        s = first_ln
+    # ลบ cd /path/... && ด้านหน้าเพื่อให้สั้นกระชับ
+    s = re.sub(r"(🔍 Inspecting:\s*|🧪 Verifying:\s*|⚡ Bash:\s*)cd\s+[^;&|]+[;&]+\s*", r"\1", s)
+    s = " ".join(s.split())
+    if len(s) > 105:
+        s = s[:102] + "..."
+    return s
+
 def push_used_item(kind, name, path, desk, detail_txt=""):
+    # ข้ามการบันทึก loop-circuit-breaker.sh ซ้ำๆ ในสถานะปกติ เพื่อไม่ให้รกหน้าประวัติ
+    if kind == "HOOK" and "loop-circuit-breaker" in name and state.get("systemStatus") == "working":
+        return
+    clean_det = humanize_detail(detail_txt)
     hist = state.get("usedItemsHistory") or []
     entry = {
         "time": now_local,
@@ -259,10 +342,14 @@ def push_used_item(kind, name, path, desk, detail_txt=""):
         "name": name,
         "path": path,
         "desk": desk,
-        "detail": detail_txt,
+        "detail": clean_det,
     }
-    if not hist or hist[0].get("path") != path or hist[0].get("kind") != kind or hist[0].get("name") != name:
-        hist.insert(0, entry)
+    # หากมีรายการชนิดและชื่อเดียวกันอยู่ใน 4 อันดับแรก ให้ดึงขึ้นมาอัปเดตเวลาด้านบนแทนการเพิ่มซ้ำ
+    for idx, existing in enumerate(hist[:4]):
+        if existing.get("kind") == kind and existing.get("name") == name and existing.get("path") == path:
+            hist.pop(idx)
+            break
+    hist.insert(0, entry)
     state["usedItemsHistory"] = hist[:20]
 
 # ดึง git diff --shortstat จริงจากโปรเจกต์
@@ -293,10 +380,9 @@ if mode_type == "stdin":
 
     prompt_txt = payload.get("prompt") or payload.get("lastUserInput") or ""
     if prompt_txt:
-        clean_p = " ".join(str(prompt_txt).split())
-        if len(clean_p) > 160:
-            clean_p = clean_p[:157] + "..."
-        state["currentTask"] = clean_p
+        clean_p = clean_prompt_text(prompt_txt)
+        if clean_p:
+            state["currentTask"] = clean_p
 
     if stage == "prompt":
         state["activeNode"] = "core"
@@ -500,13 +586,22 @@ else:
     state["activeAgentFile"] = nd["agent"]
 
     d_low = (detail or "").lower()
-    for sk in ("threejs-expert", "db-migration", "root-cause-debug", "pragmatic-review", "verification-before-completion", "auto-resume-handoff", "tech-stack-skills", "common-ground"):
+    installed_skills = [
+        os.path.basename(os.path.dirname(p))
+        for p in glob.glob(os.path.join(project_root, ".claude/skills/*/SKILL.md"))
+    ]
+    for sk in installed_skills:
         if not skill_arg and sk in d_low:
             skill_arg = sk
             break
     if not skill_arg:
         if "สลับค่าย" in d_low or "handoff" in d_low:
             skill_arg = "auto-resume-handoff"
+        elif ".dart" in d_low or "flutter" in d_low:
+            if "flutter-expert" in installed_skills:
+                skill_arg = "flutter-expert"
+        elif ".sql" in d_low or "migration" in d_low or "supabase" in d_low or "settle_bill" in d_low:
+            skill_arg = "db-migration"
         elif "3d" in d_low or "three" in d_low or "hud" in d_low:
             skill_arg = "threejs-expert"
         elif "ซ่อม" in d_low or "เทสต์พัง" in d_low or "repeat" in d_low or "circuit" in d_low:
@@ -524,7 +619,12 @@ else:
     chosen_skill = skill_arg or nd["skill"]
     if file_touched:
         fl = file_touched.lower()
-        if fl.endswith((".tsx", ".jsx", ".html", ".css", ".vue", ".svelte")):
+        if fl.endswith(".dart"):
+            if not rule_arg:
+                rule_arg = ".claude/rules/ui-anti-slop.md"
+            if "flutter-expert" in installed_skills:
+                chosen_skill = skill_arg or "flutter-expert"
+        elif fl.endswith((".tsx", ".jsx", ".html", ".css", ".vue", ".svelte")):
             if not rule_arg:
                 rule_arg = ".claude/rules/ui-anti-slop.md"
             if "hud" in fl or "three" in fl or "3d" in fl:
@@ -532,6 +632,7 @@ else:
         elif "migration" in fl or "schema" in fl or fl.endswith(".sql"):
             chosen_skill = skill_arg or "db-migration"
 
+    clean_detail = humanize_detail(detail)
     state["activeSkill"] = chosen_skill
     state["activeSkillFile"] = f".claude/skills/{chosen_skill}/SKILL.md"
     state["activeCommand"] = cmd_arg or nd["cmd"]
@@ -540,12 +641,12 @@ else:
         state["activeHook"] = hook_arg
 
     if prompt_arg:
-        state["currentTask"] = prompt_arg[:160]
-    elif detail:
-        state["currentTask"] = detail[:160]
+        state["currentTask"] = clean_prompt_text(prompt_arg)
+    elif clean_detail and (not state.get("currentTask") or state["currentTask"].startswith(("⚡", "🔍", "🧪", "🟢", "รอรับ"))):
+        state["currentTask"] = clean_detail
 
-    if detail:
-        state["currentAction"] = detail
+    if clean_detail:
+        state["currentAction"] = clean_detail
 
     if strike != "":
         try:
@@ -590,11 +691,11 @@ else:
         state["liveSpeech"] = f"แก้ไขไฟล์จริง [{short_f}]{diff_note} ตามทักษะ [{chosen_skill}] และบันทึก Checkpoint แล้วครับ ✍️"
         push_used_item("EDIT", short_f, short_f, node, f"Edited {short_f}{diff_note}")
     else:
-        state["liveSpeech"] = detail or f"กำลังปฏิบัติงานด้วยทักษะ [{chosen_skill}] ครับ!"
+        state["liveSpeech"] = clean_detail or f"กำลังปฏิบัติงานด้วยทักษะ [{chosen_skill}] ครับ!"
 
-    push_used_item("SKILL", state["activeSkill"], state["activeSkillFile"], node, detail or "")
+    push_used_item("SKILL", state["activeSkill"], state["activeSkillFile"], node, clean_detail or "")
     if hook_arg:
-        push_used_item("HOOK", os.path.basename(hook_arg), hook_arg.split(" ")[0], node, detail or "")
+        push_used_item("HOOK", os.path.basename(hook_arg), hook_arg.split(" ")[0], node, clean_detail or "")
 
 state["stats"] = stats
 state["workspaceCatalog"] = scan_workspace_catalog(project_root)
