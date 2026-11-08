@@ -368,25 +368,28 @@
       display: inline;
     }
 
-    /* ลูกโป่งคำพูดการ์ตูน (แสดงเฉพาะโต๊ะเดียวที่กำลังทำงานอยู่ ไม่รกหน้าจอ!) */
+    /* ลูกโป่งความคิด (Thought Bubble) บนหัวตัวละคร — ล็อกความกว้างและตัดคำอัตโนมัติ ไม่ล้นกรอบ 100% */
     .desk-speech-bubble {
       position: absolute;
-      bottom: calc(100% + 7px);
+      bottom: calc(100% + 8px);
       left: 50%;
       transform: translateX(-50%) scale(0.92);
       background: #f8fafc;
       color: #0f172a;
-      padding: 5px 11px;
-      border-radius: 9px;
+      padding: 6px 12px;
+      border-radius: 10px;
       font-size: 11px;
       font-weight: 600;
-      line-height: 1.3;
+      line-height: 1.38;
       width: max-content;
-      min-width: 175px;
-      max-width: 230px;
+      min-width: 190px;
+      max-width: 265px;
+      box-sizing: border-box;
       white-space: normal;
-      text-align: center;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      text-align: left;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
       border: 1.5px solid #cbd5e1;
       opacity: 0;
       pointer-events: none;
@@ -1337,12 +1340,22 @@
         งานจริง & โควต้า
       </button>
       <button class="tab-btn" data-tab="tab-logs" onclick="window.switchTab('tab-logs')">
-        ประวัติ & คำตอบ
+        ความคิด AI & ประวัติ
       </button>
     </div>
 
     <!-- แท็บ 1: รายการความสามารถภาษาไทยแบบคลีน (Flat Divider Rows) -->
     <div class="tab-pane active" id="tab-desk">
+      <div class="section-group">
+        <div class="sg-header">
+          <span>💭 ความคิดล่าสุดของบทบาทนี้ (Live Thought)</span>
+          <span id="desk-thought-time">สด</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-primary);padding:9px 11px;line-height:1.5;background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:8px;overflow-wrap:anywhere;word-break:break-word;" id="desk-thought-box">
+          กำลังรอจังหวะคิดวิเคราะห์ของตัวละครในตำแหน่งนี้...
+        </div>
+      </div>
+
       <div class="section-group">
         <div class="sg-header">
           <span>การ์ดความสามารถ (Skills)</span>
@@ -1456,14 +1469,14 @@
       </div>
     </div>
 
-    <!-- แท็บ 3: ประวัติการดึงใช้ไฟล์ & คำตอบจาก AI -->
+    <!-- แท็บ 3: ความคิดสดตามบทบาท & ประวัติการดึงใช้ไฟล์ -->
     <div class="tab-pane" id="tab-logs">
       <div class="section-group">
         <div class="sg-header">
-          <span>คำตอบล่าสุดจาก AI CLI</span>
+          <span>🧠 ความคิดและการตัดสินใจสดตามบทบาท</span>
           <span id="reply-status-txt">พร้อมรับงาน</span>
         </div>
-        <div style="font-size:12px;color:var(--text-secondary);padding:8px 0;line-height:1.5;" id="ai-reply-box">
+        <div class="flat-list" id="ai-reply-box" style="font-size:12px;color:var(--text-secondary);line-height:1.5;overflow-wrap:anywhere;word-break:break-word;">
           คลิกที่ตัวละคร 3D Voxel เพื่อดูความสามารถประจำตำแหน่ง หรือพิมพ์สั่งงานจากช่องด้านล่างได้เลยครับ
         </div>
       </div>
@@ -3208,6 +3221,9 @@
       }
 
       renderRoleArchitecture(deskKey);
+      if (typeof renderDeskThought === 'function') {
+        renderDeskThought(deskKey);
+      }
       if (shouldOpenDrawer) {
         window.openDrawer();
         window.switchTab('tab-desk');
@@ -3243,12 +3259,18 @@
       const hits = raycaster.intersectObjects(clickableMeshes, false);
       const hitKey = hits.length > 0 ? hits[0].object.userData?.deskKey : null;
 
-      if (hitKey !== hoveredDeskKey) {
+      if ( hitKey !== hoveredDeskKey ) {
         hoveredDeskKey = hitKey;
         renderer.domElement.style.cursor = hitKey ? 'pointer' : 'grab';
         ['core', 'explorer', 'implementer', 'debugger', 'reviewer'].forEach((k) => {
           document.getElementById(`label-${k}`)?.classList.toggle('hovered', k === hitKey);
         });
+        updateSpeechBubbles(
+          currentActiveNode,
+          lastBubbleSpeechText,
+          currentPhase,
+          currentStrikeCount
+        );
       }
     });
 
@@ -3489,9 +3511,14 @@
     // =========================================================================
     // 11. ซิงค์ข้อมูลสดจาก `.claude/.telemetry.json` และ `/api/quota`
     // =========================================================================
+    let liveDeskThoughts = {};
+    let liveAgentThoughts = [];
+    let lastBubbleSpeechText = 'พร้อมรับคำสั่งจริง';
+
     function compactOneLine(rawStr, maxLen = 92) {
       if (!rawStr) return '';
       let s = String(rawStr)
+        .replace(/\\n/g, '\n')
         .replace(/<ide_opened_file>[\s\S]*?<\/ide_opened_file>/g, ' ')
         .replace(/<ide_selection>[\s\S]*?<\/ide_selection>/g, ' ')
         .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, ' ')
@@ -3500,10 +3527,14 @@
       if (wMatch) {
         return `✍️ แก้ไขไฟล์จริง: ${wMatch[1]}`;
       }
+      const catMatch = s.match(/cat\s*>\s*([A-Za-z0-9_./-]+)/);
+      if (catMatch) {
+        return `✍️ เขียนไฟล์จริง: ${catMatch[1]}`;
+      }
       if (s.includes('<<') || s.includes('\n')) {
         const fMatches = s.match(/[A-Za-z0-9_./-]+\.(?:dart|sql|ts|tsx|js|py|go|rs|sh|md|json)/g) || [];
         const uniq = [...new Set(fMatches.map((f) => f.split('/').pop()))].slice(0, 3);
-        if (uniq.length > 0) {
+        if (uniq.length > 0 && !s.startsWith('💭') && !s.startsWith('💬')) {
           if (s.startsWith('🧪')) return `🧪 รันตรวจผลจริง (${uniq.join(', ')})`;
           if (s.startsWith('🔍')) return `🔍 สแกนโค้ด (${uniq.join(', ')})`;
           return `⚡ รันสคริปต์จัดการไฟล์ (${uniq.join(', ')})`;
@@ -3517,22 +3548,54 @@
       return s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s;
     }
 
+    function renderDeskThought(deskKey) {
+      const boxEl = document.getElementById('desk-thought-box');
+      const timeEl = document.getElementById('desk-thought-time');
+      if (!boxEl) return;
+      const th = liveDeskThoughts[deskKey];
+      if (th && th.text) {
+        boxEl.textContent = th.text;
+        if (timeEl) {
+          const isTh = String(th.kind || '').toUpperCase() === 'THOUGHT' || th.kind === 'thinking';
+          const kindLbl = isTh ? '💭 ความคิด' : '💬 สรุปผล';
+          timeEl.textContent = `${kindLbl} • ${th.time || 'ล่าสุด'}`;
+        }
+      } else {
+        boxEl.textContent = 'ยังไม่มีข้อความความคิดในบทบาทนี้ระหว่างเซสชันปัจจุบัน';
+        if (timeEl) timeEl.textContent = 'สดจาก Session';
+      }
+    }
+
     function updateSpeechBubbles(activeNode, speechText, phase, strikeCount) {
+      lastBubbleSpeechText = speechText || lastBubbleSpeechText;
       const keys = ['core', 'explorer', 'implementer', 'debugger', 'reviewer'];
-      const cleanSpeech = compactOneLine(speechText, 85);
+      const isDanger =
+        phase === 'blocked' ||
+        phase === 'CIRCUIT_BREAKER_TRIPPED' ||
+        phase === 'BLOCKED_BY_SHIELD' ||
+        strikeCount >= 2;
       keys.forEach((k) => {
         const el = document.getElementById(`speech-${k}`);
         if (!el) return;
-        if (k === activeNode && cleanSpeech) {
-          el.textContent = cleanSpeech;
+        const thText = liveDeskThoughts[k]?.text || '';
+        if (k === activeNode) {
+          let msg = '';
+          if (!isDanger && thText) {
+            msg = `💭 ${compactOneLine(thText, 128)}`;
+          } else {
+            msg = compactOneLine(speechText, 110);
+          }
+          if (msg) {
+            el.textContent = msg;
+            el.classList.add('visible');
+            el.classList.toggle('danger-speech', isDanger);
+          } else {
+            el.classList.remove('visible', 'danger-speech');
+          }
+        } else if (k === hoveredDeskKey && thText) {
+          el.textContent = `💭 ${compactOneLine(thText, 128)}`;
           el.classList.add('visible');
-          el.classList.toggle(
-            'danger-speech',
-            phase === 'blocked' ||
-              phase === 'CIRCUIT_BREAKER_TRIPPED' ||
-              phase === 'BLOCKED_BY_SHIELD' ||
-              strikeCount >= 2
-          );
+          el.classList.remove('danger-speech');
         } else {
           el.classList.remove('visible', 'danger-speech');
         }
@@ -3625,6 +3688,9 @@
         }
 
         const modFiles = data.touchedFiles || data.filesModified || [];
+        liveDeskThoughts = data.deskThoughts || {};
+        liveAgentThoughts = Array.isArray(data.agentThoughts) ? data.agentThoughts : [];
+        renderDeskThought(currentSelectedDesk);
         updateSpeechBubbles(
           currentActiveNode,
           data.liveSpeech || nextAction,
@@ -3741,7 +3807,27 @@
             .join('');
         }
 
-        if (data.lastAssistantReply) {
+        const replyBoxEl = document.getElementById('ai-reply-box');
+        if (replyBoxEl && liveAgentThoughts.length > 0) {
+          setTxt('reply-status-txt', `${liveAgentThoughts.length} ความคิดสด`);
+          replyBoxEl.innerHTML = liveAgentThoughts
+            .slice(0, 6)
+            .map((th) => {
+              const deskCfg = DESK_INFO[th.desk] || DESK_INFO.core;
+              const isTh = String(th.kind || '').toUpperCase() === 'THOUGHT' || th.kind === 'thinking';
+              const kindBadge = isTh ? '💭 ความคิด' : '💬 สรุปผล';
+              return `
+                <div class="flat-row" style="cursor:pointer;" onclick="window.focusDesk('${escapeHtml(th.desk || 'core')}', true)">
+                  <div class="fr-top">
+                    <span class="fr-title" style="color:${deskCfg.accentCss || '#c4b5fd'}">${escapeHtml(deskCfg.shortName || th.desk)}</span>
+                    <span class="fr-badge">${kindBadge} • ${escapeHtml(th.time || '')}</span>
+                  </div>
+                  <div class="fr-path" style="white-space:normal;line-height:1.45;color:var(--text-primary);margin-top:3px;">${escapeHtml(th.text || '')}</div>
+                </div>
+              `;
+            })
+            .join('');
+        } else if (data.lastAssistantReply) {
           setTxt('ai-reply-box', data.lastAssistantReply);
           setTxt('reply-status-txt', data.commandStatus || 'เสร็จสิ้น');
         } else if (Array.isArray(data.events) && data.events.length > 0) {

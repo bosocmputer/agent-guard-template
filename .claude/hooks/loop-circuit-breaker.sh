@@ -7,9 +7,11 @@ INPUT=$(cat)
 if echo "$INPUT" | grep -q '"toolCall"'; then
   MODE="antigravity"
   COMMAND=$(echo "$INPUT" | grep -oE '"CommandLine"[[:space:]]*:[[:space:]]*"(\\.|[^"\\])*"' | head -1 | sed -E 's/^"CommandLine"[[:space:]]*:[[:space:]]*"//;s/"$//;s/\\"/"/g')
+  DESC=$(echo "$INPUT" | grep -oE '"toolSummary"[[:space:]]*:[[:space:]]*"(\\.|[^"\\])*"' | head -1 | sed -E 's/^"toolSummary"[[:space:]]*:[[:space:]]*"//;s/"$//;s/\\"/"/g')
 else
   MODE="claude"
   COMMAND=$(echo "$INPUT" | grep -oE '"command"[[:space:]]*:[[:space:]]*"(\\.|[^"\\])*"' | head -1 | sed -E 's/^"command"[[:space:]]*:[[:space:]]*"//;s/"$//;s/\\"/"/g')
+  DESC=$(echo "$INPUT" | grep -oE '"description"[[:space:]]*:[[:space:]]*"(\\.|[^"\\])*"' | head -1 | sed -E 's/^"description"[[:space:]]*:[[:space:]]*"//;s/"$//;s/\\"/"/g')
 fi
 
 allow_action() {
@@ -23,15 +25,21 @@ if [ -z "$COMMAND" ]; then
   allow_action
 fi
 
-# 1) ตรวจจับการเขียน/แก้ไขไฟล์ผ่านสคริปต์ใน Bash (เช่น python3 <<'EOF' ... open('path','w') หรือ cat <<EOF > path)
-WRITE_TARGET=$(echo "$COMMAND" | grep -oE "open\(['\"][^'\"]+['\"][[:space:]]*,[[:space:]]*['\"]w" | head -1 | sed -E "s/^open\(['\"]//;s/['\"][[:space:]]*,[[:space:]]*['\"]w$//")
-if [ -n "$WRITE_TARGET" ]; then
-  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "implementer" --status "working" --file "$WRITE_TARGET" --detail "✍️ แก้ไขไฟล์: $WRITE_TARGET" --hook ".claude/hooks/post-edit-format.sh" >/dev/null 2>&1 || true
+# 1) ตรวจจับการเขียน/แก้ไขไฟล์ผ่านสคริปต์ใน Bash (เช่น open(...,'w'), p='...'; open(p,'w'), cat > path <<'EOF', sed -i)
+WRITE_TARGET=""
+if echo "$COMMAND" | grep -qE "(open\([^)]*,[[:space:]]*['\"]w|cat[[:space:]]*>+[[:space:]]*[^[:space:]<]+|cat[[:space:]]+<<[^>]*>[[:space:]]*[^[:space:]]+|sed[[:space:]]+-i)"; then
+  WRITE_TARGET=$(echo "$COMMAND" | grep -oE "[A-Za-z0-9_./-]+\.(dart|sql|ts|tsx|js|jsx|py|go|rs|sh|md|json|yaml|yml)" | head -1)
+  if [ -z "$WRITE_TARGET" ]; then
+    WRITE_TARGET="source-file"
+  fi
+  ACTION_LBL="${DESC:-แก้ไขไฟล์จริง}"
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "implementer" --status "working" --file "$WRITE_TARGET" --detail "✍️ $ACTION_LBL ($WRITE_TARGET)" --hook ".claude/hooks/post-edit-format.sh" >/dev/null 2>&1 || true
 fi
 
-# 2) คำสั่งอ่าน/สแกนค้นหาข้อมูล (รองรับทั้งที่ขึ้นต้นด้วย cd ... && และ sed -n / grep / rg / find / git diff)
-if [ -z "$WRITE_TARGET" ] && echo "$COMMAND" | grep -qE '^([[:space:]]*cd[[:space:]]+[^;&|]+[;&]+[[:space:]]*)*(git[[:space:]]+(status|diff|log|branch|show)|ls|pwd|cat|head|tail|sed[[:space:]]+-n|grep|rg|find|wc|awk|stat|which|echo)[[:space:]]' && ! echo "$COMMAND" | grep -qE '(^|[;&|[:space:]])(flutter[[:space:]]+(test|analyze)|dart[[:space:]]+(test|analyze)|npm[[:space:]]+(test|run)|npx[[:space:]]+(vitest|jest|tsc|playwright)|pytest|go[[:space:]]+(test|vet|build)|cargo[[:space:]]+(test|check|clippy)|supa\.sh[[:space:]]+test)'; then
-  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "explorer" --status "working" --detail "🔍 Inspecting: $COMMAND" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
+# 2) คำสั่งอ่าน/สแกนค้นหาข้อมูล (ห้ามมี cat > หรือ sed -i เด็ดขาด)
+if [ -z "$WRITE_TARGET" ] && echo "$COMMAND" | grep -qE '^([[:space:]]*cd[[:space:]]+[^;&|]+[;&]+[[:space:]]*)*(git[[:space:]]+(status|diff|log|branch|show)|ls|pwd|cat[[:space:]]+[^><-]|head|tail|sed[[:space:]]+-n|grep|rg|find|wc|awk|stat|which|echo)[[:space:]]' && ! echo "$COMMAND" | grep -qE '(^|[;&|[:space:]])(flutter[[:space:]]+(test|analyze)|dart[[:space:]]+(test|analyze)|npm[[:space:]]+(test|run)|npx[[:space:]]+(vitest|jest|tsc|playwright)|pytest|go[[:space:]]+(test|vet|build)|cargo[[:space:]]+(test|check|clippy)|supa\.sh[[:space:]]+test)'; then
+  READ_DETAIL="🔍 ${DESC:-Inspecting}: $COMMAND"
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "explorer" --status "working" --detail "$READ_DETAIL" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
   allow_action
 fi
 
@@ -55,11 +63,13 @@ if [ "$REPEAT_COUNT" -ge 4 ]; then
   fi
 elif [ "$REPEAT_COUNT" -ge 2 ]; then
   bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "debugger" --status "warning" --detail "⚠️ Repeat ($REPEAT_COUNT/3): $ONE_LINE_CMD" --strike "$((REPEAT_COUNT - 1))" --skill "root-cause-debug" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
-else
-  if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]])(flutter[[:space:]]+(test|analyze)|dart[[:space:]]+(test|analyze)|npm[[:space:]]+(test|run[[:space:]]+(test|lint|build|check))|pnpm[[:space:]]+(test|lint|build)|yarn[[:space:]]+(test|lint|build)|npx[[:space:]]+(vitest|jest|tsc|playwright)|vitest|jest|pytest|go[[:space:]]+(test|vet|build)|cargo[[:space:]]+(test|check|clippy)|ruff[[:space:]]+check|mypy|golangci-lint|[^\n;&]*supa\.sh[[:space:]]+test)'; then
-    bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "reviewer" --status "working" --detail "🧪 Verifying: $COMMAND" --strike "0" --skill "verification-before-completion" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
-  elif [ -z "$WRITE_TARGET" ]; then
-    bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "working" --detail "⚡ Bash: $COMMAND" --strike "0" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
+elif [ -z "$WRITE_TARGET" ]; then
+  if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]])(flutter[[:space:]]+(test|analyze)|dart[[:space:]]+(test|analyze)|npm[[:space:]]+(test|run[[:space:]]+(test|lint|build|check))|pnpm[[:space:]]+(test|lint|build)|yarn[[:space:]]+(test|lint|build)|npx[[:space:]]+(vitest|jest|tsc|playwright)|vitest|jest|pytest|go[[:space:]]+(test|vet|build)|cargo[[:space:]]+(test|check|clippy)|ruff[[:space:]]+check|mypy|golangci-lint|[^\n;&]*supa\.sh[[:space:]]+test|[^\n;&]*pgtap)'; then
+    VERIFY_LBL="${DESC:-Verifying}"
+    bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "reviewer" --status "working" --detail "🧪 $VERIFY_LBL: $COMMAND" --strike "0" --skill "verification-before-completion" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
+  else
+    BASH_LBL="${DESC:-Bash}"
+    bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "working" --detail "⚡ $BASH_LBL: $COMMAND" --strike "0" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
   fi
 fi
 

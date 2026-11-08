@@ -298,37 +298,134 @@ def clean_prompt_text(raw_p):
 def humanize_detail(raw_d):
     if not raw_d:
         return ""
-    s = str(raw_d).strip()
-    # บีบอัดคำสั่งหลายบรรทัดหรือ Heredoc ยาวๆ ให้เป็นข้อความสรุป 1 บรรทัดที่อ่านง่าย
-    w_match = re.search(r"open\(['\"]([^'\"]+)['\"][[:space:]]*,[[:space:]]*['\"]w", s)
-    if w_match:
-        target_f = w_match.group(1)
-        return f"✍️ แก้ไขไฟล์จริง: {target_f}"
-    if "<<" in s or "\n" in s:
+    # แปลง literal \n ที่มาจาก JSON string ให้เป็นบรรทัดใหม่จริงก่อนประมวลผล
+    s = str(raw_d).replace("\\n", "\n").replace("\\t", " ").strip()
+
+    # ดึงรายชื่อไฟล์ที่ปรากฏในคำสั่ง (เช่น .dart, .sql, .ts ฯลฯ)
+    f_matches = re.findall(r"([A-Za-z0-9_./-]+\.(?:dart|sql|ts|tsx|js|jsx|py|go|rs|sh|md|json))", s)
+    uniq_f = []
+    for fm in f_matches:
+        bn = os.path.basename(fm)
+        if bn and bn not in uniq_f:
+            uniq_f.append(bn)
+    files_suffix = f" ({', '.join(uniq_f[:2])})" if uniq_f else ""
+
+    # หากมีคำอธิบายจาก tool_use.description นำหน้า (เช่น "🔍 Read shift signatures: grep -rn ...") ให้แสดงเฉพาะคำอธิบาย + ชื่อไฟล์สั้นๆ
+    m_desc = re.match(r"^(🔍|🧪|✍️|⚡)\s*([^:\n]{4,85}):\s*(.+)$", s, flags=re.S)
+    if m_desc:
+        icon, desc_lbl, rest_cmd = m_desc.group(1), m_desc.group(2).strip(), m_desc.group(3).strip()
+        if desc_lbl.lower() not in ("inspecting", "verifying", "bash"):
+            return f"{icon} {desc_lbl}{files_suffix}"[:105]
+
+    # ตรวจจับการเขียนไฟล์ผ่าน Python open(...,'w') หรือ cat > ...
+    if re.search(r"(open\([^)]*,\s*['\"]w|cat\s*>+\s*\S+|sed\s+-i)", s):
+        if uniq_f:
+            return f"✍️ แก้ไขไฟล์จริง: {', '.join(uniq_f[:2])}"
+        return "✍️ แก้ไขไฟล์โค้ดในโปรเจกต์"
+
+    if "<<" in s or "\n" in s or "python3 -" in s:
+        if uniq_f:
+            if s.startswith("🧪"):
+                return f"🧪 รันตรวจผลจริง{files_suffix}"
+            elif s.startswith("🔍"):
+                return f"🔍 สแกนโค้ด{files_suffix}"
+            return f"✍️ อัปเดตและตรวจสอบโค้ด{files_suffix}"
         first_ln = s.splitlines()[0].strip()
         first_ln = re.sub(r"^(🔍 Inspecting:|🧪 Verifying:|⚡ Bash:)\s*", "", first_ln)
-        first_ln = re.sub(r"^cd\s+[^;&|]+[;&]+\s*", "", first_ln)
-        # ดึงชื่อไฟล์ที่เกี่ยวข้องในสคริปต์ถ้ามี
-        f_matches = re.findall(r"([A-Za-z0-9_./-]+\.(?:dart|sql|ts|tsx|js|py|go|rs|sh|md|json))", s)
-        if f_matches:
-            uniq_f = []
-            for fm in f_matches:
-                bn = os.path.basename(fm)
-                if bn not in uniq_f:
-                    uniq_f.append(bn)
-            files_str = ", ".join(uniq_f[:3])
-            if s.startswith("🧪"):
-                return f"🧪 รันตรวจผลจริง ({files_str})"
-            elif s.startswith("🔍"):
-                return f"🔍 สแกนโค้ด ({files_str})"
-            return f"⚡ รันสคริปต์จัดการไฟล์ ({files_str})"
-        s = first_ln
+        s = re.sub(r"^cd\s+[^;&|]+[;&]+\s*", "", first_ln)
+
     # ลบ cd /path/... && ด้านหน้าเพื่อให้สั้นกระชับ
-    s = re.sub(r"(🔍 Inspecting:\s*|🧪 Verifying:\s*|⚡ Bash:\s*)cd\s+[^;&|]+[;&]+\s*", r"\1", s)
+    s = re.sub(r"(🔍\s*[^:]*:\s*|🧪\s*[^:]*:\s*|⚡\s*[^:]*:\s*)cd\s+[^;&|]+[;&]+\s*", r"\1", s)
     s = " ".join(s.split())
-    if len(s) > 105:
-        s = s[:102] + "..."
+    if len(s) > 100:
+        s = s[:97] + "..."
     return s
+
+def infer_thought_desk(txt, tool_names=None, tool_descs=None):
+    low = (txt + " " + " ".join(tool_descs or [])).lower()
+    t_names = set(tool_names or [])
+    if any(k in low for k in ("err:", "error", "has no const", "removing `const`", "failed", "ไม่ผ่าน", "เทสต์ตก", "บั๊ก", "ซ่อม", "แก้ให้ผ่าน", "exception")):
+        return "debugger"
+    if any(k in low for k in ("ขอดู signature", "ฝั่งแอปจะอ่าน", "ขออ่าน", "ขอดู", "checking how", "ดูโครงสร้าง", "read the ", "read shift", "find ", "check billrecord", "สำรวจ")):
+        return "explorer"
+    if any(k in low for k in ("pgtap ผ่าน", "ci ผ่าน", "ci ของ", "ทดสอบผ่าน", "result: pass", "e2e", "รันเทสต์", "เทสต์ผ่าน", "red → green", "ยืนยันแล้ว")):
+        return "reviewer"
+    if "Edit" in t_names or "Write" in t_names or any(k in low for k in ("ต่อไปจะเขียน", "ต่อไปฝั่งแอปจะ", "ออกแบบหน้า", "เพิ่มปุ่ม", "สร้างไฟล์", "เขียนฝั่งแอป", "writing tests", "implement", "จะผ่านตัวกลางเดียว", "เขียนเทสต์", "เพิ่มการตรวจ", "restoring the real code", "อัปเดต", "แก้ไข")):
+        return "implementer"
+    if "Read" in t_names or "Grep" in t_names or "Glob" in t_names:
+        return "explorer"
+    return "core"
+
+def extract_live_session_thoughts(root_dir):
+    slug = re.sub(r"[^A-Za-z0-9-]", "-", os.path.realpath(root_dir))
+    proj_dir = os.path.expanduser(f"~/.claude/projects/{slug}")
+    if not os.path.isdir(proj_dir):
+        return [], {}
+    files = sorted(glob.glob(os.path.join(proj_dir, "*.jsonl")), key=os.path.getmtime, reverse=True)
+    if not files:
+        return [], {}
+    latest_f = files[0]
+    try:
+        with open(latest_f, "rb") as fp:
+            fp.seek(0, os.SEEK_END)
+            sz = fp.tell()
+            fp.seek(max(0, sz - 650000), os.SEEK_SET)
+            raw_chunk = fp.read().decode("utf-8", errors="ignore")
+    except Exception:
+        return [], {}
+
+    thoughts = []
+    desk_thoughts = {}
+    lines = raw_chunk.splitlines()
+    if len(lines) > 1:
+        lines = lines[1:]
+    for line in lines:
+        if "\"assistant\"" not in line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if obj.get("type") != "assistant":
+            continue
+        ts_raw = obj.get("timestamp") or ""
+        t_str = ""
+        if ts_raw:
+            try:
+                dt = datetime.fromisoformat(ts_raw.replace("Z", "+00:00")).astimezone()
+                t_str = dt.strftime("%H:%M:%S")
+            except Exception:
+                t_str = ""
+        msg = obj.get("message") or {}
+        contents = msg.get("content") or []
+        tool_names = [c.get("name", "") for c in contents if isinstance(c, dict) and c.get("type") == "tool_use"]
+        tool_descs = [str((c.get("input") or {}).get("description") or "") for c in contents if isinstance(c, dict) and c.get("type") == "tool_use"]
+
+        for c in contents:
+            if not isinstance(c, dict):
+                continue
+            ctype = c.get("type")
+            if ctype in ("thinking", "text"):
+                raw_txt = (c.get("thinking") if ctype == "thinking" else c.get("text")) or ""
+                raw_txt = re.sub(r"<system-reminder>.*?</system-reminder>", " ", raw_txt, flags=re.S)
+                raw_txt = re.sub(r"<ide_opened_file>.*?</ide_opened_file>", " ", raw_txt, flags=re.S)
+                raw_txt = raw_txt.replace("**", "").replace("`", "")
+                clean_txt = " ".join(raw_txt.split()).strip()
+                if len(clean_txt) < 8 or clean_txt.startswith(("This session is being continued", "Codebase and user instructions")):
+                    continue
+                desk = infer_thought_desk(clean_txt, tool_names, tool_descs)
+                item = {
+                    "time": t_str or now_local,
+                    "kind": "THOUGHT" if ctype == "thinking" else "REPLY",
+                    "desk": desk,
+                    "text": clean_txt[:260],
+                }
+                if not thoughts or thoughts[-1]["text"] != item["text"]:
+                    thoughts.append(item)
+                    desk_thoughts[desk] = item
+
+    thoughts.reverse()
+    return thoughts[:12], desk_thoughts
 
 def push_used_item(kind, name, path, desk, detail_txt=""):
     # ข้ามการบันทึก loop-circuit-breaker.sh ซ้ำๆ ในสถานะปกติ เพื่อไม่ให้รกหน้าประวัติ
@@ -352,12 +449,12 @@ def push_used_item(kind, name, path, desk, detail_txt=""):
     hist.insert(0, entry)
     state["usedItemsHistory"] = hist[:20]
 
-# ดึง git diff --shortstat จริงจากโปรเจกต์
+# ดึง git diff --shortstat จริงจากโปรเจกต์ (ใช้ --no-optional-locks เพื่อไม่ให้สร้าง .git/index.lock ชนกับ AI!)
 real_git_diff = diff_arg
 if not real_git_diff:
     try:
         out = subprocess.check_output(
-            ["git", "diff", "--shortstat"],
+            ["git", "--no-optional-locks", "diff", "--shortstat"],
             cwd=project_root,
             stderr=subprocess.DEVNULL,
             timeout=1.5,
@@ -700,6 +797,21 @@ else:
 state["stats"] = stats
 state["workspaceCatalog"] = scan_workspace_catalog(project_root)
 
+# สกัดความคิดสด (Thinking & Assistant Replies) จาก Session .jsonl ของโปรเจกต์
+agent_thoughts, desk_thoughts = extract_live_session_thoughts(project_root)
+if agent_thoughts:
+    state["agentThoughts"] = agent_thoughts
+    state["deskThoughts"] = desk_thoughts
+    latest_th = agent_thoughts[0]
+    state["liveThought"] = latest_th["text"]
+    state["liveThoughtDesk"] = latest_th["desk"]
+    # หากกำลังทำงานปกติ (ไม่ได้ติดบล็อก) ให้แสดงความคิดของโต๊ะที่กำลังแอคทีฟ (หรือความคิดล่าสุด) บนลูกโป่งคำพูด!
+    if state.get("systemStatus") != "blocked" and int(state.get("strikeCount") or 0) < 2:
+        active_d = state.get("activeNode", "core")
+        th_for_desk = (desk_thoughts.get(active_d) or latest_th).get("text", "")
+        if th_for_desk:
+            state["liveSpeech"] = f"💭 {th_for_desk}"
+
 # กรองเฉพาะไฟล์ที่มีอยู่จริงบนดิสก์เท่านั้น (ป้องกันไฟล์จำลองค้างเก่า)
 valid_touched = [
     f for f in (state.get("touchedFiles") or [])
@@ -708,7 +820,7 @@ valid_touched = [
 if not valid_touched:
     try:
         git_files = subprocess.check_output(
-            ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+            ["git", "--no-optional-locks", "diff", "--name-only", "HEAD~1", "HEAD"],
             cwd=project_root,
             stderr=subprocess.DEVNULL,
             timeout=1.5,

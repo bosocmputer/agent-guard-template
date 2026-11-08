@@ -295,7 +295,7 @@ class HudHandler(BaseHTTPRequestHandler):
             git_dirty = []
             try:
                 out = subprocess.check_output(
-                    ["git", "status", "--short"],
+                    ["git", "--no-optional-locks", "status", "--short"],
                     cwd=PROJECT_ROOT,
                     stderr=subprocess.DEVNULL,
                     timeout=2,
