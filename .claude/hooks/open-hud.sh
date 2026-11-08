@@ -372,14 +372,14 @@ class HudHandler(BaseHTTPRequestHandler):
             engine = data.get("engine", "claude")
             node = data.get("node", "core")
             status = data.get("status", "working")
-            detail = data.get("detail", "Simulated Event")
+            detail = data.get("detail") or data.get("action") or "กำลังประมวลผลตามคำสั่ง..."
             file_arg = data.get("file", "")
             strike = str(data.get("strike", ""))
             model_arg = str(data.get("model", ""))
             skill_arg = str(data.get("skill", ""))
-            cmd_arg = str(data.get("command", ""))
-            rule_arg = str(data.get("rule", ""))
-            hook_arg = str(data.get("hook", ""))
+            cmd_arg = str(data.get("command") or data.get("promptFile") or "")
+            rule_arg = str(data.get("rule") or data.get("ruleFile") or "")
+            hook_arg = str(data.get("hook") or data.get("hookName") or "")
             prompt_arg = str(data.get("prompt", ""))
             cmd = [
                 "bash",

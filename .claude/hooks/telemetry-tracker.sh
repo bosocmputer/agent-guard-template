@@ -108,7 +108,7 @@ def infer_desk_for_file(rel_path, meta, title, text):
         return "core"
     if m == "haiku" or "explorer" in rel_path or "tech-stack" in rel_path:
         return "explorer"
-    if "debug" in rel_path or "/fix" in low or "loop-circuit" in rel_path or "2-strike" in low:
+    if "debug" in rel_path or "fix.md" in rel_path or "/fix" in low or "loop-circuit" in rel_path or "2-strike" in low:
         return "debugger"
     if "review" in rel_path or "verify" in rel_path or "verification" in rel_path or "testing-and-api" in rel_path:
         return "reviewer"
@@ -598,6 +598,27 @@ else:
 
 state["stats"] = stats
 state["workspaceCatalog"] = scan_workspace_catalog(project_root)
+
+# กรองเฉพาะไฟล์ที่มีอยู่จริงบนดิสก์เท่านั้น (ป้องกันไฟล์จำลองค้างเก่า)
+valid_touched = [
+    f for f in (state.get("touchedFiles") or [])
+    if os.path.isfile(os.path.join(project_root, f))
+]
+if not valid_touched:
+    try:
+        git_files = subprocess.check_output(
+            ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+            cwd=project_root,
+            stderr=subprocess.DEVNULL,
+            timeout=1.5,
+        ).decode("utf-8", errors="ignore").splitlines()
+        for gf in git_files:
+            gf = gf.strip()
+            if gf and os.path.isfile(os.path.join(project_root, gf)) and gf not in valid_touched:
+                valid_touched.append(gf)
+    except Exception:
+        pass
+state["touchedFiles"] = valid_touched[:8]
 
 events = state.get("events") or []
 events.insert(0, {
