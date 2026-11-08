@@ -51,6 +51,15 @@
             "command": "bash ../.claude/hooks/telemetry-tracker.sh --hook-stdin read"
           }
         ]
+      },
+      {
+        "matcher": "invoke_subagent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ../.claude/hooks/telemetry-tracker.sh --hook-stdin agent"
+          }
+        ]
       }
     ]
   },

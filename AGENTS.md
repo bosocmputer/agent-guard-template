@@ -28,10 +28,10 @@
 | **"ทำต่อจากที่ค้างไว้ / โควต้าอีกฝั่งหมด"** | สลับ Agent กลางคัน | โหลด `auto-resume-handoff` อ่าน `.agent-last-state.log` + `git diff` แล้วทำต่อทันทีไม่ต้องถามซ้ำ |
 | **"สร้างระบบ... / เพิ่มฟีเจอร์..." (โจทย์กว้าง)** | มีจุดกำกวม / เลือกทำได้หลายแบบ | โหลด `common-ground` สรุปสมมติฐาน 3–4 ข้อสั้นๆ ให้ผู้ใช้ยืนยันก่อนเริ่มเขียนโค้ด |
 | **งานจิ๋วชัดเจน (อ่าน/แก้ 1–2 ไฟล์ที่รู้ตำแหน่งแล้ว)** | **Trivial Task (1–2 ไฟล์)** | ทำเองในหน้าต่างหลักแบบ Surgical Edit + รันเทสต์เฉพาะไฟล์ (ห้ามแตก Sub-agent สำหรับคำสั่งสั้นๆ 1–2 ครั้ง) |
-| **สำรวจหาพิกัดโค้ด / ไล่โครงสร้างที่ยังไม่รู้ไฟล์ (>3 ไฟล์)** | **Multi-File Exploration** | **บังคับเรียก `Agent(subagent_type="explorer", model="haiku")`** ให้ไปกวาดค้นหาและสรุปพิกัดไม่เกิน 15 บรรทัดกลับมา |
-| **ลงมือเขียน/แก้โค้ดหลายไฟล์ (2–5 ไฟล์) + รันเทสต์ย่อยจนผ่าน** | **Multi-Step Implementation** | **บังคับเรียก `Agent(subagent_type="implementer", model="sonnet")`** ส่ง `State Delta` (ไฟล์+เงื่อนไข+คำสั่งเทสต์) ให้ `Sonnet` เขียนและรันเทสต์วนจนเขียว |
-| **"เทสต์พัง / บั๊กหน้า... / Error..." (ต้องสืบหาสาเหตุและลองแก้)** | **Root-Cause Debugging** | **บังคับเรียก `Agent(subagent_type="debugger", model="sonnet")`** (ใช้กฎ `0-Strike Missing Spec` และ `2-Strike Bug Limit`) |
-| **"ช่วยตรวจโค้ด / รีวิว / รันชุดทดสอบ E2E หรือ Browser"** | **QA Review & E2E Suite** | **บังคับเรียก `Agent(subagent_type="reviewer", model="sonnet")`** (ห้ามใช้ `Opus` กดคลิกเบราว์เซอร์ทีละปุ่มหลายสิบครั้งในหน้าต่างหลักเด็ดขาด!) |
+| **สำรวจหาพิกัดโค้ด / ไล่โครงสร้างที่ยังไม่รู้ไฟล์ (>3 ไฟล์)** | **Multi-File Exploration** | **Claude:** `Agent(subagent_type="explorer", model="haiku")` • **Antigravity:** `invoke_subagent(TypeName="research", Model="flash", Role="Codebase Explorer")` |
+| **ลงมือเขียน/แก้โค้ดหลายไฟล์ (2–5 ไฟล์) + รันเทสต์ย่อยจนผ่าน** | **Multi-Step Implementation** | **Claude:** `Agent(subagent_type="implementer", model="sonnet")` • **Antigravity:** `invoke_subagent(TypeName="self", Model="inherit", Role="Surgical Implementer")` |
+| **"เทสต์พัง / บั๊กหน้า... / Error..." (ต้องสืบหาสาเหตุและลองแก้)** | **Root-Cause Debugging** | **Claude:** `Agent(subagent_type="debugger", model="sonnet")` • **Antigravity:** `invoke_subagent(TypeName="self", Model="inherit", Role="2-Strike Debugger")` |
+| **"ช่วยตรวจโค้ด / รีวิว / รันชุดทดสอบ E2E หรือ Browser"** | **QA Review & E2E Suite** | **Claude:** `Agent(subagent_type="reviewer", model="sonnet")` • **Antigravity:** `invoke_subagent(TypeName="browser" หรือ "self", Model="inherit", Role="QA Verifier")` |
 | **"สร้าง 3D Viewer / Three.js / WebGL"** | งานแสดงผล 3 มิติบนเว็บ | โหลด `threejs-expert` (มาตรฐาน `mrdoob/three.js r187+`: `three/addons/*`, `HDRLoader`, `OutputPass`, `dispose()`) |
 | **"เปิดจอ 3D / เปิดมอนิเตอร์ 3D"** | เปิดศูนย์บัญชาการ 3D เรียลไทม์ | รัน `bash .claude/hooks/open-hud.sh` เพื่อเปิด 3D Command & Monitor Center |
 

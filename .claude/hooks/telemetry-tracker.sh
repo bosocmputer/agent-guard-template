@@ -356,7 +356,53 @@ def infer_thought_desk(txt, tool_names=None, tool_descs=None):
         return "explorer"
     return "core"
 
-def extract_live_session_thoughts(root_dir):
+def extract_live_session_thoughts(root_dir, ag_conv_id="", active_eng="claude"):
+    thoughts = []
+    desk_thoughts = {}
+    if active_eng == "antigravity" and ag_conv_id:
+        ag_f = os.path.expanduser(f"~/.gemini/antigravity/brain/{ag_conv_id}/.system_generated/logs/transcript.jsonl")
+        if os.path.isfile(ag_f):
+            try:
+                with open(ag_f, "rb") as fp:
+                    fp.seek(0, os.SEEK_END)
+                    sz = fp.tell()
+                    fp.seek(max(0, sz - 650000), os.SEEK_SET)
+                    raw_chunk = fp.read().decode("utf-8", errors="ignore")
+                for line in raw_chunk.splitlines()[1:]:
+                    if "\"PLANNER_RESPONSE\"" not in line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        continue
+                    if obj.get("type") != "PLANNER_RESPONSE":
+                        continue
+                    ts_raw = obj.get("created_at") or ""
+                    t_str = ""
+                    if ts_raw:
+                        try:
+                            dt = datetime.fromisoformat(ts_raw.replace("Z", "+00:00")).astimezone()
+                            t_str = dt.strftime("%H:%M:%S")
+                        except Exception:
+                            t_str = ""
+                    tcalls = obj.get("tool_calls") or []
+                    t_names = [tc.get("name", "") for tc in tcalls if isinstance(tc, dict)]
+                    t_descs = [str((tc.get("args") or {}).get("toolSummary") or (tc.get("args") or {}).get("Role") or "") for tc in tcalls if isinstance(tc, dict)]
+                    for kind_key, k_label in (("thinking", "THOUGHT"), ("content", "REPLY")):
+                        raw_txt = str(obj.get(kind_key) or "").replace("**", "").replace("`", "")
+                        clean_txt = " ".join(raw_txt.split()).strip()
+                        if len(clean_txt) >= 8:
+                            desk = infer_thought_desk(clean_txt, t_names, t_descs)
+                            item = {"time": t_str or now_local, "kind": k_label, "desk": desk, "text": clean_txt[:260]}
+                            if not thoughts or thoughts[-1]["text"] != item["text"]:
+                                thoughts.append(item)
+                                desk_thoughts[desk] = item
+                if thoughts:
+                    thoughts.reverse()
+                    return thoughts[:12], desk_thoughts
+            except Exception:
+                pass
+
     slug = re.sub(r"[^A-Za-z0-9-]", "-", os.path.realpath(root_dir))
     proj_dir = os.path.expanduser(f"~/.claude/projects/{slug}")
     if not os.path.isdir(proj_dir):
@@ -488,6 +534,8 @@ if mode_type == "stdin":
     state["activeEngine"] = engine
     if payload.get("modelName") and payload.get("modelName") != "auto":
         state["activeModel"] = str(payload["modelName"])
+    if payload.get("conversationId"):
+        state["lastConversationId"] = str(payload["conversationId"])
 
     prompt_txt = payload.get("prompt") or payload.get("lastUserInput") or ""
     if prompt_txt:
@@ -619,25 +667,26 @@ if mode_type == "stdin":
     elif stage == "agent":
         t_in = payload.get("tool_input") or (payload.get("toolCall") or {}).get("args") or {}
         sub_type = str(t_in.get("subagent_type") or t_in.get("TypeName") or "implementer").strip()
-        sub_low = sub_type.lower()
-        if "explor" in sub_low or sub_low == "research":
+        sub_role = str(t_in.get("Role") or "").strip()
+        comb_low = (sub_type + " " + sub_role).lower()
+        if "explor" in comb_low or "research" in comb_low or "scout" in comb_low:
             sub_desk = "explorer"
-            default_m = "haiku"
+            default_m = "haiku" if engine == "claude" else "flash"
             sub_skill = "tech-stack-skills"
-        elif "debug" in sub_low:
+        elif "debug" in comb_low or "fix" in comb_low or "strike" in comb_low:
             sub_desk = "debugger"
-            default_m = "sonnet"
+            default_m = "sonnet" if engine == "claude" else "pro"
             sub_skill = "root-cause-debug"
-        elif "review" in sub_low:
+        elif "review" in comb_low or "qa" in comb_low or "verif" in comb_low or "browser" in comb_low:
             sub_desk = "reviewer"
-            default_m = "sonnet"
+            default_m = "sonnet" if engine == "claude" else "pro"
             sub_skill = "pragmatic-review"
         else:
             sub_desk = "implementer"
-            default_m = "sonnet"
+            default_m = "sonnet" if engine == "claude" else "pro"
             sub_skill = "verification-before-completion"
         sub_model = str(t_in.get("model") or t_in.get("Model") or default_m).lower()
-        sub_desc = humanize_detail(str(t_in.get("description") or t_in.get("Role") or t_in.get("prompt") or sub_type))
+        sub_desc = humanize_detail(str(t_in.get("description") or sub_role or t_in.get("prompt") or t_in.get("Prompt") or sub_type))
         state["activeNode"] = sub_desk
         state["activeModel"] = sub_model
         state["systemStatus"] = "working"
@@ -648,7 +697,7 @@ if mode_type == "stdin":
         state["activeRuleFile"] = ".claude/rules/model-routing.md"
         state["activeHook"] = ".claude/hooks/telemetry-tracker.sh (Subagent Spawn)"
         state["currentAction"] = f"🤖 [Subagent จริง: {sub_model.upper()}] แตกงานให้ {sub_type}: {sub_desc}"
-        state["liveSpeech"] = f"🤖 แตก Subagent จริง [{sub_type} • {sub_model.upper()}] มารับงาน [{sub_desc}] ช่วยประหยัดโควต้าหน้าต่างหลัก Opus แล้วครับ!"
+        state["liveSpeech"] = f"🤖 แตก Subagent จริง [{sub_type} • {sub_model.upper()}] มารับงาน [{sub_desc}] ช่วยประหยัดโควต้าหน้าต่างหลักแล้วครับ!"
         stats["subagentSpawns"] = int(stats.get("subagentSpawns", 0)) + 1
         push_used_item("SUBAGENT", f"{sub_type} ({sub_model.upper()})", state["activeAgentFile"], sub_desk, f"🤖 [Subagent จริง: {sub_model.upper()}] {sub_desc}")
 
@@ -847,16 +896,20 @@ else:
 state["stats"] = stats
 state["workspaceCatalog"] = scan_workspace_catalog(project_root)
 
-# สกัดความคิดสด (Thinking & Assistant Replies) จาก Session .jsonl ของโปรเจกต์
-agent_thoughts, desk_thoughts = extract_live_session_thoughts(project_root)
+# สกัดความคิดสด (Thinking & Assistant Replies) จาก Session .jsonl ของโปรเจกต์ (รองรับทั้ง Claude Code และ Antigravity)
+agent_thoughts, desk_thoughts = extract_live_session_thoughts(
+    project_root,
+    state.get("lastConversationId", ""),
+    state.get("activeEngine", "claude"),
+)
 if agent_thoughts:
     state["agentThoughts"] = agent_thoughts
     state["deskThoughts"] = desk_thoughts
     latest_th = agent_thoughts[0]
     state["liveThought"] = latest_th["text"]
     state["liveThoughtDesk"] = latest_th["desk"]
-    # หากกำลังทำงานปกติ (ไม่ได้ติดบล็อก) ให้แสดงความคิดของโต๊ะที่กำลังแอคทีฟ (หรือความคิดล่าสุด) บนลูกโป่งคำพูด!
-    if state.get("systemStatus") != "blocked" and int(state.get("strikeCount") or 0) < 2:
+    # หากกำลังทำงานปกติ (ไม่ได้ติดบล็อกและไม่ใช่จังหวะเพิ่งแตก Subagent) ให้แสดงความคิดของโต๊ะที่กำลังแอคทีฟบนลูกโป่งคำพูด!
+    if state.get("systemStatus") != "blocked" and int(state.get("strikeCount") or 0) < 2 and stage != "agent":
         active_d = state.get("activeNode", "core")
         th_for_desk = (desk_thoughts.get(active_d) or latest_th).get("text", "")
         if th_for_desk:
@@ -907,6 +960,8 @@ fi
 if [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "antigravity" ]; then
   if [ "$HOOK_STAGE" = "read" ] || [ "$HOOK_STAGE" = "stop" ] || [ "$HOOK_STAGE" = "agent" ]; then
     printf '{"decision":"allow"}\n'
+  elif [ "$HOOK_STAGE" = "prompt" ]; then
+    printf '{"injectSteps":[{"systemMessage":{"systemMessage":"[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตให้เรียกใช้ invoke_subagent ทันทีสำหรับก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ TypeName=research, Model=flash, Role=Explorer | เขียนโค้ดหลายไฟล์+เทสต์ย่อย ➔ TypeName=self, Model=inherit, Role=Surgical Implementer | ซ่อมบั๊ก ➔ TypeName=self, Role=2-Strike Debugger | ทดสอบเว็บ/E2E ➔ TypeName=browser, Role=QA Verifier) เพื่อรักษา Context หน้าต่างหลัก"}}]}\n'
   else
     printf '{}\n'
   fi
