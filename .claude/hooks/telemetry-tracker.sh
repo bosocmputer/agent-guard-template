@@ -1,66 +1,257 @@
 #!/usr/bin/env bash
-# Dual-Mode Real-Time Telemetry Tracker (Claude Code + Antigravity -> .claude/.telemetry.json)
-# บันทึกทั้งสถานะโต๊ะ 3D, โจทย์จริง (Prompt), Skill ที่ถูกดึงใช้จริง (SKILL.md), Agent, Rule และ Hook แบบเรียลไทม์
+# Dual-Mode Real-Time Telemetry Tracker & Live Workspace Scanner (Zero-Hardcode)
+# สแกนไฟล์จริงจากดิสก์ (.claude/ & .agents/) + ดักจับการทำงานจริงของ Claude Code และ Antigravity ลง .claude/.telemetry.json
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$PROJECT_ROOT" || exit 0
 
 TELEMETRY_FILE="$PROJECT_ROOT/.claude/.telemetry.json"
 mkdir -p "$PROJECT_ROOT/.claude"
 
-# โหมด 1: รับจาก Hook stdin โดยตรง (--hook-stdin <prompt|read|stop>)
-if [ "${1:-}" = "--hook-stdin" ]; then
-  HOOK_STAGE="${2:-unknown}"
-  INPUT=$(cat)
-  if echo "$INPUT" | grep -qE '"(conversationId|toolCall|invocationNum|executionNum)"'; then
-    MODE="antigravity"
-  else
-    MODE="claude"
-  fi
+MODE_TYPE="cli"
+HOOK_STAGE="unknown"
+RAW_STDIN=""
 
-  if command -v python3 >/dev/null 2>&1; then
-    python3 - "$TELEMETRY_FILE" "$HOOK_STAGE" "$MODE" "$INPUT" <<'PYEOF' 2>/dev/null || true
-import sys, os, re, json, time
+if [ "${1:-}" = "--hook-stdin" ]; then
+  MODE_TYPE="stdin"
+  HOOK_STAGE="${2:-unknown}"
+  RAW_STDIN=$(cat)
+  if echo "$RAW_STDIN" | grep -qE '"(conversationId|toolCall|invocationNum|executionNum)"'; then
+    ENGINE="antigravity"
+  else
+    ENGINE="claude"
+  fi
+else
+  ENGINE="claude"
+  NODE="core"
+  STATUS="working"
+  DETAIL=""
+  FILE_TOUCHED=""
+  STRIKE=""
+  MODEL_ARG=""
+  SKILL_ARG=""
+  CMD_ARG=""
+  RULE_ARG=""
+  HOOK_ARG=""
+  PROMPT_ARG=""
+  DIFF_ARG=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --engine)  ENGINE="${2:-claude}"; shift 2 ;;
+      --node)    NODE="${2:-core}"; shift 2 ;;
+      --status)  STATUS="${2:-working}"; shift 2 ;;
+      --detail)  DETAIL="${2:-}"; shift 2 ;;
+      --file)    FILE_TOUCHED="${2:-}"; shift 2 ;;
+      --strike)  STRIKE="${2:-}"; shift 2 ;;
+      --model)   MODEL_ARG="${2:-}"; shift 2 ;;
+      --skill)   SKILL_ARG="${2:-}"; shift 2 ;;
+      --command) CMD_ARG="${2:-}"; shift 2 ;;
+      --rule)    RULE_ARG="${2:-}"; shift 2 ;;
+      --hook)    HOOK_ARG="${2:-}"; shift 2 ;;
+      --prompt)  PROMPT_ARG="${2:-}"; shift 2 ;;
+      --diff)    DIFF_ARG="${2:-}"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+fi
+
+if command -v python3 >/dev/null 2>&1; then
+  python3 - "$PROJECT_ROOT" "$TELEMETRY_FILE" "$MODE_TYPE" "$HOOK_STAGE" "$ENGINE" "${NODE:-core}" "${STATUS:-working}" "${DETAIL:-}" "${FILE_TOUCHED:-}" "${STRIKE:-}" "${MODEL_ARG:-}" "${SKILL_ARG:-}" "${CMD_ARG:-}" "${RULE_ARG:-}" "${HOOK_ARG:-}" "${PROMPT_ARG:-}" "${DIFF_ARG:-}" "$RAW_STDIN" <<'PYEOF' 2>/dev/null || true
+import sys, os, re, glob, json, time, subprocess
 from datetime import datetime, timezone
 
-t_file, stage, mode, raw_in = sys.argv[1:5]
-try:
-    payload = json.loads(raw_in) if raw_in.strip() else {}
-except Exception:
-    payload = {}
+(
+    project_root,
+    t_file,
+    mode_type,
+    stage,
+    engine,
+    node,
+    status,
+    detail,
+    file_touched,
+    strike,
+    model_arg,
+    skill_arg,
+    cmd_arg,
+    rule_arg,
+    hook_arg,
+    prompt_arg,
+    diff_arg,
+    raw_in,
+) = sys.argv[1:19]
+
+def parse_frontmatter_and_body(text):
+    meta = {}
+    body = text
+    if text.startswith("---\n"):
+        end = text.find("\n---", 4)
+        if end != -1:
+            fm_raw = text[4:end]
+            body = text[end + 4:].lstrip()
+            for line in fm_raw.splitlines():
+                if ":" in line and not line.startswith(" ") and not line.startswith("-"):
+                    k, v = line.split(":", 1)
+                    meta[k.strip()] = v.strip().strip('"').strip("'")
+    title = ""
+    for line in body.splitlines():
+        s = line.strip()
+        if s.startswith("# "):
+            title = s[2:].strip()
+            break
+    return meta, title, body
+
+def infer_desk_for_file(rel_path, meta, title, text):
+    low = (rel_path + " " + title + " " + str(meta.get("description", ""))).lower()
+    m = str(meta.get("model", "")).lower()
+    if m == "opus":
+        return "core"
+    if m == "haiku" or "explorer" in rel_path or "tech-stack" in rel_path:
+        return "explorer"
+    if "debug" in rel_path or "/fix" in low or "loop-circuit" in rel_path or "2-strike" in low:
+        return "debugger"
+    if "review" in rel_path or "verify" in rel_path or "verification" in rel_path or "testing-and-api" in rel_path:
+        return "reviewer"
+    if "implementer" in rel_path or "threejs" in rel_path or "db-migration" in rel_path or "ui-anti-slop" in rel_path or "code-simplicity" in rel_path or "post-edit" in rel_path:
+        return "implementer"
+    return "core"
+
+def friendly_power_name(rel_path, meta, title):
+    desc = str(meta.get("description", "")).strip()
+    if re.match(r"^[\u0E00-\u0E7F]", desc):
+        return re.sub(r"\s*\([^)]*\)", "", desc).strip()[:100]
+    m_th = re.findall(r"\(([^)]*[\u0E00-\u0E7F]+[^)]*)\)", desc)
+    if m_th:
+        return m_th[-1].strip()
+    if desc:
+        return desc[:95]
+    if title:
+        return title[:95]
+    return os.path.basename(rel_path)
+
+def scan_workspace_catalog(root):
+    patterns = [
+        ("governance", ["CLAUDE.md", "AGENTS.md", ".claude/settings.json", ".agents/hooks.json"]),
+        ("agent", sorted(glob.glob(os.path.join(root, ".claude/agents/*.md")))),
+        ("skill", sorted(glob.glob(os.path.join(root, ".claude/skills/*/SKILL.md")))),
+        ("command", sorted(glob.glob(os.path.join(root, ".claude/commands/*.md")))),
+        ("rule", sorted(glob.glob(os.path.join(root, ".claude/rules/*.md")))),
+        ("hook", sorted(glob.glob(os.path.join(root, ".claude/hooks/*.sh")))),
+    ]
+    items = []
+    files_content = {}
+    for kind, p_list in patterns:
+        for p in p_list:
+            abs_p = p if os.path.isabs(p) else os.path.join(root, p)
+            if not os.path.isfile(abs_p):
+                continue
+            rel_p = os.path.relpath(abs_p, root)
+            try:
+                raw = open(abs_p, encoding="utf-8", errors="ignore").read()
+            except Exception:
+                continue
+            meta, title, _ = parse_frontmatter_and_body(raw)
+            desk = infer_desk_for_file(rel_p, meta, title, raw)
+            short_id = meta.get("name") or os.path.splitext(os.path.basename(rel_p))[0]
+            if kind == "skill":
+                short_id = os.path.basename(os.path.dirname(rel_p))
+            elif kind == "command":
+                short_id = "/" + os.path.splitext(os.path.basename(rel_p))[0]
+
+            # ตรวจหาไฟล์คู่ขนานใน .agents/ บนดิสก์จริง
+            ag_mirror = ""
+            if rel_p.startswith(".claude/skills/"):
+                cand = rel_p.replace(".claude/skills/", ".agents/skills/", 1)
+                if os.path.isfile(os.path.join(root, cand)):
+                    ag_mirror = cand
+            elif rel_p.startswith(".claude/rules/"):
+                cand = rel_p.replace(".claude/rules/", ".agents/rules/", 1)
+                if os.path.isfile(os.path.join(root, cand)):
+                    ag_mirror = cand
+
+            # ดึงคอมเมนต์บรรทัดที่ 2 สำหรับไฟล์ .sh
+            sh_desc = ""
+            if kind == "hook":
+                for ln in raw.splitlines()[1:4]:
+                    if ln.startswith("#"):
+                        sh_desc = ln.lstrip("# ").strip()
+                        break
+
+            power_label = sh_desc if sh_desc else friendly_power_name(rel_p, meta, title)
+            stat = os.stat(abs_p)
+            items.append({
+                "id": short_id,
+                "kind": kind,
+                "path": rel_p,
+                "agPath": ag_mirror,
+                "desk": desk,
+                "title": title or short_id,
+                "powerLabel": power_label,
+                "description": str(meta.get("description") or sh_desc or title or ""),
+                "model": str(meta.get("model") or ("opus" if desk == "core" else ("haiku" if desk == "explorer" else "sonnet"))),
+                "maxTurns": str(meta.get("maxTurns") or ""),
+                "tools": str(meta.get("tools") or meta.get("allowed-tools") or ""),
+                "disallowedTools": str(meta.get("disallowedTools") or ""),
+                "sizeBytes": stat.st_size,
+                "mtime": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+            })
+            # เก็บเนื้อหาจริงจากดิสก์ (ยกเว้น open-hud.sh เพื่อไม่ให้ไฟล์ telemetry ใหญ่เกินจำเป็น)
+            if os.path.basename(rel_p) != "open-hud.sh":
+                files_content[rel_p] = raw[:16000]
+                if ag_mirror:
+                    files_content[ag_mirror] = raw[:16000]
+    return {"scannedAt": datetime.now().strftime("%H:%M:%S"), "items": items, "files": files_content}
 
 state = {
     "updatedAt": "",
     "updatedEpochMs": 0,
-    "activeEngine": mode,
-    "activeModel": "opus" if mode == "claude" else "gemini-4-argon",
+    "activeEngine": engine,
+    "activeModel": "opus" if engine == "claude" else "gemini-4-argon",
     "activeNode": "core",
     "systemStatus": "ready",
-    "currentTask": "รอรับคำสั่ง (Waiting for command...)",
-    "currentAction": "System Ready",
-    "activeCommand": "Auto-Route (Zero-Command)",
-    "activeAgentFile": "CLAUDE.md / AGENTS.md",
+    "currentTask": "รอรับคำสั่งจริงจากคุณ...",
+    "currentAction": "พร้อมรับงาน",
+    "liveSpeech": "สวัสดีครับเจ้านาย! พิมพ์สั่งงานด้านล่าง หรือคลิกที่ตัวละครเพื่อดูการ์ดความสามารถจริงในโปรเจกต์ได้เลยครับ",
+    "liveEmotion": "idle",
+    "activeCommand": "Auto-Route (CLAUDE.md)",
+    "activeAgentFile": "CLAUDE.md",
     "activeSkill": "common-ground",
     "activeSkillFile": ".claude/skills/common-ground/SKILL.md",
     "activeRuleFile": ".claude/rules/execution-discipline.md",
-    "activeHook": "telemetry-tracker.sh",
+    "activeHook": ".claude/hooks/telemetry-tracker.sh",
+    "lastDiffStat": "",
     "strikeCount": 0,
     "maxStrikes": 3,
     "touchedFiles": [],
     "usedItemsHistory": [],
-    "stats": {"claudeCalls": 0, "antigravityCalls": 0, "blockedCount": 0, "filesEdited": 0},
-    "events": []
+    "stats": {
+        "claudeCalls": 0,
+        "antigravityCalls": 0,
+        "explorerReads": 0,
+        "implementerEdits": 0,
+        "verifierRuns": 0,
+        "blockedCount": 0,
+        "filesEdited": 0,
+    },
+    "events": [],
 }
+
 if os.path.exists(t_file):
     try:
         loaded = json.load(open(t_file, encoding="utf-8"))
         if isinstance(loaded, dict):
+            old_stats = state["stats"].copy()
+            if isinstance(loaded.get("stats"), dict):
+                old_stats.update(loaded["stats"])
             state.update(loaded)
+            state["stats"] = old_stats
     except Exception:
         pass
 
 now_local = datetime.now().strftime("%H:%M:%S")
+stats = state["stats"]
 
-def push_used_item(kind, name, path, desk):
+def push_used_item(kind, name, path, desk, detail_txt=""):
     hist = state.get("usedItemsHistory") or []
     entry = {
         "time": now_local,
@@ -68,171 +259,350 @@ def push_used_item(kind, name, path, desk):
         "name": name,
         "path": path,
         "desk": desk,
+        "detail": detail_txt,
     }
-    # ไม่ใส่ซ้ำติดกันถ้าเป็นตัวเดิมเป๊ะ
-    if not hist or hist[0].get("path") != path or hist[0].get("kind") != kind:
+    if not hist or hist[0].get("path") != path or hist[0].get("kind") != kind or hist[0].get("name") != name:
         hist.insert(0, entry)
-    state["usedItemsHistory"] = hist[:18]
+    state["usedItemsHistory"] = hist[:20]
 
-state["activeEngine"] = mode
-if payload.get("modelName") and payload.get("modelName") != "auto":
-    state["activeModel"] = str(payload["modelName"])
+# ดึง git diff --shortstat จริงจากโปรเจกต์
+real_git_diff = diff_arg
+if not real_git_diff:
+    try:
+        out = subprocess.check_output(
+            ["git", "diff", "--shortstat"],
+            cwd=project_root,
+            stderr=subprocess.DEVNULL,
+            timeout=1.5,
+        ).decode("utf-8", errors="ignore").strip()
+        real_git_diff = out
+    except Exception:
+        real_git_diff = ""
+if real_git_diff:
+    state["lastDiffStat"] = real_git_diff
 
-prompt_txt = payload.get("prompt") or payload.get("lastUserInput") or ""
-if prompt_txt:
-    clean_p = " ".join(str(prompt_txt).split())
-    if len(clean_p) > 160:
-        clean_p = clean_p[:157] + "..."
-    state["currentTask"] = clean_p
+if mode_type == "stdin":
+    try:
+        payload = json.loads(raw_in) if raw_in.strip() else {}
+    except Exception:
+        payload = {}
 
-if stage == "prompt":
-    state["activeNode"] = "core"
-    if mode == "claude" and not payload.get("modelName"):
-        state["activeModel"] = "opus"
-    state["systemStatus"] = "working"
-    state["activeAgentFile"] = "CLAUDE.md / AGENTS.md"
-    state["activeHook"] = ".claude/hooks/telemetry-tracker.sh (UserPromptSubmit)"
+    state["activeEngine"] = engine
+    if payload.get("modelName") and payload.get("modelName") != "auto":
+        state["activeModel"] = str(payload["modelName"])
 
-    p_low = state["currentTask"].lower()
-    if "/plan" in p_low:
-        state["activeCommand"] = "/plan (.claude/commands/plan.md)"
-        state["activeSkill"] = "common-ground"
-        state["activeSkillFile"] = ".claude/skills/common-ground/SKILL.md"
-        push_used_item("COMMAND", "/plan", ".claude/commands/plan.md", "core")
-    elif "/common-ground" in p_low:
-        state["activeCommand"] = "/common-ground (.claude/commands/common-ground.md)"
-        state["activeSkill"] = "common-ground"
-        state["activeSkillFile"] = ".claude/skills/common-ground/SKILL.md"
-        push_used_item("COMMAND", "/common-ground", ".claude/commands/common-ground.md", "core")
-    elif "/fix" in p_low or "บั๊ก" in p_low or "พัง" in p_low or "error" in p_low:
-        state["activeCommand"] = "/fix (.claude/commands/fix.md)"
-        state["activeSkill"] = "root-cause-debug"
-        state["activeSkillFile"] = ".claude/skills/root-cause-debug/SKILL.md"
-        push_used_item("SKILL", "root-cause-debug", ".claude/skills/root-cause-debug/SKILL.md", "debugger")
-    elif "/review" in p_low or "รีวิว" in p_low or "ตรวจโค้ด" in p_low:
-        state["activeCommand"] = "/review (.claude/commands/review.md)"
-        state["activeSkill"] = "pragmatic-review"
-        state["activeSkillFile"] = ".claude/skills/pragmatic-review/SKILL.md"
-        push_used_item("SKILL", "pragmatic-review", ".claude/skills/pragmatic-review/SKILL.md", "reviewer")
-    elif "/verify" in p_low or "รันเทสต์" in p_low:
-        state["activeCommand"] = "/verify (.claude/commands/verify.md)"
-        state["activeSkill"] = "verification-before-completion"
-        state["activeSkillFile"] = ".claude/skills/verification-before-completion/SKILL.md"
-        push_used_item("SKILL", "verification-before-completion", ".claude/skills/verification-before-completion/SKILL.md", "reviewer")
-    elif "/handoff" in p_low or "ค้างไว้" in p_low:
-        state["activeCommand"] = "/handoff (.claude/commands/handoff.md)"
-        state["activeSkill"] = "auto-resume-handoff"
-        state["activeSkillFile"] = ".claude/skills/auto-resume-handoff/SKILL.md"
-        push_used_item("SKILL", "auto-resume-handoff", ".claude/skills/auto-resume-handoff/SKILL.md", "core")
-    elif "3d" in p_low or "three" in p_low or "webgl" in p_low:
-        state["activeCommand"] = "Auto-Route ➔ 3D Specialist"
-        state["activeSkill"] = "threejs-expert"
-        state["activeSkillFile"] = ".claude/skills/threejs-expert/SKILL.md"
-        state["activeRuleFile"] = ".claude/rules/ui-anti-slop.md"
-        push_used_item("SKILL", "threejs-expert", ".claude/skills/threejs-expert/SKILL.md", "implementer")
-    elif "db" in p_low or "sql" in p_low or "migration" in p_low or "ตาราง" in p_low:
-        state["activeCommand"] = "Auto-Route ➔ DB Migration"
-        state["activeSkill"] = "db-migration"
-        state["activeSkillFile"] = ".claude/skills/db-migration/SKILL.md"
-        push_used_item("SKILL", "db-migration", ".claude/skills/db-migration/SKILL.md", "implementer")
-    else:
-        state["activeCommand"] = "Auto-Route (CLAUDE.md)"
-        state["activeSkill"] = "common-ground"
-        state["activeSkillFile"] = ".claude/skills/common-ground/SKILL.md"
+    prompt_txt = payload.get("prompt") or payload.get("lastUserInput") or ""
+    if prompt_txt:
+        clean_p = " ".join(str(prompt_txt).split())
+        if len(clean_p) > 160:
+            clean_p = clean_p[:157] + "..."
+        state["currentTask"] = clean_p
 
-    push_used_item("PROMPT", state["currentTask"][:60], "CLAUDE.md", "core")
-    state["currentAction"] = f"👑 หัวหน้า Opus รับโจทย์: {state['currentTask'][:75]}"
-
-elif stage == "read":
-    tool_name = (payload.get("toolCall") or {}).get("name") or payload.get("tool_name") or "Read/Search"
-    tool_args = (payload.get("toolCall") or {}).get("args") or payload.get("tool_input") or {}
-    raw_target = str(tool_args.get("Path") or tool_args.get("file_path") or tool_args.get("pattern") or tool_args.get("Query") or "")
-    rel_target = os.path.relpath(raw_target, os.getcwd()) if (raw_target and os.path.isabs(raw_target)) else raw_target
-    short_target = os.path.basename(raw_target.rstrip("/")) if raw_target else ""
-
-    state["activeHook"] = ".claude/hooks/telemetry-tracker.sh (PreToolUse:Read)"
-    state["systemStatus"] = "working"
-
-    # ตรวจจับทันทีหาก AI กำลังเปิดอ่านไฟล์ Skill, Command, Agent หรือ Rule จริงๆ!
-    m_skill = re.search(r"(?:\.claude|\.agents)/skills/([^/]+)/SKILL\.md", rel_target)
-    m_cmd = re.search(r"\.claude/commands/([^/]+)\.md", rel_target)
-    m_agent = re.search(r"\.claude/agents/([^/]+)\.md", rel_target)
-    m_rule = re.search(r"(?:\.claude|\.agents)/rules/([^/]+\.md)", rel_target)
-
-    if m_skill:
-        skill_slug = m_skill.group(1)
-        state["activeSkill"] = skill_slug
-        state["activeSkillFile"] = f".claude/skills/{skill_slug}/SKILL.md"
-        # โยงโต๊ะตามประเภท Skill
-        if skill_slug in ("threejs-expert", "db-migration"):
-            state["activeNode"] = "implementer"
-            state["activeAgentFile"] = ".claude/agents/implementer.md"
-        elif skill_slug == "root-cause-debug":
-            state["activeNode"] = "debugger"
-            state["activeAgentFile"] = ".claude/agents/debugger.md"
-        elif skill_slug in ("pragmatic-review", "verification-before-completion"):
-            state["activeNode"] = "reviewer"
-            state["activeAgentFile"] = ".claude/agents/reviewer.md"
-        else:
-            state["activeNode"] = "core"
-            state["activeAgentFile"] = "CLAUDE.md / AGENTS.md"
-        push_used_item("SKILL", skill_slug, state["activeSkillFile"], state["activeNode"])
-        state["currentAction"] = f"📚 กำลังดึง Skill จริงเข้าสมอง AI: {skill_slug} ({state['activeSkillFile']})"
-    elif m_cmd:
-        cmd_slug = m_cmd.group(1)
-        state["activeCommand"] = f"/{cmd_slug} (.claude/commands/{cmd_slug}.md)"
-        push_used_item("COMMAND", f"/{cmd_slug}", f".claude/commands/{cmd_slug}.md", state.get("activeNode", "core"))
-        state["currentAction"] = f"⚡ กำลังอ่านคำสั่ง Prompt: /{cmd_slug} (.claude/commands/{cmd_slug}.md)"
-    elif m_agent:
-        ag_slug = m_agent.group(1)
-        if ag_slug in ("explorer", "implementer", "debugger", "reviewer"):
-            state["activeNode"] = ag_slug
-        state["activeAgentFile"] = f".claude/agents/{ag_slug}.md"
-        push_used_item("AGENT", ag_slug, state["activeAgentFile"], state["activeNode"])
-        state["currentAction"] = f"🤖 เรียกใช้งานโปรไฟล์พนักงาน: {ag_slug} ({state['activeAgentFile']})"
-    elif m_rule:
-        r_name = m_rule.group(1)
-        state["activeRuleFile"] = f".claude/rules/{r_name}"
-        push_used_item("RULE", r_name, state["activeRuleFile"], state.get("activeNode", "core"))
-        state["currentAction"] = f"📏 โหลดกฎเหล็ก: {r_name} ({state['activeRuleFile']})"
-    else:
-        state["activeNode"] = "explorer"
-        state["activeModel"] = "haiku" if mode == "claude" else state.get("activeModel", "auto")
-        state["activeAgentFile"] = ".claude/agents/explorer.md"
-        state["activeRuleFile"] = ".claude/rules/execution-discipline.md"
-        if rel_target and not rel_target.startswith(".."):
-            push_used_item("READ", short_target or rel_target, rel_target, "explorer")
-        state["currentAction"] = f"🔍 ฝ่ายสำรวจ (Haiku • {tool_name}): {short_target}" if short_target else f"🔍 ฝ่ายสำรวจ ({tool_name})"
-
-elif stage == "stop":
-    term_reason = payload.get("terminationReason") or "COMPLETED"
-    state["activeHook"] = ".claude/hooks/telemetry-tracker.sh (Stop)"
-    if term_reason == "MAX_TOKEN_BUDGET_EXCEEDED":
+    if stage == "prompt":
         state["activeNode"] = "core"
-        state["systemStatus"] = "blocked"
-        state["activeSkill"] = "auto-resume-handoff"
-        state["activeSkillFile"] = ".claude/skills/auto-resume-handoff/SKILL.md"
-        state["currentAction"] = "🔴 โควต้าเต็ม (MAX_TOKEN_BUDGET_EXCEEDED) — แนะนำสลับค่าย AI!"
-    else:
-        state["activeNode"] = "reviewer"
-        state["systemStatus"] = "ready"
-        state["activeAgentFile"] = ".claude/agents/reviewer.md"
-        state["activeSkill"] = "verification-before-completion"
-        state["activeSkillFile"] = ".claude/skills/verification-before-completion/SKILL.md"
-        state["currentAction"] = "✅ ทำงานรอบนี้เสร็จสิ้น (พร้อมรับคำสั่งถัดไป)"
+        if engine == "claude" and not payload.get("modelName"):
+            state["activeModel"] = "opus"
+        state["systemStatus"] = "working"
+        state["liveEmotion"] = "working"
+        state["activeAgentFile"] = "CLAUDE.md" if engine == "claude" else "AGENTS.md"
+        state["activeHook"] = ".claude/hooks/telemetry-tracker.sh (UserPromptSubmit)"
 
-stats = state.get("stats") or {"claudeCalls": 0, "antigravityCalls": 0, "blockedCount": 0, "filesEdited": 0}
-if stage in ("prompt", "read"):
-    if mode == "claude":
+        p_low = state["currentTask"].lower()
+        if "/plan" in p_low:
+            state["activeCommand"] = "/plan"
+            state["activeSkill"] = "common-ground"
+            state["activeSkillFile"] = ".claude/skills/common-ground/SKILL.md"
+            push_used_item("COMMAND", "/plan", ".claude/commands/plan.md", "core", state["currentTask"])
+        elif "/common-ground" in p_low:
+            state["activeCommand"] = "/common-ground"
+            state["activeSkill"] = "common-ground"
+            state["activeSkillFile"] = ".claude/skills/common-ground/SKILL.md"
+            push_used_item("COMMAND", "/common-ground", ".claude/commands/common-ground.md", "core", state["currentTask"])
+        elif "/fix" in p_low or "บั๊ก" in p_low or "พัง" in p_low or "error" in p_low:
+            state["activeCommand"] = "/fix"
+            state["activeSkill"] = "root-cause-debug"
+            state["activeSkillFile"] = ".claude/skills/root-cause-debug/SKILL.md"
+            push_used_item("SKILL", "root-cause-debug", ".claude/skills/root-cause-debug/SKILL.md", "debugger", state["currentTask"])
+        elif "/review" in p_low or "รีวิว" in p_low or "ตรวจ" in p_low:
+            state["activeCommand"] = "/review"
+            state["activeSkill"] = "pragmatic-review"
+            state["activeSkillFile"] = ".claude/skills/pragmatic-review/SKILL.md"
+            push_used_item("SKILL", "pragmatic-review", ".claude/skills/pragmatic-review/SKILL.md", "reviewer", state["currentTask"])
+        elif "/verify" in p_low or "เทสต์" in p_low:
+            state["activeCommand"] = "/verify"
+            state["activeSkill"] = "verification-before-completion"
+            state["activeSkillFile"] = ".claude/skills/verification-before-completion/SKILL.md"
+            push_used_item("SKILL", "verification-before-completion", ".claude/skills/verification-before-completion/SKILL.md", "reviewer", state["currentTask"])
+        elif "3d" in p_low or "three" in p_low or "voxel" in p_low or "pixel" in p_low:
+            state["activeCommand"] = "Auto-Route (3D)"
+            state["activeSkill"] = "threejs-expert"
+            state["activeSkillFile"] = ".claude/skills/threejs-expert/SKILL.md"
+            state["activeRuleFile"] = ".claude/rules/ui-anti-slop.md"
+            push_used_item("SKILL", "threejs-expert", ".claude/skills/threejs-expert/SKILL.md", "implementer", state["currentTask"])
+        elif "db" in p_low or "sql" in p_low or "migration" in p_low:
+            state["activeCommand"] = "Auto-Route (DB)"
+            state["activeSkill"] = "db-migration"
+            state["activeSkillFile"] = ".claude/skills/db-migration/SKILL.md"
+            push_used_item("SKILL", "db-migration", ".claude/skills/db-migration/SKILL.md", "implementer", state["currentTask"])
+        else:
+            state["activeCommand"] = "Auto-Route (CLAUDE.md)"
+            state["activeSkill"] = "common-ground"
+            state["activeSkillFile"] = ".claude/skills/common-ground/SKILL.md"
+
+        push_used_item("PROMPT", state["currentTask"][:55], state["activeAgentFile"], "core", state["currentTask"])
+        state["currentAction"] = f"👑 รับโจทย์จริง: {state['currentTask'][:80]}"
+        state["liveSpeech"] = f"รับโจทย์จริงแล้วครับ: \"{state['currentTask'][:65]}\" กำลังใช้ทักษะ [{state['activeSkill']}] วางแผนงาน!"
+
+    elif stage == "read":
+        tool_name = (payload.get("toolCall") or {}).get("name") or payload.get("tool_name") or "Read"
+        tool_args = (payload.get("toolCall") or {}).get("args") or payload.get("tool_input") or {}
+        raw_target = str(tool_args.get("Path") or tool_args.get("file_path") or tool_args.get("pattern") or tool_args.get("Query") or "")
+        rel_target = os.path.relpath(raw_target, project_root) if (raw_target and os.path.isabs(raw_target)) else raw_target
+        short_target = os.path.basename(raw_target.rstrip("/")) if raw_target else "ไฟล์ในโปรเจกต์"
+
+        state["activeHook"] = ".claude/hooks/telemetry-tracker.sh (PreToolUse:Read)"
+        state["systemStatus"] = "working"
+        state["liveEmotion"] = "working"
+        stats["explorerReads"] = int(stats.get("explorerReads", 0)) + 1
+
+        m_skill = re.search(r"(?:\.claude|\.agents)/skills/([^/]+)/SKILL\.md", rel_target)
+        m_cmd = re.search(r"\.claude/commands/([^/]+)\.md", rel_target)
+        m_agent = re.search(r"\.claude/agents/([^/]+)\.md", rel_target)
+        m_rule = re.search(r"(?:\.claude|\.agents)/rules/([^/]+\.md)", rel_target)
+
+        if m_skill:
+            skill_slug = m_skill.group(1)
+            state["activeSkill"] = skill_slug
+            state["activeSkillFile"] = f".claude/skills/{skill_slug}/SKILL.md"
+            if skill_slug in ("threejs-expert", "db-migration"):
+                state["activeNode"] = "implementer"
+                state["activeAgentFile"] = ".claude/agents/implementer.md"
+            elif skill_slug == "root-cause-debug":
+                state["activeNode"] = "debugger"
+                state["activeAgentFile"] = ".claude/agents/debugger.md"
+            elif skill_slug in ("pragmatic-review", "verification-before-completion"):
+                state["activeNode"] = "reviewer"
+                state["activeAgentFile"] = ".claude/agents/reviewer.md"
+            else:
+                state["activeNode"] = "core"
+                state["activeAgentFile"] = "CLAUDE.md"
+            push_used_item("SKILL", skill_slug, state["activeSkillFile"], state["activeNode"], f"Read {rel_target}")
+            state["currentAction"] = f"📚 เปิดอ่าน Skill จริง: {skill_slug} ({rel_target})"
+            state["liveSpeech"] = f"กำลังดึงคู่มือทักษะ [{skill_slug}] จากไฟล์ {rel_target} มาใช้ปฏิบัติงานจริงครับ!"
+        elif m_cmd:
+            cmd_slug = m_cmd.group(1)
+            state["activeCommand"] = f"/{cmd_slug}"
+            push_used_item("COMMAND", f"/{cmd_slug}", f".claude/commands/{cmd_slug}.md", state.get("activeNode", "core"), f"Read {rel_target}")
+            state["currentAction"] = f"⚡ เปิดอ่านคำสั่ง Prompt: /{cmd_slug} ({rel_target})"
+            state["liveSpeech"] = f"กำลังโหลดขั้นตอนจากคำสั่ง /{cmd_slug} ({rel_target}) ครับ!"
+        elif m_agent:
+            ag_slug = m_agent.group(1)
+            if ag_slug in ("explorer", "implementer", "debugger", "reviewer"):
+                state["activeNode"] = ag_slug
+            state["activeAgentFile"] = f".claude/agents/{ag_slug}.md"
+            push_used_item("AGENT", ag_slug, state["activeAgentFile"], state["activeNode"], f"Read {rel_target}")
+            state["currentAction"] = f"🤖 โหลดโปรไฟล์พนักงาน: {ag_slug} ({rel_target})"
+            state["liveSpeech"] = f"รับทราบกฎการทำงานจากไฟล์ {rel_target} พร้อมลุยงานครับ!"
+        elif m_rule:
+            r_name = m_rule.group(1)
+            state["activeRuleFile"] = f".claude/rules/{r_name}"
+            push_used_item("RULE", r_name, state["activeRuleFile"], state.get("activeNode", "core"), f"Read {rel_target}")
+            state["currentAction"] = f"📏 โหลดกฎเหล็ก: {r_name} ({rel_target})"
+            state["liveSpeech"] = f"กำลังตรวจสอบความถูกต้องตามกฎ {r_name} ครับ!"
+        else:
+            state["activeNode"] = "explorer"
+            state["activeModel"] = "haiku" if engine == "claude" else state.get("activeModel", "auto")
+            state["activeAgentFile"] = ".claude/agents/explorer.md"
+            state["activeRuleFile"] = ".claude/rules/execution-discipline.md"
+            if rel_target and not rel_target.startswith(".."):
+                push_used_item("READ", short_target, rel_target, "explorer", f"{tool_name}: {rel_target}")
+            state["currentAction"] = f"🔍 ฝ่ายสำรวจใช้ {tool_name} ค้นหา: {rel_target or short_target}"
+            state["liveSpeech"] = f"ใช้ {tool_name} สแกนไฟล์ [{short_target}] เจอพิกัดแล้วค่ะ! ช่วยประหยัดโควต้าสมองใหญ่ไปได้อีก 1 รอบ ⚡"
+
+    elif stage == "stop":
+        term_reason = payload.get("terminationReason") or "COMPLETED"
+        state["activeHook"] = ".claude/hooks/telemetry-tracker.sh (Stop)"
+        if term_reason == "MAX_TOKEN_BUDGET_EXCEEDED":
+            state["activeNode"] = "core"
+            state["systemStatus"] = "blocked"
+            state["liveEmotion"] = "blocked"
+            state["activeSkill"] = "auto-resume-handoff"
+            state["activeSkillFile"] = ".claude/skills/auto-resume-handoff/SKILL.md"
+            state["currentAction"] = "🔴 โควต้าเต็ม (MAX_TOKEN_BUDGET_EXCEEDED) — แนะนำสลับค่าย AI!"
+            state["liveSpeech"] = "โควต้าฝั่งนี้เต็มแล้วครับเจ้านาย! กดปุ่มสลับค่าย AI เพื่อรับไม้ต่อจากจุดเดิมได้ทันทีครับ 🔄"
+        else:
+            state["activeNode"] = "reviewer"
+            state["systemStatus"] = "ready"
+            state["liveEmotion"] = "verified"
+            state["activeAgentFile"] = ".claude/agents/reviewer.md"
+            state["activeSkill"] = "verification-before-completion"
+            state["activeSkillFile"] = ".claude/skills/verification-before-completion/SKILL.md"
+            state["currentAction"] = "✅ ดำเนินการเสร็จสิ้น พร้อมรับคำสั่งถัดไป"
+            state["liveSpeech"] = "ตรวจสอบและส่งมอบงานรอบนี้เรียบร้อยครับเจ้านาย! พร้อมรับคำสั่งต่อไปได้เลย 🏆"
+
+    if stage in ("prompt", "read"):
+        if engine == "claude":
+            stats["claudeCalls"] = int(stats.get("claudeCalls", 0)) + 1
+        else:
+            stats["antigravityCalls"] = int(stats.get("antigravityCalls", 0)) + 1
+
+else:
+    # โหมด CLI (เรียกจาก Hook อื่นๆ เช่น post-edit-format.sh, loop-circuit-breaker.sh, validate-bash.sh หรือปุ่มทดสอบ)
+    state["activeEngine"] = engine
+    state["activeNode"] = node
+    state["systemStatus"] = status
+
+    if model_arg:
+        state["activeModel"] = model_arg
+    elif engine == "claude":
+        if node == "core":
+            state["activeModel"] = "opus"
+        elif node == "explorer":
+            state["activeModel"] = "haiku"
+        else:
+            state["activeModel"] = "sonnet"
+    else:
+        state["activeModel"] = "gemini-4-argon"
+
+    NODE_DEFAULTS = {
+        "core": {
+            "agent": "CLAUDE.md",
+            "skill": "common-ground",
+            "cmd": "/plan",
+            "rule": ".claude/rules/execution-discipline.md",
+        },
+        "explorer": {
+            "agent": ".claude/agents/explorer.md",
+            "skill": "tech-stack-skills",
+            "cmd": "/plan",
+            "rule": ".claude/rules/execution-discipline.md",
+        },
+        "implementer": {
+            "agent": ".claude/agents/implementer.md",
+            "skill": "verification-before-completion",
+            "cmd": "Surgical Edit",
+            "rule": ".claude/rules/code-simplicity.md",
+        },
+        "debugger": {
+            "agent": ".claude/agents/debugger.md",
+            "skill": "root-cause-debug",
+            "cmd": "/fix",
+            "rule": ".claude/rules/testing-and-api.md",
+        },
+        "reviewer": {
+            "agent": ".claude/agents/reviewer.md",
+            "skill": "pragmatic-review",
+            "cmd": "/verify",
+            "rule": ".claude/rules/testing-and-api.md",
+        },
+    }
+    nd = NODE_DEFAULTS.get(node, NODE_DEFAULTS["core"])
+    state["activeAgentFile"] = nd["agent"]
+
+    d_low = (detail or "").lower()
+    for sk in ("threejs-expert", "db-migration", "root-cause-debug", "pragmatic-review", "verification-before-completion", "auto-resume-handoff", "tech-stack-skills", "common-ground"):
+        if not skill_arg and sk in d_low:
+            skill_arg = sk
+            break
+    if not skill_arg:
+        if "สลับค่าย" in d_low or "handoff" in d_low:
+            skill_arg = "auto-resume-handoff"
+        elif "3d" in d_low or "three" in d_low or "hud" in d_low:
+            skill_arg = "threejs-expert"
+        elif "ซ่อม" in d_low or "เทสต์พัง" in d_low or "repeat" in d_low or "circuit" in d_low:
+            skill_arg = "root-cause-debug"
+        elif "ตรวจ" in d_low or "verifying" in d_low:
+            skill_arg = "verification-before-completion"
+        elif "สำรวจ" in d_low or "inspecting" in d_low:
+            skill_arg = "tech-stack-skills"
+
+    for cm in ("/plan", "/common-ground", "/fix", "/review", "/verify", "/handoff"):
+        if not cmd_arg and cm in d_low:
+            cmd_arg = cm
+            break
+
+    chosen_skill = skill_arg or nd["skill"]
+    if file_touched:
+        fl = file_touched.lower()
+        if fl.endswith((".tsx", ".jsx", ".html", ".css", ".vue", ".svelte")):
+            if not rule_arg:
+                rule_arg = ".claude/rules/ui-anti-slop.md"
+            if "hud" in fl or "three" in fl or "3d" in fl:
+                chosen_skill = skill_arg or "threejs-expert"
+        elif "migration" in fl or "schema" in fl or fl.endswith(".sql"):
+            chosen_skill = skill_arg or "db-migration"
+
+    state["activeSkill"] = chosen_skill
+    state["activeSkillFile"] = f".claude/skills/{chosen_skill}/SKILL.md"
+    state["activeCommand"] = cmd_arg or nd["cmd"]
+    state["activeRuleFile"] = rule_arg or nd["rule"]
+    if hook_arg:
+        state["activeHook"] = hook_arg
+
+    if prompt_arg:
+        state["currentTask"] = prompt_arg[:160]
+    elif detail:
+        state["currentTask"] = detail[:160]
+
+    if detail:
+        state["currentAction"] = detail
+
+    if strike != "":
+        try:
+            state["strikeCount"] = int(strike)
+        except Exception:
+            pass
+
+    # อัปเดตสถิติจริงตามประเภทการทำงาน
+    if engine == "claude":
         stats["claudeCalls"] = int(stats.get("claudeCalls", 0)) + 1
     else:
         stats["antigravityCalls"] = int(stats.get("antigravityCalls", 0)) + 1
+
+    if node == "explorer":
+        stats["explorerReads"] = int(stats.get("explorerReads", 0)) + 1
+    elif node == "implementer" or file_touched:
+        stats["implementerEdits"] = int(stats.get("implementerEdits", 0)) + 1
+    elif node == "reviewer":
+        stats["verifierRuns"] = int(stats.get("verifierRuns", 0)) + 1
+
+    if status == "blocked":
+        stats["blockedCount"] = int(stats.get("blockedCount", 0)) + 1
+        state["liveEmotion"] = "blocked"
+    elif status == "warning":
+        state["liveEmotion"] = "warning"
+    elif status == "working":
+        state["liveEmotion"] = "working"
+    else:
+        state["liveEmotion"] = "verified" if node == "reviewer" else "idle"
+
+    if file_touched:
+        short_f = os.path.relpath(file_touched, project_root) if os.path.isabs(file_touched) else file_touched
+        if short_f.startswith(".."):
+            short_f = os.path.basename(file_touched)
+        touched = state.get("touchedFiles") or []
+        if short_f in touched:
+            touched.remove(short_f)
+        touched.insert(0, short_f)
+        state["touchedFiles"] = touched[:8]
+        stats["filesEdited"] = int(stats.get("filesEdited", 0)) + 1
+        diff_note = f" ({real_git_diff})" if real_git_diff else ""
+        state["liveSpeech"] = f"แก้ไขไฟล์จริง [{short_f}]{diff_note} ตามทักษะ [{chosen_skill}] และบันทึก Checkpoint แล้วครับ ✍️"
+        push_used_item("EDIT", short_f, short_f, node, f"Edited {short_f}{diff_note}")
+    else:
+        state["liveSpeech"] = detail or f"กำลังปฏิบัติงานด้วยทักษะ [{chosen_skill}] ครับ!"
+
+    push_used_item("SKILL", state["activeSkill"], state["activeSkillFile"], node, detail or "")
+    if hook_arg:
+        push_used_item("HOOK", os.path.basename(hook_arg), hook_arg.split(" ")[0], node, detail or "")
+
 state["stats"] = stats
+state["workspaceCatalog"] = scan_workspace_catalog(project_root)
 
 events = state.get("events") or []
 events.insert(0, {
     "time": now_local,
-    "engine": mode,
+    "engine": state["activeEngine"],
     "node": state["activeNode"],
     "status": state["systemStatus"],
     "detail": state["currentAction"],
@@ -248,306 +618,13 @@ with open(tmp, "w", encoding="utf-8") as f:
     json.dump(state, f, ensure_ascii=False, indent=2)
 os.replace(tmp, t_file)
 PYEOF
-  fi
-
-  if [ "$MODE" = "antigravity" ]; then
-    if [ "$HOOK_STAGE" = "read" ] || [ "$HOOK_STAGE" = "stop" ]; then
-      printf '{"decision":"allow"}\n'
-    else
-      printf '{}\n'
-    fi
-  fi
-  exit 0
 fi
 
-# โหมด 2: เรียกจาก Hook อื่นๆ หรือปุ่มจำลอง (--engine <mode> --node <node> --status <status> --detail <msg> [--file <path>] [--strike <n>] [--model <model>] [--skill <skill>] [--command <cmd>] [--rule <rule>] [--hook <hook>] [--prompt <task>])
-ENGINE="claude"
-NODE="core"
-STATUS="working"
-DETAIL=""
-FILE_TOUCHED=""
-STRIKE=""
-MODEL_ARG=""
-SKILL_ARG=""
-CMD_ARG=""
-RULE_ARG=""
-HOOK_ARG=""
-PROMPT_ARG=""
-
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --engine)  ENGINE="${2:-claude}"; shift 2 ;;
-    --node)    NODE="${2:-core}"; shift 2 ;;
-    --status)  STATUS="${2:-working}"; shift 2 ;;
-    --detail)  DETAIL="${2:-}"; shift 2 ;;
-    --file)    FILE_TOUCHED="${2:-}"; shift 2 ;;
-    --strike)  STRIKE="${2:-}"; shift 2 ;;
-    --model)   MODEL_ARG="${2:-}"; shift 2 ;;
-    --skill)   SKILL_ARG="${2:-}"; shift 2 ;;
-    --command) CMD_ARG="${2:-}"; shift 2 ;;
-    --rule)    RULE_ARG="${2:-}"; shift 2 ;;
-    --hook)    HOOK_ARG="${2:-}"; shift 2 ;;
-    --prompt)  PROMPT_ARG="${2:-}"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-
-if command -v python3 >/dev/null 2>&1; then
-  python3 - "$TELEMETRY_FILE" "$ENGINE" "$NODE" "$STATUS" "$DETAIL" "$FILE_TOUCHED" "$STRIKE" "$MODEL_ARG" "$SKILL_ARG" "$CMD_ARG" "$RULE_ARG" "$HOOK_ARG" "$PROMPT_ARG" <<'PYEOF' 2>/dev/null || true
-import sys, os, json, time
-from datetime import datetime, timezone
-
-(
-    t_file,
-    engine,
-    node,
-    status,
-    detail,
-    file_touched,
-    strike,
-    model_arg,
-    skill_arg,
-    cmd_arg,
-    rule_arg,
-    hook_arg,
-    prompt_arg,
-) = sys.argv[1:14]
-
-state = {
-    "updatedAt": "",
-    "updatedEpochMs": 0,
-    "activeEngine": engine,
-    "activeModel": "opus" if (engine == "claude" and node == "core") else ("sonnet" if engine == "claude" else "gemini-4-argon"),
-    "activeNode": node,
-    "systemStatus": status,
-    "currentTask": "กำลังดำเนินงานในโปรเจกต์...",
-    "currentAction": detail or "กำลังประมวลผล...",
-    "activeCommand": "Auto-Route (CLAUDE.md)",
-    "activeAgentFile": "CLAUDE.md / AGENTS.md",
-    "activeSkill": "common-ground",
-    "activeSkillFile": ".claude/skills/common-ground/SKILL.md",
-    "activeRuleFile": ".claude/rules/code-simplicity.md",
-    "activeHook": ".claude/hooks/telemetry-tracker.sh",
-    "strikeCount": 0,
-    "maxStrikes": 3,
-    "touchedFiles": [],
-    "usedItemsHistory": [],
-    "stats": {"claudeCalls": 0, "antigravityCalls": 0, "blockedCount": 0, "filesEdited": 0},
-    "events": []
-}
-if os.path.exists(t_file):
-    try:
-        loaded = json.load(open(t_file, encoding="utf-8"))
-        if isinstance(loaded, dict):
-            state.update(loaded)
-    except Exception:
-        pass
-
-now_local = datetime.now().strftime("%H:%M:%S")
-
-def push_used_item(kind, name, path, desk):
-    hist = state.get("usedItemsHistory") or []
-    entry = {
-        "time": now_local,
-        "kind": kind,
-        "name": name,
-        "path": path,
-        "desk": desk,
-    }
-    if not hist or hist[0].get("path") != path or hist[0].get("kind") != kind:
-        hist.insert(0, entry)
-    state["usedItemsHistory"] = hist[:18]
-
-state["activeEngine"] = engine
-state["activeNode"] = node
-state["systemStatus"] = status
-
-if model_arg:
-    state["activeModel"] = model_arg
-elif engine == "claude":
-    if node == "core":
-        state["activeModel"] = "opus"
-    elif node == "explorer":
-        state["activeModel"] = "haiku"
-    elif node in ("implementer", "debugger", "reviewer"):
-        state["activeModel"] = "sonnet"
-else:
-    state["activeModel"] = "gemini-4-argon"
-
-# ผูกไฟล์ Agent, Skill, Command และ Rule อัตโนมัติตามโต๊ะหรือไฟล์ที่กำลังทำจริง
-NODE_DEFAULTS = {
-    "core": {
-        "agent": "CLAUDE.md / AGENTS.md",
-        "skill": "common-ground",
-        "cmd": "/plan (.claude/commands/plan.md)",
-        "rule": ".claude/rules/execution-discipline.md",
-    },
-    "explorer": {
-        "agent": ".claude/agents/explorer.md",
-        "skill": "tech-stack-skills",
-        "cmd": "/plan (.claude/commands/plan.md)",
-        "rule": ".claude/rules/execution-discipline.md",
-    },
-    "implementer": {
-        "agent": ".claude/agents/implementer.md",
-        "skill": "verification-before-completion",
-        "cmd": "Surgical Edit (.claude/rules/code-simplicity.md)",
-        "rule": ".claude/rules/code-simplicity.md",
-    },
-    "debugger": {
-        "agent": ".claude/agents/debugger.md",
-        "skill": "root-cause-debug",
-        "cmd": "/fix (.claude/commands/fix.md)",
-        "rule": ".claude/rules/testing-and-api.md",
-    },
-    "reviewer": {
-        "agent": ".claude/agents/reviewer.md",
-        "skill": "pragmatic-review",
-        "cmd": "/review (.claude/commands/review.md)",
-        "rule": ".claude/rules/testing-and-api.md",
-    },
-}
-
-nd = NODE_DEFAULTS.get(node, NODE_DEFAULTS["core"])
-state["activeAgentFile"] = nd["agent"]
-
-d_low = (detail or "").lower()
-ALL_SKILLS = [
-    "threejs-expert",
-    "db-migration",
-    "root-cause-debug",
-    "pragmatic-review",
-    "verification-before-completion",
-    "auto-resume-handoff",
-    "tech-stack-skills",
-    "common-ground",
-]
-ALL_CMDS = ["/plan", "/common-ground", "/fix", "/review", "/verify", "/handoff"]
-
-if not skill_arg:
-    for sk in ALL_SKILLS:
-        if sk in d_low:
-            skill_arg = sk
-            break
-    if not skill_arg:
-        if "สลับค่าย" in d_low or "handoff" in d_low or "antigravity" in d_low:
-            skill_arg = "auto-resume-handoff"
-        elif "3d" in d_low or "three" in d_low:
-            skill_arg = "threejs-expert"
-        elif "ซ่อมบั๊ก" in d_low or "เทสต์พัง" in d_low or "เบรกเกอร์" in d_low:
-            skill_arg = "root-cause-debug"
-        elif "ตรวจรับงาน" in d_low or "รีวิว" in d_low:
-            skill_arg = "pragmatic-review"
-        elif "สำรวจ" in d_low or "haiku" in d_low:
-            skill_arg = "tech-stack-skills"
-
-if not cmd_arg:
-    for cm in ALL_CMDS:
-        if cm in d_low:
-            cmd_arg = f"{cm} (.claude/commands/{cm[1:]}.md)"
-            break
-    if not cmd_arg:
-        if "บล็อก" in d_low or "shield" in d_low:
-            cmd_arg = "OS Shield Guard (validate-bash.sh)"
-        elif "เบรกเกอร์" in d_low or "circuit" in d_low:
-            cmd_arg = "CIRCUIT_BREAKER: 2_STRIKES_REACHED"
-        elif "สลับค่าย" in d_low:
-            cmd_arg = "/handoff (.claude/commands/handoff.md)"
-
-if not hook_arg:
-    if "บล็อก" in d_low or "shield" in d_low:
-        hook_arg = ".claude/hooks/validate-bash.sh + protect-sensitive-files.sh"
-    elif "เบรกเกอร์" in d_low or "เทสต์พัง" in d_low or "repeat" in d_low:
-        hook_arg = ".claude/hooks/loop-circuit-breaker.sh"
-    elif "สลับค่าย" in d_low or "handoff" in d_low:
-        hook_arg = ".claude/hooks/auto-resume.sh"
-    elif node == "implementer":
-        hook_arg = ".claude/hooks/post-edit-format.sh"
-    elif node == "explorer":
-        hook_arg = ".claude/hooks/telemetry-tracker.sh (PreToolUse:Read)"
-    elif node == "reviewer":
-        hook_arg = ".claude/hooks/telemetry-tracker.sh (Stop)"
-    else:
-        hook_arg = ".claude/hooks/telemetry-tracker.sh (UserPromptSubmit)"
-
-chosen_skill = skill_arg or nd["skill"]
-if file_touched:
-    fl = file_touched.lower()
-    if fl.endswith((".tsx", ".jsx", ".html", ".css", ".vue", ".svelte")):
-        if not rule_arg:
-            rule_arg = ".claude/rules/ui-anti-slop.md"
-        if "hud" in fl or "three" in fl or "3d" in fl:
-            chosen_skill = skill_arg or "threejs-expert"
-    elif "migration" in fl or "schema" in fl or fl.endswith(".sql"):
-        chosen_skill = skill_arg or "db-migration"
-
-state["activeSkill"] = chosen_skill
-state["activeSkillFile"] = f".claude/skills/{chosen_skill}/SKILL.md"
-state["activeCommand"] = cmd_arg or nd["cmd"]
-state["activeRuleFile"] = rule_arg or nd["rule"]
-state["activeHook"] = hook_arg
-
-if detail and not prompt_arg:
-    state["currentTask"] = detail[:160]
-
-if prompt_arg:
-    state["currentTask"] = prompt_arg[:160]
-    push_used_item("PROMPT", prompt_arg[:60], "CLAUDE.md", node)
-
-if detail:
-    state["currentAction"] = detail
-
-push_used_item("AGENT", os.path.basename(state["activeAgentFile"]), state["activeAgentFile"].split(" ")[0], node)
-push_used_item("SKILL", state["activeSkill"], state["activeSkillFile"], node)
-if hook_arg:
-    push_used_item("HOOK", os.path.basename(hook_arg), hook_arg, node)
-
-if strike != "":
-    try:
-        state["strikeCount"] = int(strike)
-    except Exception:
-        pass
-
-stats = state.get("stats") or {"claudeCalls": 0, "antigravityCalls": 0, "blockedCount": 0, "filesEdited": 0}
-if engine == "claude":
-    stats["claudeCalls"] = int(stats.get("claudeCalls", 0)) + 1
-else:
-    stats["antigravityCalls"] = int(stats.get("antigravityCalls", 0)) + 1
-
-if status == "blocked":
-    stats["blockedCount"] = int(stats.get("blockedCount", 0)) + 1
-
-if file_touched:
-    short_f = os.path.relpath(file_touched, os.getcwd()) if os.path.isabs(file_touched) else file_touched
-    if short_f.startswith(".."):
-        short_f = os.path.basename(file_touched)
-    touched = state.get("touchedFiles") or []
-    if short_f in touched:
-        touched.remove(short_f)
-    touched.insert(0, short_f)
-    state["touchedFiles"] = touched[:6]
-    stats["filesEdited"] = int(stats.get("filesEdited", 0)) + 1
-
-state["stats"] = stats
-
-events = state.get("events") or []
-events.insert(0, {
-    "time": now_local,
-    "engine": engine,
-    "node": node,
-    "status": status,
-    "detail": detail or status,
-    "skill": state.get("activeSkill", ""),
-    "agentFile": state.get("activeAgentFile", ""),
-})
-state["events"] = events[:25]
-state["updatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-state["updatedEpochMs"] = int(time.time() * 1000)
-
-tmp = f"{t_file}.tmp.{os.getpid()}"
-with open(tmp, "w", encoding="utf-8") as f:
-    json.dump(state, f, ensure_ascii=False, indent=2)
-os.replace(tmp, t_file)
-PYEOF
+if [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "antigravity" ]; then
+  if [ "$HOOK_STAGE" = "read" ] || [ "$HOOK_STAGE" = "stop" ]; then
+    printf '{"decision":"allow"}\n'
+  else
+    printf '{}\n'
+  fi
 fi
 exit 0

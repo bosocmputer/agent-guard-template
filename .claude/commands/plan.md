@@ -1,5 +1,5 @@
 ---
-description: Analyze task complexity and create a concise, read-only implementation plan before writing code
+description: Analyze task complexity and create a concise, read-only implementation plan before writing code (สั่งวิเคราะห์งานและวางแผนโครงสร้างไม่เกิน 10 บรรทัดก่อนเริ่มลงมือทำ)
 argument-hint: [feature-or-task-description]
 allowed-tools: Read, Grep, Glob
 ---

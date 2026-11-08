@@ -1,3 +1,6 @@
+---
+description: "(กฎส่งต่องานระหว่างแผนกอย่างกระชับและรักษาความสะอาดของหน่วยความจำ)"
+---
 # Execution Discipline, Context Hygiene & Subagent Delegation
 
 > **Reference Architecture:** [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) (Two-Layer Context Hygiene), **Google ADK 2.0 Graph Engineering** (`State-Delta` Node Passing), & [`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) (*Goal-Driven Execution*)

@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Use this agent when diagnosing bugs, test failures, build errors, or unexpected runtime behavior. Enforces systematic root-cause investigation and a strict 2-Strike circuit breaker.
+description: Use this agent when diagnosing bugs, test failures, build errors, or unexpected runtime behavior. Enforces systematic root-cause investigation and a strict 2-Strike circuit breaker. (ช่างซ่อมบั๊กหาต้นตอปัญหา ภายใต้กฎเหล็กห้ามเดาสุ่มเกิน 2 ครั้ง)
 tools: Read, Edit, Grep, Glob, Bash
 disallowedTools: Write
 model: sonnet

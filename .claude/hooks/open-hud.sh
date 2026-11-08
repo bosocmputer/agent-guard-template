@@ -322,6 +322,24 @@ class HudHandler(BaseHTTPRequestHandler):
             self._send_json(fetch_live_quotas(force=force))
             return
 
+        if parsed.path == "/api/workspace-catalog":
+            # สแกนไฟล์จริงจากดิสก์ผ่าน telemetry-tracker.sh แล้วส่งกลับ
+            if os.path.exists(TELEMETRY_FILE):
+                try:
+                    st = json.load(open(TELEMETRY_FILE, encoding="utf-8"))
+                    if st.get("workspaceCatalog"):
+                        self._send_json(st["workspaceCatalog"])
+                        return
+                except Exception:
+                    pass
+            subprocess.run(["bash", os.path.join(PROJECT_ROOT, ".claude", "hooks", "telemetry-tracker.sh"), "--engine", "claude", "--node", "core", "--status", "ready", "--detail", "Scanned Workspace Catalog"], cwd=PROJECT_ROOT)
+            try:
+                st = json.load(open(TELEMETRY_FILE, encoding="utf-8"))
+                self._send_json(st.get("workspaceCatalog", {"items": [], "files": {}}))
+            except Exception:
+                self._send_json({"items": [], "files": {}})
+            return
+
         if parsed.path == "/api/file":
             qs = parse_qs(parsed.query)
             rel = (qs.get("path", [""])[0] or "").strip().lstrip("/")

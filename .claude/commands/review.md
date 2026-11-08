@@ -1,5 +1,5 @@
 ---
-description: Run a pragmatic Blocker-Only code and security review capped at 2 convergence rounds
+description: Run a pragmatic Blocker-Only code and security review capped at 2 convergence rounds (สั่งตรวจรีวิวโค้ดและความปลอดภัยเฉพาะจุดสำคัญไม่เกิน 2 รอบ)
 argument-hint: [optional-file-or-diff-scope]
 allowed-tools: Read, Edit, Grep, Glob, Bash
 ---

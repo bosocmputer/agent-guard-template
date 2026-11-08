@@ -1,5 +1,5 @@
 ---
-description: Execute the 5-step Gate Function and 3-tier verification (Unit Test, Typecheck/Build, Runtime Smoke Check)
+description: Execute the 5-step Gate Function and 3-tier verification (Unit Test, Typecheck/Build, Runtime Smoke Check) (สั่งรันเทสต์พิสูจน์ผลลัพธ์จริง 3 ระดับก่อนจบงาน)
 argument-hint: [target-test-or-module]
 allowed-tools: Read, Grep, Glob, Bash
 ---
