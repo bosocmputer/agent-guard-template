@@ -1235,7 +1235,7 @@
         <i data-lucide="play"></i> <span>ชมทีมทำงาน</span>
       </button>
       <button class="action-btn" onclick="window.openTemplateModal('CLAUDE.md')">
-        <i data-lucide="folder-tree"></i> <span>ผังไฟล์จริง (<span id="top-files-count">34</span>)</span>
+        <i data-lucide="folder-tree"></i> <span>ผังไฟล์จริง (<span id="top-files-count">35</span>)</span>
       </button>
       <button class="action-btn" onclick="window.openDrawerTab('tab-overview')">
         <i data-lucide="activity"></i> <span>โควต้า & สถิติ</span>
@@ -1498,6 +1498,12 @@
       <button type="button" class="sim-chip" onclick="window.runSim('os_shield')">
         <span class="dot" style="background:var(--accent-danger)"></span> บล็อกคำสั่งอันตราย
       </button>
+      <button type="button" class="sim-chip" onclick="window.runSim('anti_tamper')">
+        <span class="dot" style="background:var(--accent-danger)"></span> บล็อกแอบแก้เทสต์ (Stage 4)
+      </button>
+      <button type="button" class="sim-chip" onclick="window.runSim('prod_gate')">
+        <span class="dot" style="background:var(--accent-danger)"></span> กั้น Deploy Prod (Stage 5)
+      </button>
       <button type="button" class="sim-chip" onclick="window.runSim('agy_takeover')">
         <span class="dot" style="background:var(--accent-sonnet)"></span> สลับค่าย AGY
       </button>
@@ -1693,7 +1699,7 @@
       core: {
         title: 'หัวหน้าสถาปนิก & ผู้คุมกฎ (Opus)',
         shortName: 'โต๊ะหัวหน้า (Opus)',
-        desc: 'วิเคราะห์ภาพรวม วางแผนแบ่งงานให้ลูกทีม และคุมกฎความปลอดภัยรวมถึงตัดเบรกเกอร์เมื่อแก้บั๊กวนลูป',
+        desc: 'วิเคราะห์ภาพรวม วางแผนแบ่งงานให้ลูกทีม คุมด่านอนุมัติ Production Deploy/Migration (Stage 5) และจดจำจุดพลาดซ้ำด้วย 2-Repeat Pitfall Memory (Stage 3)',
         simKey: 'opus_plan',
         modelCode: 'opus',
         pos: new THREE.Vector3(0, 0, 0),
@@ -1711,7 +1717,7 @@
       explorer: {
         title: 'ฝ่ายสำรวจหาพิกัดไฟล์ความเร็วสูง (Haiku)',
         shortName: 'โต๊ะสำรวจไฟล์ (Haiku)',
-        desc: 'ค้นหาไฟล์ (Read / Grep / Glob) และส่งพิกัดบรรทัดที่ต้องแก้ให้ทีมโดยไม่แก้ไขโค้ด ประหยัดโควต้ากว่า Opus 15 เท่า',
+        desc: 'ค้นหาไฟล์ (Read / Grep / Glob) และดึง Official Skills 19 ตัวจาก anthropics/skills + 67 ตัวจาก jeffallan/claude-skills ประหยัดโควต้ากว่า Opus 15 เท่า',
         simKey: 'haiku_explore',
         modelCode: 'haiku',
         pos: new THREE.Vector3(-4.6, 0, -3.1),
@@ -1747,7 +1753,7 @@
       debugger: {
         title: 'ช่างซ่อมบั๊ก ภายใต้กฎเหล็ก 2-Strike (Sonnet)',
         shortName: 'โต๊ะซ่อมบั๊ก (2-Strike)',
-        desc: 'วิเคราะห์ต้นตอเมื่อเทสต์พัง ห้ามเดาสุ่มซ้ำเกิน 2 ครั้ง หากพังครบ 3 ครั้งระบบตัดเบรกเกอร์ส่งกลับให้หัวหน้าทันที',
+        desc: 'วิเคราะห์ต้นตอเมื่อเทสต์พัง ห้ามเดาสุ่มซ้ำเกิน 2 ครั้ง และบล็อกการแอบแก้ไฟล์เทสต์เดิมเพื่อให้ผ่านหลอกๆ (Stage 4 Anti-Test-Tampering Guard)',
         simKey: 'strike_1',
         modelCode: 'sonnet',
         pos: new THREE.Vector3(4.6, 0, -3.1),
@@ -3349,6 +3355,31 @@
         rule: '.claude/rules/security-and-shell.md',
         hook: '.claude/hooks/validate-bash.sh',
         detail: 'เกราะความปลอดภัย [validate-bash.sh] บล็อกคำสั่งอันตรายก่อนรันจริงสำเร็จ!',
+      },
+      anti_tamper: {
+        engine: 'claude',
+        node: 'debugger',
+        model: 'sonnet',
+        status: 'blocked',
+        strike: 2,
+        skill: 'root-cause-debug',
+        command: '/fix',
+        rule: '.claude/rules/testing-and-api.md',
+        hook: '.claude/hooks/protect-sensitive-files.sh',
+        file: 'src/cart.test.ts',
+        detail: '🛡️ Stage 4 Anti-Test-Tampering: บล็อกการแอบแก้ไฟล์เทสต์เดิม [src/cart.test.ts] ให้แก้ที่โค้ดต้นเหตุเท่านั้น!',
+      },
+      prod_gate: {
+        engine: 'claude',
+        node: 'core',
+        model: 'opus',
+        status: 'blocked',
+        strike: 2,
+        skill: 'db-migration',
+        command: 'CLAUDE.md',
+        rule: '.claude/rules/execution-discipline.md',
+        hook: '.claude/hooks/validate-bash.sh',
+        detail: '🛡️ Stage 5 Gate: ระงับคำสั่ง Deploy Production / Migrate DB จริง ต้องให้ผู้ใช้ยืนยันก่อนเสมอ!',
       },
       agy_takeover: {
         engine: 'antigravity',

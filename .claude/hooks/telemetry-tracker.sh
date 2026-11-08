@@ -131,7 +131,7 @@ def friendly_power_name(rel_path, meta, title):
 
 def scan_workspace_catalog(root):
     patterns = [
-        ("governance", ["CLAUDE.md", "AGENTS.md", ".claude/settings.json", ".agents/hooks.json"]),
+        ("governance", ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".claude/settings.json", ".agents/hooks.json"]),
         ("agent", sorted(glob.glob(os.path.join(root, ".claude/agents/*.md")))),
         ("skill", sorted(glob.glob(os.path.join(root, ".claude/skills/*/SKILL.md")))),
         ("command", sorted(glob.glob(os.path.join(root, ".claude/commands/*.md")))),
