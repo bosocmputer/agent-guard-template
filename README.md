@@ -307,7 +307,7 @@ bash .claude/hooks/open-hud.sh
 **สิ่งที่ทำงานอัตโนมัติ (3 ชั้นความปลอดภัย):**
 1. **Stage 4 Anti-Test-Tampering Guard (`protect-sensitive-files.sh`):** ถ้า AI พยายามแอบแก้ไฟล์เทสต์เดิม (`*.test.*`, `*.spec.*`) เพื่อลดเงื่อนไขให้ผ่านง่ายๆ Hook จะ**บล็อกทันที (Exit 2 / Deny)** บังคับให้แก้ที่โค้ดต้นเหตุเท่านั้น
 2. **กฎ `0-Strike` & `2-Strike` (`root-cause-debug` + `loop-circuit-breaker.sh`):** ถ้าลองแก้ครบ 2 ครั้งแล้วยังไม่ผ่าน (หรือรันเทสต์เดิมซ้ำ 3 ครั้ง) ระบบจะตัดเบรกเกอร์ ย้อนโค้ดไฟล์นั้นกลับสู่สภาพเดิมด้วย `Edit` แล้วสรุปทางเลือก A/B มาถามคุณทันที
-3. **Stage 3 `2-Repeat Pitfall Memory`:** หากพบจุดผิดพลาดซ้ำในโปรเจกต์ครบ 2 ครั้ง ระบบจะเสนอเพิ่มกฎสั้นๆ 1 บรรทัดลงในหมวด `Project-Specific Pitfalls` ของ `CLAUDE.md` และ `AGENTS.md` เพื่อไม่ให้พลาดซ้ำอีก
+3. **Stage 3 `2-Repeat Pitfall Memory`:** หากพบจุดผิดพลาดซ้ำในโปรเจกต์ครบ 2 ครั้ง ระบบจะบันทึกกฎสั้นๆ 1 บรรทัดแยกไว้ใน `.claude/rules/project-pitfalls.md` (ซึ่งถูกยกเว้นในคำสั่ง `rsync --exclude='project-pitfalls.md'` ทำให้บทเรียนเฉพาะโปรเจกต์ไม่หายเวลาอัปเดต Template)
 
 ---
 
@@ -387,8 +387,8 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`pragmatic-review`:** ตรวจโค้ดเฉพาะจุดที่เป็นอันตราย (**Blocker-Only** + **Cloudflare False-Positive Gate** แยก `[BLOCKER]` ออกจาก `[NEEDS_VALIDATION]` + **Enum Completeness** ตรวจไฟล์ที่เกี่ยวข้องนอก `git diff` + **Gate Integrity `RH-1..RH-16`** ดักจับ AI แอบแก้เงื่อนไขเทสต์หรือเขียน `if (NODE_ENV === 'test')` โกงผลเทสต์) ห้ามติเรื่องความสวยงาม และบังคับจบภายในไม่เกิน **2 รอบ (`MAX_ROUNDS = 2`)**
 * **`security-audit` (`cloudflare/security-audit-skill` Protocol):** ตรวจความปลอดภัยเชิงลึกโดยบังคับครบ 6 องค์ประกอบ (`Lower-Trust Principal`, `Input/Action`, `Intended Control`, `Crossed Boundary`, `Impact`, และเส้นทาง `entrypoint ➔ propagation ➔ sink`) เจาะจงช่องโหว่ `DATA-ISOLATION-AND-LIFECYCLE` (เช่น `SECURITY DEFINER` ลืมล็อก `shop_id` หรือการส่งคำสั่งซิงก์ย้อนหลังจากสิทธิ์ที่ถูกยกเลิกไปแล้ว) และตัดปัญหา AI มโนช่องโหว่หลอก
 * **`verification-before-completion`:** กฎเหล็กห้ามพูดว่า *"เสร็จแล้ว"* ถ้ายังไม่ได้รันคำสั่งเทสต์สดในเทิร์นนั้น พร้อมดักจับ **`Zero-Run Green (PL-2)`** (ถ้ารันได้ `Exit Code 0` แต่รันเทสต์ไป `0 ข้อ` ถือว่าไม่ผ่าน ต้องรันเทสต์จริงอย่างน้อย 1 ข้อเสมอ)
-* **`db-migration`:** กฎแก้ไขฐานข้อมูลแบบ Zero-Downtime (*Expand & Contract*), ห้ามแก้ไฟล์ Migration เก่า, บังคับใส่ Index ที่ Foreign Key, ห้ามยิง Query ในลูป (N+1), และบังคับใช้ Transaction
-* **`auto-resume-handoff`:** ขั้นตอนกู้คืนงานค้าง 3 จังหวะ (อ่าน `.agent-last-state.log` ➔ เช็ก `git diff` ➔ รันเทสต์เช็กสถานะปัจจุบัน) เมื่อสลับโปรแกรมหลังโควต้าหมด
+* **`db-migration`:** กฎแก้ไขฐานข้อมูลแบบ Zero-Downtime (*Expand & Contract*), ห้ามแก้ไฟล์ Migration เก่า, บังคับใส่ Index ที่ Foreign Key, ห้ามยิง Query ในลูป (N+1), บังคับล็อก `SET search_path = public, pg_temp` + ตรวจ `shop_id` ใน `SECURITY DEFINER` RPC, เปิด `supabase_realtime` คู่กับ `SELECT` RLS เสมอ, และใช้ Atomic Conditional Update (`WHERE id = $2 AND status = $3`) ป้องกัน Race Condition ข้ามเครื่อง
+* **`auto-resume-handoff`:** ขั้นตอนกู้คืนงานค้าง 3 จังหวะ (อ่าน `.agent-last-state.log` + `TASK_STATE.md` ➔ เช็ก `git diff` ➔ รันเทสต์เช็กสถานะปัจจุบัน) เมื่อสลับโปรแกรมหลังโควต้าหมด
 * **`tech-stack-skills`:** ตารางจับคู่และวิธีดึงคู่มือภาษาเฉพาะทาง (เช่น `react-expert`, `nestjs-expert`, `golang-pro`, `flutter-expert`, `unslop`) มาลงเฉพาะตัวที่ใช้จริง (2–4 ตัวต่อโปรเจกต์)
 * **`threejs-expert` (`mrdoob/three.js r187+`):** คู่มือผู้เชี่ยวชาญสำหรับสร้าง 3D Viewer และ Interactive 3D UI บนเว็บ บังคับใช้ API รุ่นใหม่ (`three/addons/*`, `HDRLoader`, `SRGBColorSpace`, `OutputPass`, `CSS2DRenderer`, `setAnimationLoop`) พร้อมสูตรคำนวณมุมกล้องอัตโนมัติและฟังก์ชันคืนค่าหน่วยความจำการ์ดจอ (`disposeViewer`) ป้องกันอาการการ์ดจอค้าง
 
@@ -411,11 +411,11 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 
 ### 6. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh` — Deterministic Function Nodes)
 แทนที่จะเปลืองโควต้าให้ AI คอยระวังเอง งานที่ตายตัวจะถูกควบคุมด้วยสคริปต์ Bash ที่ทำงานอัตโนมัติทั้งใน Claude Code (`.claude/settings.json`) และ Antigravity (`.agents/hooks.json`) โดย**ไม่เสียโควต้า AI แม้แต่ Token เดียว**:
-* **`validate-bash.sh`:** ใช้ตัวสกัด JSON ที่ปลอดภัยต่อเครื่องหมายฟันหนูซ้อน (`\"` — ป้องกันช่องโหว่คำสั่งพ่วงท้ายอย่าง `git commit -m "wip" && rm -rf /`), ดักจับการพลางคำสั่งด้วย `${IFS}` / `base64 -d | sh`, บล็อกคำสั่งอันตราย (`rm -rf`, `git push --force` / `+main`, `git restore` / `git checkout .`), บล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add` — เมื่อคุณอนุญาตในแชทแล้ว AI สามารถใส่ `DEPS_APPROVED=1` นำหน้าเพื่อรันได้ทันที), และ **บล็อกการแอบสั่ง Deploy ขึ้น Production หรือยิง Migration ฐานข้อมูลจริงโดยไม่ผ่านคนอนุมัติ (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `prisma migrate deploy`, `supabase db push`, `terraform apply`, `kubectl apply` — Stage 5 Approval Gate ปลดล็อกด้วย `RELEASE_APPROVED=1`)**
+* **`validate-bash.sh`:** ใช้ตัวสกัด JSON ที่ปลอดภัยต่อเครื่องหมายฟันหนูซ้อน (`\"` — ป้องกันช่องโหว่คำสั่งพ่วงท้ายอย่าง `git commit -m "wip" && rm -rf /`), ดักจับการพลางคำสั่งด้วย `${IFS}` / `base64 -d | sh`, บล็อกคำสั่งอันตรายและการทับไฟล์ที่แก้ค้างไว้ (`rm -rf`, `git push --force` / `+main`, `git restore`, `git checkout .`, `git checkout <filepath>`, `git switch -f` — แต่อนุญาต `git checkout -b <branch>` และสลับกิ่งปกติ), บล็อกการแอบลงแพ็กเกจใหม่โดยไม่ถามคุณก่อน (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add` — ปลดล็อกด้วย `DEPS_APPROVED=1`), และ **บล็อกการแอบสั่ง Deploy ขึ้น Production หรือยิง Migration ฐานข้อมูลจริงโดยไม่ผ่านคนอนุมัติ (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `prisma migrate deploy`, `supabase db push`, `supabase db reset --linked`, `terraform apply`, `kubectl apply` — แต่อนุญาต `supabase db reset` บน Local Docker สำหรับรันเทสต์ และปลดล็อก Production ด้วย `RELEASE_APPROVED=1`)**
 * **`protect-sensitive-files.sh`:** บล็อกการอ่านหรือแก้ไขไฟล์ความลับ (`.env`, `.pem`, `.key`, `.keystore`, `.jks`, `.p12`), ห้ามแก้ไฟล์ Lockfile โดยตรง (`package-lock.json`, `pubspec.lock`, `go.sum`, `poetry.lock`, `Cargo.lock`), และ **ป้องกัน AI แอบแก้ไขไฟล์เทสต์ที่มีอยู่เดิม (`*.test.*`, `*.spec.*`, `*_test.*`) ในระหว่างซ่อมบั๊กเพื่อให้เทสต์ผ่านหลอกๆ (Stage 4 Anti-Test-Tampering Guard)**
 * **`post-edit-format.sh`:** จัด Format โค้ดอัตโนมัติตามภาษา (`prettier`, `gofmt`, `dart format`, `ruff format`, `rustfmt`) และบันทึกจุดแก้ล่าสุดลง `.agent-last-state.log` ทุกครั้ง
 * **`loop-circuit-breaker.sh`:** นับจำนวนครั้งที่ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำๆ ถ้าเกิน 3 ครั้งจะตัดเบรกเกอร์บังคับหยุดทันที
-* **`auto-resume.sh`:** ตรวจหาไฟล์ `.agent-last-state.log` และ `git status` ตอนเปิดแชทใหม่ เพื่อส่งต่องานค้างให้อัตโนมัติ
+* **`auto-resume.sh`:** ตรวจหาไฟล์ `TASK_STATE.md`, `.agent-last-state.log` และ `git status` ตอนเปิดแชทใหม่ พร้อมเข้ารหัส JSON ผ่าน `python3 json.dumps` เพื่อส่งต่องานค้างให้อัตโนมัติอย่างปลอดภัย
 * **`telemetry-tracker.sh` & `open-hud.sh`:** บันทึกสถานะการทำงานสดจากทุก Hook ลงไฟล์ `.claude/.telemetry.json` พร้อมสกัดหลักฐานการใช้โมเดลและ Subagent จริง (`sessionProof`) จากไฟล์ `.jsonl` และเปิดเซิร์ฟเวอร์ศูนย์บัญชาการ 3D (`.claude/hud/index.html`)
 * **`audit-session-proof.sh`:** สคริปต์ตรวจพิสูจน์ผลการทำงานจริง (`bash .claude/hooks/audit-session-proof.sh`) สแกนไฟล์ประวัติแชท `.jsonl` และ `subagents/*.jsonl` ของโปรเจกต์เพื่อสรุปตัวเลขจริงว่าแต่ละแชทใช้ `Opus` / `Sonnet` / `Haiku` กี่รอบ แตก Subagent จริงกี่ครั้ง และลดภาระ `Opus` ไปกี่เปอร์เซ็นต์
 * **`install-skill.sh`:** ดึงเฉพาะโฟลเดอร์ Skill ที่สั่งจาก [`anthropics/skills`](https://github.com/anthropics/skills) (19 Official Skills), [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) (67 Tech Stack Skills), หรือ [`heydamir/unslop`](https://github.com/heydamir/unslop) มาติดตั้งให้ทั้ง Claude Code (`.claude/skills/`) และ Antigravity IDE (`.agents/skills/`) พร้อมกันภายในไม่กี่วินาที
@@ -426,9 +426,9 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 
 ```text
 project-root/
-├── AGENTS.md                                   # กฎหลัก + Auto-Router สำหรับ Antigravity / VS Code / Cursor
-├── CLAUDE.md                                   # กฎหลัก + Auto-Router สำหรับ Claude Code
-├── GEMINI.md                                   # กฎหลักสำหรับ Gemini / Antigravity Workspace
+├── AGENTS.md                                   # กฎหลัก + Auto-Router สำหรับ Antigravity / VS Code / Cursor (English Concise Rules + Thai Output)
+├── CLAUDE.md                                   # กฎหลัก + Auto-Router สำหรับ Claude Code (English Concise Rules + Thai Output)
+├── GEMINI.md                                   # ไฟล์ตัวชี้เบา (@[AGENTS.md](./AGENTS.md)) ป้องกัน Antigravity โหลดกฎซ้ำ 2 รอบ
 ├── .mcp.json                                   # ตั้งค่า MCP (เริ่มต้นเป็นค่าว่างเพื่อประหยัดโควต้า)
 ├── .gitignore                                  # ป้องกันไฟล์ความลับและไฟล์สถานะชั่วคราวขึ้น Git
 ├── docs/
