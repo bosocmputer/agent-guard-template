@@ -417,7 +417,7 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`loop-circuit-breaker.sh`:** นับจำนวนครั้งที่ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำๆ ถ้าเกิน 3 ครั้งจะตัดเบรกเกอร์บังคับหยุดทันที
 * **`auto-resume.sh`:** ตรวจหาไฟล์ `TASK_STATE.md`, `.agent-last-state.log` และ `git status` ตอนเปิดแชทใหม่ พร้อมเข้ารหัส JSON ผ่าน `python3 json.dumps` เพื่อส่งต่องานค้างให้อัตโนมัติอย่างปลอดภัย
 * **`telemetry-tracker.sh` & `open-hud.sh`:** บันทึกสถานะการทำงานสดจากทุก Hook ลงไฟล์ `.claude/.telemetry.json` พร้อมสกัดหลักฐานการใช้โมเดลและ Subagent จริง (`sessionProof`) จากไฟล์ `.jsonl` และเปิดเซิร์ฟเวอร์ศูนย์บัญชาการ 3D (`.claude/hud/index.html`)
-* **`audit-session-proof.sh`:** สคริปต์ตรวจพิสูจน์ผลการทำงานจริง (`bash .claude/hooks/audit-session-proof.sh`) สแกนไฟล์ประวัติแชท `.jsonl` และ `subagents/*.jsonl` ของโปรเจกต์เพื่อสรุปตัวเลขจริงว่าแต่ละแชทใช้ `Opus` / `Sonnet` / `Haiku` กี่รอบ แตก Subagent จริงกี่ครั้ง และลดภาระ `Opus` ไปกี่เปอร์เซ็นต์
+* **`audit-session-proof.sh`:** สคริปต์ตรวจพิสูจน์ผลการทำงานจริง (`bash .claude/hooks/audit-session-proof.sh` หรือ `--brief`) สแกนไฟล์ประวัติแชท `.jsonl` และ `subagents/*.jsonl` ของโปรเจกต์เพื่อสรุปตัวเลขจริงว่าแต่ละแชทใช้ `Opus` / `Sonnet` / `Haiku` กี่รอบ แตก Subagent จริงกี่ครั้ง โอนงานออกไปรวมกี่ Token (`<subagent_tokens>`) และลดภาระ `Opus` ไปกี่เปอร์เซ็นต์
 * **`install-skill.sh`:** ดึงเฉพาะโฟลเดอร์ Skill ที่สั่งจาก [`anthropics/skills`](https://github.com/anthropics/skills) (19 Official Skills), [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) (67 Tech Stack Skills), หรือ [`heydamir/unslop`](https://github.com/heydamir/unslop) มาติดตั้งให้ทั้ง Claude Code (`.claude/skills/`) และ Antigravity IDE (`.agents/skills/`) พร้อมกันภายในไม่กี่วินาที
 
 ---
@@ -461,11 +461,11 @@ project-root/
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks ($CLAUDE_PROJECT_DIR)
     ├── hud/
     │   └── index.html                          # 🖥️ 3D Command & Monitor Center (Three.js r187 Single-File HUD)
-    ├── agents/                                 # 4 Sub-Agents (พร้อม model, maxTurns, disallowedTools & skills preload)
-    │   ├── explorer.md                         # สำรวจโค้ดแบบ Read-only (haiku, maxTurns: 6)
-    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (sonnet, maxTurns: 15 + skills preload)
-    │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet, maxTurns: 10 + skills preload)
-    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker แบบ Read-only (sonnet, maxTurns: 8 + skills preload)
+    ├── agents/                                 # 4 Sub-Agents (พร้อม model, Hybrid Auto/maxTurns, disallowedTools & skills preload)
+    │   ├── explorer.md                         # สำรวจโค้ดแบบ Read-only (haiku, maxTurns: 15)
+    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (sonnet, Auto turns + skills preload)
+    │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet, maxTurns: 18 + skills preload)
+    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker แบบ Read-only (sonnet, Auto turns + skills preload)
     ├── rules/                                  # กฎโหลดตาม Path ไฟล์ (ชุดเดียวกับ .agents/rules)
     ├── skills/                                 # ทักษะอัตโนมัติ (ชุดเดียวกับ .agents/skills)
     ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /security-audit, /verify, /handoff)
@@ -487,7 +487,7 @@ project-root/
 
 * **[`cloudflare/security-audit-skill`](https://github.com/cloudflare/security-audit-skill):** สกัดระบบ *6-Element Concrete Invariant & Traceability (`entrypoint ➔ propagation ➔ sink`)*, ตัวกรอง *False-Positive Gate* (แยก `[CONFIRMED]` ออกจาก `[NEEDS_VALIDATION]` และ `[HARDENING]`), และคู่มือตรวจ *Multi-Tenant Data Isolation & Lifecycle Replay (`DATA-ISOLATION-AND-LIFECYCLE`)* มาฝังใน `pragmatic-review` และ `security-audit`
 
-* **[Anthropic AI-Native SDLC Playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook) & [`anthropics/skills`](https://github.com/anthropics/skills):** ผสานกลไก *Stage 4 Anti-Test-Tampering Guard* (บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก), *Stage 5 Production Approval Gate* (บล็อกการสั่ง Deploy ขึ้น Production หรือ Migrate DB จริงโดยพลการ), *Stage 3 2-Repeat Pitfall Memory* (`CLAUDE.md` / `AGENTS.md`), กฎ *5 AI Design Tells* จาก `frontend-design`, *Reconnaissance-Then-Action* จาก `webapp-testing`, และระบบดึง Official Skills ทั้ง 19 ตัวผ่าน `install-skill.sh`
+* **[Anthropic AI-Native SDLC Playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook) & [`anthropics/skills`](https://github.com/anthropics/skills):** ผสานกลไก *Stage 4 Anti-Test-Tampering Guard* (บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก), *Stage 5 Production Approval Gate* (บล็อกการสั่ง Deploy ขึ้น Production หรือ Migrate DB จริงโดยพลการ), *Stage 3 2-Repeat Pitfall Memory* (`.claude/rules/project-pitfalls.md`), กฎ *5 AI Design Tells* จาก `frontend-design`, *Reconnaissance-Then-Action* จาก `webapp-testing`, และระบบดึง Official Skills ทั้ง 19 ตัวผ่าน `install-skill.sh`
 * **Anthropic Claude Code Official Specification & Engineering:** ใช้การจำกัด `model`, `maxTurns`, `disallowedTools`, และการ Preload `skills` ในระดับ Sub-agent Frontmatter ร่วมกับ `$CLAUDE_PROJECT_DIR` Hooks และรูปแบบ *Effective Harnesses for Long-Running Agents*
 * **Antigravity Customization System (`.agents/`):** รองรับ Progressive Disclosure ของ Rules/Skills และ JSON Lifecycle Hooks (`hooks.json`)
 * **[`forrestchang/andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills):** กฎ 4 ข้อของ Karpathy (*Think Before Coding*, *Simplicity First*, *Surgical Changes*, *Goal-Driven Execution*)
