@@ -79,7 +79,8 @@ chmod +x .claude/hooks/*.sh
 รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์เดิม เพื่ออัปเดตเฉพาะไฟล์มาตรฐานของ Template โดย**ไม่ลบ** Skill เสริมที่เคยดึงเพิ่มไว้ (`install-skill.sh`) และไม่กระทบโค้ดในโปรเจกต์:
 ```bash
 git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update && \
-rsync -a /tmp/agt-update/CLAUDE.md /tmp/agt-update/AGENTS.md /tmp/agt-update/GEMINI.md /tmp/agt-update/.claude /tmp/agt-update/.agents ./ && \
+rsync -a --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='project-pitfalls.md' \
+  /tmp/agt-update/CLAUDE.md /tmp/agt-update/AGENTS.md /tmp/agt-update/GEMINI.md /tmp/agt-update/.claude /tmp/agt-update/.agents ./ && \
 chmod +x .claude/hooks/*.sh && \
 rm -rf /tmp/agt-update
 ```
