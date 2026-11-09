@@ -81,6 +81,8 @@ chmod +x .claude/hooks/*.sh
 git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update && \
 rsync -a --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='project-pitfalls.md' \
   /tmp/agt-update/CLAUDE.md /tmp/agt-update/AGENTS.md /tmp/agt-update/GEMINI.md /tmp/agt-update/.claude /tmp/agt-update/.agents ./ && \
+[ -f .claude/rules/project-pitfalls.md ] || cp /tmp/agt-update/.claude/rules/project-pitfalls.md .claude/rules/project-pitfalls.md && \
+[ -f .agents/rules/project-pitfalls.md ] || cp /tmp/agt-update/.agents/rules/project-pitfalls.md .agents/rules/project-pitfalls.md && \
 chmod +x .claude/hooks/*.sh && \
 rm -rf /tmp/agt-update
 ```
@@ -357,7 +359,8 @@ bash .claude/hooks/open-hud.sh
 | **`/review`** | เมื่อเขียนโค้ดเสร็จและต้องการตรวจก่อนส่ง | ส่ง `reviewer` ตรวจเฉพาะ `[BLOCKER]` และช่องโหว่ความปลอดภัย พร้อมกรอง False-Positive ตามเกณฑ์ Cloudflare (จบใน 2 รอบ) |
 | **`/security-audit`** | เมื่อต้องการตรวจความปลอดภัยเชิงลึกก่อนปล่อยของ | ส่ง `explorer` (`Haiku`) หาพื้นผิวโจมตี + `reviewer` (`Sonnet`) ไล่เส้นทาง `entrypoint ➔ sink` แยก `[CONFIRMED]` ออกจาก `[NEEDS_VALIDATION]` (Cloudflare Protocol) |
 | **`/verify`** | ก่อนประกาศว่างานเสร็จสมบูรณ์ | รันเทสต์จริง + ดักจับ `0 tests ran` + รัน Type/Build Check พร้อมแสดงผลลัพธ์จริง |
-| **`/handoff`** | ก่อนล้างแชท `/clear` หรือก่อนสลับค่าย AI | สรุปงานที่เสร็จแล้ว งานที่ค้าง และคำสั่งถัดไปลง `TASK_STATE.md` ไม่เกิน 15 บรรทัด |
+| **`/learn <บทเรียน>`** | เมื่อแก้ `[BLOCKER]` เสร็จ หรือต้องการสั่งให้จำข้อตกลงเฉพาะโปรเจกต์ | สกัดบทเรียนสั้นๆ 1 บรรทัดลง `.claude/rules/project-pitfalls.md` & `.agents/rules/project-pitfalls.md` (คุมเพดานไม่เกิน 30 ข้อ) |
+| **`/handoff`** | ก่อนล้างแชท `/clear` หรือก่อนสลับค่าย AI | สรุปงานที่เสร็จแล้ว งานที่ค้าง และสกัดบทเรียนใหม่ของรอบนั้นลง `TASK_STATE.md` & `project-pitfalls.md` |
 
 ---
 
@@ -369,7 +372,7 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **ทำหน้าที่เป็น Auto-Router (ตัวคัดแยกงานอัตโนมัติ):** วิเคราะห์ประโยคที่คุณพิมพ์ว่าควรทำเองทันที (งานแก้ 1–2 ไฟล์) หรือควรส่งให้ลูกมือเฉพาะทางทำ (งานใหญ่ >3 ไฟล์ / งานแก้บั๊ก / งานรีวิว)
 * **ตาราง Auto-Detect 5 ภาษาหลัก:** ตรวจจับจากไฟล์ในโปรเจกต์อัตโนมัติว่าเป็น **Node.js/TypeScript** (`package.json`), **Go** (`go.mod`), **Flutter/Dart** (`pubspec.yaml`), **Python** (`pyproject.toml`), หรือ **Rust** (`Cargo.toml`) เพื่อเลือกคำสั่งรันเทสต์เฉพาะไฟล์ให้ถูกต้องโดยที่คุณไม่ต้องตั้งค่าเอง
 
-### 2. กฎเหล็กที่โหลดตามชนิดไฟล์ (`rules/*.md` — 5 ไฟล์)
+### 2. กฎเหล็กที่โหลดตามชนิดไฟล์ (`rules/*.md` — 6 ไฟล์)
 อยู่ใน `.claude/rules/` และ `.agents/rules/` จะถูกดึงมาใช้เฉพาะเมื่อ AI กำลังแก้ไฟล์ที่ตรงกับงานนั้น:
 * **`model-routing.md` (Explicit Subagent Delegation & Quota Guard):** บังคับเกณฑ์การแยกก้อนงานหลายขั้นตอนไปรันใน Subagent (`explorer=haiku/flash`, `implementer/debugger/reviewer=sonnet`) และห้ามใช้หน้าต่างหลัก `Opus` กดคลิกเบราว์เซอร์วนลูปเกิน 5 ครั้ง
 * **`code-simplicity.md` (Karpathy 4 Principles):** บังคับ *Think Before Coding* (คิดก่อนทำ), *Simplicity First* (ทำวิธีที่ง่ายที่สุด ห้ามสร้าง Class/Helper เผื่ออนาคต), *Surgical Changes* (แก้เฉพาะบรรทัดที่สั่ง), และ *Goal-Driven Execution* (ตั้งเป้าหมายการเทสต์ก่อนจบงาน)
@@ -379,6 +382,7 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
   * **Safe Rollback:** เวลาแก้บั๊กไม่ผ่านแล้วต้องย้อนโค้ด บังคับใช้เครื่องมือ `Edit` แก้กลับเฉพาะบรรทัดเดิม ห้ามรัน `git checkout .` หรือ `git reset --hard` ทับโค้ดของคุณ
 * **`testing-and-api.md` (`obra/superpowers` TDD & OWASP API Security):** โหลดเฉพาะตอนแก้ไฟล์เทสต์หรือ API บังคับเทสต์กับโค้ดจริง (ห้าม Mock ฟังก์ชันที่กำลังเทสต์), แก้บั๊กต้องเห็นเทสต์พังก่อนแก้จริง (*Verify RED*), และบังคับตรวจสิทธิ์เข้าถึงข้อมูล (ป้องกันช่องโหว่ IDOR/BOLA)
 * **`ui-anti-slop.md` (`heydamir/unslop` 1-Pass UI & 3D Standards):** โหลดเฉพาะตอนแก้ไฟล์หน้าบ้าน บังคับเกณฑ์ออกแบบ UI 9 ด้าน และกฎมาตรฐาน Three.js `r187+` ตั้งแต่การเขียนโค้ดรอบแรก
+* **`project-pitfalls.md` (`Stage 3 Self-Learning Memory`):** ความจำระยะยาวเฉพาะโปรเจกต์ที่สกัดจาก `[BLOCKER]` ที่แก้แล้ว, ข้อตกลงที่คุณสั่งแก้ (`/learn`), และบทเรียนตอนจบ Milestone (จำกัดข้อละ 1 บรรทัด สูงสุดไม่เกิน 30 ข้อ และไม่ถูกเขียนทับเวลาอัปเดต Template)
 
 ### 3. ตำราเฉพาะทางที่เปิดอ่านเมื่อถึงจังหวะใช้งาน (`skills/*/SKILL.md` — 9 ไฟล์)
 ใช้เทคนิค **Progressive Disclosure** (ปกติจะซ่อนเนื้อหาไว้เพื่อประหยัดโควต้า และจะเปิดอ่านเฉพาะเมื่อคำสั่งของคุณตรงกับเรื่องนั้น):
@@ -399,7 +403,7 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`debugger.md` (`model: sonnet`, สูงสุด 18 รอบ):** คนวิเคราะห์และแก้บั๊กตามกฎ `0-Strike` / `2-Strike` พร้อมผูกตำรา `root-cause-debug`
 * **`reviewer.md` (`model: sonnet`, รอบ Auto ตามชุดเทสต์):** คนตรวจโค้ดแบบอ่านอย่างเดียว (ห้ามแอบแก้ไฟล์เอง) พร้อมผูกตำรา `pragmatic-review` และ `security-audit`
 
-### 5. คำสั่งลัดเมื่อต้องการสั่งตรง (`.claude/commands/*.md` — 7 คำสั่ง)
+### 5. คำสั่งลัดเมื่อต้องการสั่งตรง (`.claude/commands/*.md` — 8 คำสั่ง)
 ถึงแม้ระบบจะเลือกโหมดให้อัตโนมัติอยู่แล้ว แต่ถ้าคุณอยากสั่งบังคับโหมดเองใน Claude Code ก็พิมพ์คำสั่งลัดเหล่านี้ได้ทันที:
 * `/plan` — สำรวจและวางแผนงานใหญ่ไม่เกิน 12 บรรทัดก่อนเขียนโค้ด
 * `/common-ground` — สรุปสมมติฐานและขอบเขตงานให้ตรงกันก่อนทำฟีเจอร์ใหม่
@@ -407,7 +411,8 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * `/review` — ตรวจรีวิวโค้ดเฉพาะ `[BLOCKER]` ไม่เกิน 2 รอบ
 * `/security-audit` — ตรวจความปลอดภัยเชิงลึก (`entrypoint ➔ sink`) ตามแนวทาง Cloudflare
 * `/verify` — รันเทสต์ + ตรวจ Type/Analyze + เช็กพอร์ตยืนยันผลจริง
-* `/handoff` — บันทึกสถานะงานค้างลง `TASK_STATE.md` ก่อนล้างแชท (`/clear`) หรือก่อนสลับโปรแกรม
+* `/learn` — สกัดบทเรียนจากบั๊ก/`[BLOCKER]` หรือข้อตกลงเฉพาะโปรเจกต์เก็บลง `project-pitfalls.md` (1 บรรทัดต่อข้อ)
+* `/handoff` — บันทึกสถานะงานค้างลง `TASK_STATE.md` พร้อมสกัดบทเรียนประจำรอบก่อนล้างแชท (`/clear`) หรือสลับโปรแกรม
 
 ### 6. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh` — Deterministic Function Nodes)
 แทนที่จะเปลืองโควต้าให้ AI คอยระวังเอง งานที่ตายตัวจะถูกควบคุมด้วยสคริปต์ Bash ที่ทำงานอัตโนมัติทั้งใน Claude Code (`.claude/settings.json`) และ Antigravity (`.agents/hooks.json`) โดย**ไม่เสียโควต้า AI แม้แต่ Token เดียว**:
@@ -445,7 +450,8 @@ project-root/
 │   │   ├── code-simplicity.md                  # Karpathy 4 Principles (Think, Simplicity, Surgical, Goal-Driven)
 │   │   ├── execution-discipline.md             # Context Hygiene (trailofbits) + Graph State-Delta (ADK 2) & Safe Rollback
 │   │   ├── testing-and-api.md                  # Real Testing (obra/superpowers TDD) & OWASP API Security
-│   │   └── ui-anti-slop.md                     # กฎออกแบบ UI 9 ด้าน (heydamir/unslop) + มาตรฐาน Three.js r187+
+│   │   ├── ui-anti-slop.md                     # กฎออกแบบ UI 9 ด้าน (heydamir/unslop) + มาตรฐาน Three.js r187+
+│   │   └── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ (สกัดจาก Blocker & /learn สูงสุด 30 ข้อ)
 │   └── skills/
 │       ├── auto-resume-handoff/SKILL.md        # 3-Phase Harness รับไม้ต่ออัตโนมัติ (Anthropic Long-Running Harness)
 │       ├── common-ground/SKILL.md              # Socratic Discovery & YAGNI Scope (obra/superpowers brainstorming)
@@ -468,7 +474,7 @@ project-root/
     │   └── reviewer.md                         # ตรวจเฉพาะ Blocker แบบ Read-only (sonnet, Auto turns + skills preload)
     ├── rules/                                  # กฎโหลดตาม Path ไฟล์ (ชุดเดียวกับ .agents/rules)
     ├── skills/                                 # ทักษะอัตโนมัติ (ชุดเดียวกับ .agents/skills)
-    ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /security-audit, /verify, /handoff)
+    ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /security-audit, /verify, /learn, /handoff)
     └── hooks/                                  # 🛡️ สคริปต์ยามรักษาความปลอดภัย Dual-Mode (Claude + Antigravity)
         ├── auto-resume.sh                      # ฉีดสถานะงานค้างเข้าแชทใหม่อัตโนมัติ (SessionStart)
         ├── validate-bash.sh                    # บล็อก rm -rf, git restore ทับโค้ด, ลง pkg มั่ว & กั้น Deploy Prod (Stage 5 Gate)
