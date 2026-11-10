@@ -479,10 +479,10 @@ project-root/
         ├── auto-resume.sh                      # ฉีดสถานะงานค้างเข้าแชทใหม่อัตโนมัติ (SessionStart)
         ├── validate-bash.sh                    # บล็อก rm -rf, git restore ทับโค้ด, ลง pkg มั่ว & กั้น Deploy Prod (Stage 5 Gate)
         ├── protect-sensitive-files.sh          # บล็อก .env/.key, lockfiles & บล็อกการแอบแก้ไฟล์เทสต์เดิม (Stage 4 Anti-Tampering)
-        ├── loop-circuit-breaker.sh             # บล็อกเมื่อ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน 3 ครั้ง
-        ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึกจุด Checkpoint ล่าสุด
-        ├── telemetry-tracker.sh                # บันทึกสถานะการทำงานสดจากทุก Hook ลง .claude/.telemetry.json
-        ├── audit-session-proof.sh              # พิสูจน์ผลสัดส่วนโมเดล Opus/Sonnet/Haiku และ Subagent จริงจากไฟล์ .jsonl
+        ├── loop-circuit-breaker.sh             # บล็อกเมื่อ AI รันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน 3 ครั้ง (แยก Sandbox/Unsandboxed บน Antigravity)
+        ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึกจุด Checkpoint + ล้างตัวนับลูปเมื่อแก้โค้ดจริง
+        ├── telemetry-tracker.sh                # บันทึกสถานะการทำงานสดและแคชสถิติ Subagents ลง .claude/.telemetry.json
+        ├── audit-session-proof.sh              # พิสูจน์ผลสัดส่วนโมเดลและ Subagent จริงจากไฟล์ .jsonl (รองรับทั้ง Claude Code & Antigravity)
         ├── open-hud.sh                         # เปิดเซิร์ฟเวอร์ 3D Command & Monitor Center + เช็กโควต้าจริง
         └── install-skill.sh                    # ดึง Skill จาก anthropics/skills & jeffallan/claude-skills แบบ Sparse Checkout
 ```
