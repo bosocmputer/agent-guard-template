@@ -684,6 +684,12 @@ def update_ag_session_cache(state_obj, cid, tpath):
         s_entry = subs.setdefault(scid, {"cid": scid})
         if sp.get("uri"):
             s_entry["uri"] = sp["uri"]
+            if os.path.isfile(sp["uri"]):
+                s_live = scan_ag_transcript_file(sp["uri"])
+                if s_live["turns"] > 0:
+                    s_entry["turns"] = s_live["turns"]
+                    s_entry["steps"] = s_live["steps"]
+                    s_entry["tokens"] = s_live["tokens"]
         if idx < len(scanned["invokeSpecs"]):
             spec = scanned["invokeSpecs"][idx]
             s_entry["type"] = spec["type"]
