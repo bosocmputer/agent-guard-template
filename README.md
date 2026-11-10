@@ -91,7 +91,7 @@ rm -rf /tmp/agt-update
 
 ## 🖥️ ศูนย์บัญชาการ 3D Voxel Studio (`Agent Guard Voxel Studio`) — คืออะไร และทำงานอย่างไร?
 
-Template นี้มาพร้อมหน้าจอ **Agent Guard Voxel Studio** (สร้างด้วย [`mrdoob/three.js`](https://github.com/mrdoob/three.js) `r187` แบบไฟล์เดียวจบใน [`.claude/hud/index.html`](.claude/hud/index.html) ไม่ต้อง `npm install`) ซึ่งจำลอง **ห้องทำงานของทีมวิศวกร AI ทั้ง 5 แผนกในรูปแบบ 3D Voxel** ที่เชื่อมโยงกับไฟล์จริงและเหตุการณ์จริงในโปรเจกต์ของคุณแบบ 100% (ไม่มีการ Hardcode รายการไฟล์)
+Template นี้มาพร้อมหน้าจอ **Agent Guard Voxel Studio** (สร้างด้วย [`mrdoob/three.js`](https://github.com/mrdoob/three.js) `r187` แบบไฟล์เดียวจบใน [`.claude/hud/index.html`](.claude/hud/index.html) ไม่ต้อง `npm install`) ซึ่งจำลอง **ห้องทำงานของทีมวิศวกร AI ทั้ง 5 แผนกในรูปแบบ 3D Voxel** ที่เชื่อมโยงกับไฟล์จริงและเหตุการณ์จริงในโปรเจกต์ของคุณโดยตรง (สแกนสดจากดิสก์ ไม่มีการ Hardcode รายการไฟล์)
 
 ### วิธีเปิดหน้าจอ 3D Voxel Studio:
 รันคำสั่งนี้ใน Terminal ที่โฟลเดอร์โปรเจกต์ (เปิดเบราว์เซอร์ไปที่ `http://127.0.0.1:4317/` ให้อัตโนมัติ):
@@ -106,7 +106,7 @@ bash .claude/hooks/open-hud.sh
 #### 1. มุมมองภาพรวมสตูดิโอ 5 แผนก (`Full-Screen 3D Studio Overview`)
 ![มุมมองภาพรวมสตูดิโอ 3D Voxel ทั้ง 5 แผนก](docs/screenshots/01-studio-overview.jpg)
 
-* **คืออะไร:** หน้าจอหลักแบบ 100% Full-Screen ที่แบ่งทีม AI ออกเป็น **5 โต๊ะทำงานตามหน้าที่จริง** เพื่อให้คนทั่วไปเข้าใจทันทีว่าทำไมโควต้าถึงประหยัดลงและทำไม AI ถึงไม่แก้โค้ดมั่ว:
+* **คืออะไร:** หน้าจอหลักแบบ Full-Screen ที่แบ่งทีม AI ออกเป็น **5 โต๊ะทำงานตามหน้าที่จริง** เพื่อให้คนทั่วไปเข้าใจทันทีว่าทำไมโควต้าถึงประหยัดลงและทำไม AI ถึงไม่แก้โค้ดมั่ว:
   1. **โต๊ะกลาง — หัวหน้าวางแผน (`Opus Architect`):** วิเคราะห์โจทย์ใหญ่ ตั้งสมมติฐาน (`common-ground`) แจกงานให้ลูกทีม และคุมกฎความปลอดภัย
   2. **โต๊ะซ้ายบน — ฝ่ายสำรวจไฟล์ (`Haiku Scout`):** วิ่งค้นหาพิกัดไฟล์ (`Read / Grep / Glob`) แบบอ่านอย่างเดียวด้วยความเร็วสูง **ประหยัดโควต้ากว่า Opus 15 เท่า**
   3. **โต๊ะซ้ายล่าง — ฝ่ายลงมือเขียนโค้ด (`Sonnet Coder`):** รับพิกัดบรรทัดมาแก้โค้ดเฉพาะจุด (`Surgical Edit`) พร้อมกองแฟ้มงาน 3D บนโต๊ะที่เพิ่มขึ้นตามจำนวนไฟล์จริงที่ถูกแก้ไข
@@ -134,7 +134,7 @@ bash .claude/hooks/open-hud.sh
 
 ---
 
-#### 4. หน้าต่างสำรวจผังไฟล์จริงทั้งหมด (`Live Workspace File Explorer — 100% Zero-Hardcode`)
+#### 4. หน้าต่างสำรวจผังไฟล์จริงทั้งหมด (`Live Workspace File Explorer — Zero-Hardcode`)
 ![หน้าต่างสำรวจผังไฟล์จริงที่สแกนสดจากดิสก์](docs/screenshots/04-live-file-explorer.jpg)
 
 * **คืออะไร:** กดปุ่ม **`ผังไฟล์จริง`** ที่แถบด้านบน หรือกดปุ่ม **`อ่านไฟล์`** ในแผงด้านขวา เพื่อเปิดหน้าต่างอ่านเนื้อหาไฟล์จริง (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `SKILL.md`, `rules/*.md`, `hooks/*.sh`) ที่สแกนสดจากดิสก์ของคุณแบบเรียลไทม์ พร้อมปุ่ม **`นำความสามารถนี้ไปใช้งาน`** ในคลิกเดียว
@@ -189,16 +189,16 @@ bash .claude/hooks/open-hud.sh
 
 ---
 
-### Use Case ที่ 1: เริ่มโปรเจกต์ใหม่ & สั่งดึง Skill เฉพาะทาง (`anthropics/skills` 19 ตัว + `jeffallan/claude-skills` 67 ตัว)
-แทนที่จะยัดคู่มือทุกภาษาไว้ในโปรเจกต์จนเปลืองโควต้า คุณสั่งให้ AI ดึงเฉพาะคู่มือที่ใช้จริงจากคลังทางการ [`anthropics/skills`](https://github.com/anthropics/skills) (เช่น `frontend-design`, `webapp-testing`, `mcp-builder`, `claude-api`, `pdf`, `docx`, `xlsx`, `pptx`, `skill-creator`) หรือ [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) (เช่น `react-expert`, `nextjs-developer`, `nestjs-expert`, `golang-pro`, `flutter-expert`, `postgres-pro`) ได้ในประโยคเดียว
+### Use Case ที่ 1: ติดตั้งเฉพาะ Skill เครื่องมือจัดการเอกสาร/เวิร์กโฟลว์เฉพาะทาง (`SkillsBench` & *The Bitter Lesson* Principle)
+โมเดลยุคใหม่มีความรู้เรื่องไวยากรณ์ภาษาและเฟรมเวิร์กทั่วไป (React, Next.js, Flutter, Python, Go, SQL) อยู่ใน Weights แล้ว จึง**ไม่ควรติดตั้ง Skill สอนภาษาทั่วไป (`react-expert`, `flutter-expert`) ให้เปลือง Context** — ให้ใช้ `install-skill.sh` เฉพาะเมื่อต้องการความสามารถด้านเครื่องมือจัดการเอกสารหรือเวิร์กโฟลว์เฉพาะทางจากคลัง [`anthropics/skills`](https://github.com/anthropics/skills) (เช่น `pdf`, `docx`, `xlsx`, `pptx`, `mcp-builder`, `webapp-testing`, `frontend-design`) เท่านั้น
 
-> 💬 **คำสั่งแนะนำ (ก๊อปปี้ไปวางได้เลย):**
+> 💬 **คำสั่งแนะนำเมื่อต้องทำระบบเอกสารหรือ MCP:**
 > ```text
-> โปรเจกต์นี้ใช้ Next.js, Tailwind, NestJS, PostgreSQL และต้องมีระบบออกใบแจ้งหนี้ PDF ช่วยดึง skill ที่เกี่ยวข้องทั้งหมดมาติดตั้งให้หน่อย
+> โปรเจกต์นี้ต้องมีระบบออกใบแจ้งหนี้ PDF และรายงาน Excel ช่วยดึง skill pdf และ xlsx มาติดตั้งให้หน่อย
 > ```
 > 💻 **หรือรันผ่าน Terminal เองโดยตรง (0 Token):**
 > ```bash
-> bash .claude/hooks/install-skill.sh nextjs-developer tailwind-expert nestjs-expert postgres-pro frontend-design pdf
+> bash .claude/hooks/install-skill.sh pdf xlsx webapp-testing
 > ```
 
 **สิ่งที่ทำงานอัตโนมัติ:**
@@ -370,7 +370,8 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 
 ### 1. สมองสั่งการหลัก (`CLAUDE.md` และ `AGENTS.md`)
 * **ทำหน้าที่เป็น Auto-Router (ตัวคัดแยกงานอัตโนมัติ):** วิเคราะห์ประโยคที่คุณพิมพ์ว่าควรทำเองทันที (งานแก้ 1–2 ไฟล์) หรือควรส่งให้ลูกมือเฉพาะทางทำ (งานใหญ่ >3 ไฟล์ / งานแก้บั๊ก / งานรีวิว)
-* **ตาราง Auto-Detect 5 ภาษาหลัก:** ตรวจจับจากไฟล์ในโปรเจกต์อัตโนมัติว่าเป็น **Node.js/TypeScript** (`package.json`), **Go** (`go.mod`), **Flutter/Dart** (`pubspec.yaml`), **Python** (`pyproject.toml`), หรือ **Rust** (`Cargo.toml`) เพื่อเลือกคำสั่งรันเทสต์เฉพาะไฟล์ให้ถูกต้องโดยที่คุณไม่ต้องตั้งค่าเอง
+* **กฎ `No Over-Claiming` & `No Ceremony Overhead`:** บังคับรายงานเฉพาะสิ่งที่รันตรวจจริงพร้อมหลักฐาน ห้ามใช้คำอ้างเกินจริง (`"100%"`, `"สมบูรณ์แบบ"`) และห้ามเพิ่มพิธีกรรม/ไฟล์เอกสาร/การเรียก Subagent หรือการลง Skill ที่ไม่จำเป็นต่องาน
+* **ตาราง Auto-Detect 6 เทคโนโลยีหลัก:** ตรวจจับจากไฟล์ในโปรเจกต์อัตโนมัติว่าเป็น **Node.js/TypeScript** (`package.json`), **Go** (`go.mod`), **Flutter/Dart** (`pubspec.yaml`), **Supabase/PostgreSQL** (`supabase/config.toml`), **Python** (`pyproject.toml`), หรือ **Rust** (`Cargo.toml`) เพื่อเลือกคำสั่งรันเทสต์เฉพาะไฟล์ให้ถูกต้องโดยที่คุณไม่ต้องตั้งค่าเอง
 
 ### 2. กฎเหล็กที่โหลดตามชนิดไฟล์ (`rules/*.md` — 6 ไฟล์)
 อยู่ใน `.claude/rules/` และ `.agents/rules/` จะถูกดึงมาใช้เฉพาะเมื่อ AI กำลังแก้ไฟล์ที่ตรงกับงานนั้น:
@@ -393,7 +394,7 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 * **`verification-before-completion`:** กฎเหล็กห้ามพูดว่า *"เสร็จแล้ว"* ถ้ายังไม่ได้รันคำสั่งเทสต์สดในเทิร์นนั้น พร้อมดักจับ **`Zero-Run Green (PL-2)`** (ถ้ารันได้ `Exit Code 0` แต่รันเทสต์ไป `0 ข้อ` ถือว่าไม่ผ่าน ต้องรันเทสต์จริงอย่างน้อย 1 ข้อเสมอ)
 * **`db-migration`:** กฎแก้ไขฐานข้อมูลแบบ Zero-Downtime (*Expand & Contract*), ห้ามแก้ไฟล์ Migration เก่า, บังคับใส่ Index ที่ Foreign Key, ห้ามยิง Query ในลูป (N+1), บังคับล็อก `SET search_path = public, pg_temp` + ตรวจ `shop_id` ใน `SECURITY DEFINER` RPC, เปิด `supabase_realtime` คู่กับ `SELECT` RLS เสมอ, และใช้ Atomic Conditional Update (`WHERE id = $2 AND status = $3`) ป้องกัน Race Condition ข้ามเครื่อง
 * **`auto-resume-handoff`:** ขั้นตอนกู้คืนงานค้าง 3 จังหวะ (อ่าน `.agent-last-state.log` + `TASK_STATE.md` ➔ เช็ก `git diff` ➔ รันเทสต์เช็กสถานะปัจจุบัน) เมื่อสลับโปรแกรมหลังโควต้าหมด
-* **`tech-stack-skills`:** ตารางจับคู่และวิธีดึงคู่มือภาษาเฉพาะทาง (เช่น `react-expert`, `nestjs-expert`, `golang-pro`, `flutter-expert`, `unslop`) มาลงเฉพาะตัวที่ใช้จริง (2–4 ตัวต่อโปรเจกต์)
+* **`tech-stack-skills`:** คู่มือติดตั้งเฉพาะความสามารถด้านเครื่องมือจัดการเอกสารและเวิร์กโฟลว์ (`pdf`, `docx`, `xlsx`, `pptx`, `mcp-builder`, `webapp-testing` จาก `anthropics/skills`) โดยห้ามลง Skill สอนภาษาทั่วไปอัตโนมัติตามหลัก *SkillsBench* & *The Bitter Lesson*
 * **`threejs-expert` (`mrdoob/three.js r187+`):** คู่มือผู้เชี่ยวชาญสำหรับสร้าง 3D Viewer และ Interactive 3D UI บนเว็บ บังคับใช้ API รุ่นใหม่ (`three/addons/*`, `HDRLoader`, `SRGBColorSpace`, `OutputPass`, `CSS2DRenderer`, `setAnimationLoop`) พร้อมสูตรคำนวณมุมกล้องอัตโนมัติและฟังก์ชันคืนค่าหน่วยความจำการ์ดจอ (`disposeViewer`) ป้องกันอาการการ์ดจอค้าง
 
 ### 4. ลูกมือเฉพาะทาง 4 ตัว (`.claude/agents/*.md` — Bounded Agent Loops)
