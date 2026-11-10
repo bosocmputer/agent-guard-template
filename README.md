@@ -79,12 +79,11 @@ chmod +x .claude/hooks/*.sh
 รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์เดิม เพื่ออัปเดตเฉพาะไฟล์มาตรฐานของ Template โดย**ไม่ลบ** Skill เสริมที่เคยดึงเพิ่มไว้ (`install-skill.sh`) และไม่กระทบโค้ดในโปรเจกต์:
 ```bash
 git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update && \
-rsync -a --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='project-pitfalls.md' \
+rsync -a --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='/.claude/rules/project-pitfalls.md' \
   /tmp/agt-update/CLAUDE.md /tmp/agt-update/AGENTS.md /tmp/agt-update/GEMINI.md /tmp/agt-update/.claude /tmp/agt-update/.agents ./ && \
 [ -f .claude/rules/project-pitfalls.md ] || cp /tmp/agt-update/.claude/rules/project-pitfalls.md .claude/rules/project-pitfalls.md && \
-[ -f .agents/rules/project-pitfalls.md ] || cp /tmp/agt-update/.agents/rules/project-pitfalls.md .agents/rules/project-pitfalls.md && \
-chmod +x .claude/hooks/*.sh && \
-rm -rf /tmp/agt-update
+rm -rf /tmp/agt-update .agents/skills && \
+chmod +x .claude/hooks/*.sh
 ```
 
 ---
@@ -432,9 +431,9 @@ Template นี้ออกแบบตามหลัก **3-Layer Graph Engine
 
 ```text
 project-root/
-├── AGENTS.md                                   # กฎหลัก + Auto-Router สำหรับ Antigravity / VS Code / Cursor (English Concise Rules + Thai Output)
-├── CLAUDE.md                                   # กฎหลัก + Auto-Router สำหรับ Claude Code (English Concise Rules + Thai Output)
-├── GEMINI.md                                   # ไฟล์ตัวชี้เบา (@[AGENTS.md](./AGENTS.md)) ป้องกัน Antigravity โหลดกฎซ้ำ 2 รอบ
+├── CLAUDE.md                                   # กฎหลักต้นฉบับ (Single Source of Truth สำหรับทั้ง Claude Code & Antigravity IDE)
+├── AGENTS.md                                   # ไฟล์ตัวชี้เบา (@[CLAUDE.md](./CLAUDE.md)) สำหรับ Antigravity / VS Code / Cursor
+├── GEMINI.md                                   # ไฟล์ตัวชี้เบา (@[CLAUDE.md](./CLAUDE.md)) ป้องกัน Antigravity โหลดกฎซ้ำ
 ├── .mcp.json                                   # ตั้งค่า MCP (เริ่มต้นเป็นค่าว่างเพื่อประหยัดโควต้า)
 ├── .gitignore                                  # ป้องกันไฟล์ความลับและไฟล์สถานะชั่วคราวขึ้น Git
 ├── docs/
@@ -444,27 +443,18 @@ project-root/
 │       ├── 03-night-lofi-debugger.jpg
 │       └── 04-live-file-explorer.jpg
 │
-├── .agents/                                    # ⚡ ตั้งค่าอัตโนมัติสำหรับ Antigravity (VS Code)
-│   ├── hooks.json                              # ผูก SessionStart, PreInvocation, PreToolUse, PostToolUse, Stop
-│   ├── rules/
-│   │   ├── model-routing.md                    # กฎคัดแยกโมเดลอัตโนมัติ (Haiku/Flash สำรวจ ➔ Sonnet เขียนโค้ด/ซ่อมบั๊ก/รันเทสต์)
-│   │   ├── code-simplicity.md                  # Karpathy 4 Principles (Think, Simplicity, Surgical, Goal-Driven)
-│   │   ├── execution-discipline.md             # Context Hygiene (trailofbits) + Graph State-Delta (ADK 2) & Safe Rollback
-│   │   ├── testing-and-api.md                  # Real Testing (obra/superpowers TDD) & OWASP API Security
-│   │   ├── ui-anti-slop.md                     # กฎออกแบบ UI 9 ด้าน (heydamir/unslop) + มาตรฐาน Three.js r187+
-│   │   └── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ (สกัดจาก Blocker & /learn สูงสุด 30 ข้อ)
-│   └── skills/
-│       ├── auto-resume-handoff/SKILL.md        # 3-Phase Harness รับไม้ต่ออัตโนมัติ (Anthropic Long-Running Harness)
-│       ├── common-ground/SKILL.md              # Socratic Discovery & YAGNI Scope (obra/superpowers brainstorming)
-│       ├── db-migration/SKILL.md               # Zero-Downtime Migration (supabase/agent-skills + postgres-pro)
-│       ├── pragmatic-review/SKILL.md           # Blocker-Only Review ไม่เกิน 2 รอบ (obra/superpowers + gstack + Cloudflare Gate)
-│       ├── root-cause-debug/SKILL.md           # 4-Phase Debugging (obra/superpowers) + 0/2-Strike Breaker
-│       ├── security-audit/SKILL.md             # ตรวจความปลอดภัยเชิงลึก 6-Element Invariant (cloudflare/security-audit-skill)
-│       ├── tech-stack-skills/SKILL.md          # ดึง Skill จาก anthropics/skills (19 ตัว) & jeffallan/claude-skills (67 ตัว)
-│       ├── threejs-expert/SKILL.md             # คู่มือผู้เชี่ยวชาญ Three.js r187+ (3D Viewer, HDRLoader, OutputPass, Disposal)
-│       └── verification-before-completion/     # Iron Law & 5-Step Gate Function (Test + Zero-Run Check + Build + Playwright Recon)
+├── .agents/                                    # ⚡ ตัวชี้และตั้งค่าอัตโนมัติสำหรับ Antigravity (อ้างอิงเนื้อหาจาก .claude/ จุดเดียว)
+│   ├── hooks.json                              # ผูก SessionStart, PreInvocation, PreToolUse, PostToolUse, Stop ไปที่ .claude/hooks/
+│   ├── skills.json                             # ชี้โฟลเดอร์ Skills ไปที่ {"entries": [{"path": ".claude/skills"}]} (ไม่ต้องก๊อปปี้ 2 ที่)
+│   └── rules/                                  # ตัวชี้กฎพร้อม Frontmatter มาตรฐาน Antigravity (trigger: always_on / trigger: glob)
+│       ├── model-routing.md                    # @[model-routing](../../.claude/rules/model-routing.md)
+│       ├── code-simplicity.md                  # @[code-simplicity](../../.claude/rules/code-simplicity.md)
+│       ├── execution-discipline.md             # @[execution-discipline](../../.claude/rules/execution-discipline.md)
+│       ├── testing-and-api.md                  # @[testing-and-api](../../.claude/rules/testing-and-api.md)
+│       ├── ui-anti-slop.md                     # @[ui-anti-slop](../../.claude/rules/ui-anti-slop.md)
+│       └── project-pitfalls.md                 # @[project-pitfalls](../../.claude/rules/project-pitfalls.md)
 │
-└── .claude/                                    # 🤖 ตั้งค่าอัตโนมัติสำหรับ Claude Code
+└── .claude/                                    # 🤖 แหล่งข้อมูลต้นฉบับ (Master Single Source of Truth สำหรับแก้ไขกฎและทักษะ)
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks ($CLAUDE_PROJECT_DIR)
     ├── hud/
     │   └── index.html                          # 🖥️ 3D Command & Monitor Center (Three.js r187 Single-File HUD)
@@ -473,8 +463,8 @@ project-root/
     │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (sonnet, Auto turns + skills preload)
     │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet, maxTurns: 18 + skills preload)
     │   └── reviewer.md                         # ตรวจเฉพาะ Blocker แบบ Read-only (sonnet, Auto turns + skills preload)
-    ├── rules/                                  # กฎโหลดตาม Path ไฟล์ (ชุดเดียวกับ .agents/rules)
-    ├── skills/                                 # ทักษะอัตโนมัติ (ชุดเดียวกับ .agents/skills)
+    ├── rules/                                  # กฎต้นฉบับ (model-routing, code-simplicity, execution-discipline, testing-and-api, ui-anti-slop, project-pitfalls)
+    ├── skills/                                 # ทักษะต้นฉบับทั้ง 9 ตัว (auto-resume-handoff, common-ground, db-migration, pragmatic-review, root-cause-debug, security-audit, tech-stack-skills, threejs-expert, verification-before-completion)
     ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /security-audit, /verify, /learn, /handoff)
     └── hooks/                                  # 🛡️ สคริปต์ยามรักษาความปลอดภัย Dual-Mode (Claude + Antigravity)
         ├── auto-resume.sh                      # ฉีดสถานะงานค้างเข้าแชทใหม่อัตโนมัติ (SessionStart)
@@ -485,7 +475,7 @@ project-root/
         ├── telemetry-tracker.sh                # บันทึกสถานะการทำงานสดและแคชสถิติ Subagents ลง .claude/.telemetry.json
         ├── audit-session-proof.sh              # พิสูจน์ผลสัดส่วนโมเดลและ Subagent จริงจากไฟล์ .jsonl (รองรับทั้ง Claude Code & Antigravity)
         ├── open-hud.sh                         # เปิดเซิร์ฟเวอร์ 3D Command & Monitor Center + เช็กโควต้าจริง
-        └── install-skill.sh                    # ดึง Skill จาก anthropics/skills & jeffallan/claude-skills แบบ Sparse Checkout
+        └── install-skill.sh                    # ดึง Skill เสริมลง .claude/skills/ แบบ Sparse Checkout (เชื่อม .agents/skills.json อัตโนมัติ)
 ```
 
 ---
