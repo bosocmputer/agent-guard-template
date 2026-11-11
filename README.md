@@ -77,9 +77,9 @@ project-root/
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks สำหรับ Claude Code
     ├── agents/                                 # ลูกมือ Subagents 4 ตำแหน่ง
     │   ├── explorer.md                         # สำรวจโค้ด & ค้นคว้าเว็บ WebSearch/WebFetch (haiku / flash, maxTurns: 15)
-    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + รันเทสต์ย่อย (sonnet / inherit, Auto turns)
+    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + รันเทสต์ย่อย (sonnet / inherit, maxTurns: 35)
     │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, maxTurns: 18)
-    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker + รันเทสต์ E2E (sonnet / inherit, Auto turns)
+    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker + รันเทสต์ E2E (sonnet / inherit, maxTurns: 35)
     ├── rules/                                  # กฎต้นฉบับ 6 ไฟล์
     │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents อัตโนมัติ & ป้องกันการแก้ไฟล์ชนกัน (Disjoint Files)
     │   ├── execution-discipline.md             # ส่งต่องานแบบ State-Delta (<=8 บรรทัด) & ห้าม git reset/restore ทับโค้ด
