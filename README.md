@@ -76,12 +76,12 @@ project-root/
 └── .claude/                                    # 🤖 แหล่งข้อมูลต้นฉบับ (Master Single Source of Truth)
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks สำหรับ Claude Code
     ├── agents/                                 # ลูกมือ Subagents 4 ตำแหน่ง
-    │   ├── explorer.md                         # สำรวจโค้ดแบบ Read-only (haiku / flash, maxTurns: 15)
+    │   ├── explorer.md                         # สำรวจโค้ด & ค้นคว้าเว็บ WebSearch/WebFetch (haiku / flash, maxTurns: 15)
     │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + รันเทสต์ย่อย (sonnet / inherit, Auto turns)
     │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, maxTurns: 18)
     │   └── reviewer.md                         # ตรวจเฉพาะ Blocker + รันเทสต์ E2E (sonnet / inherit, Auto turns)
     ├── rules/                                  # กฎต้นฉบับ 6 ไฟล์
-    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents อัตโนมัติ
+    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents อัตโนมัติ & ป้องกันการแก้ไฟล์ชนกัน (Disjoint Files)
     │   ├── execution-discipline.md             # ส่งต่องานแบบ State-Delta (<=8 บรรทัด) & ห้าม git reset/restore ทับโค้ด
     │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
     │   ├── code-simplicity.md                  # กฎ Karpathy: คิดก่อนทำ, เรียบง่ายที่สุด, แก้เฉพาะจุด, ไม่สร้างไฟล์ขยะ
@@ -117,8 +117,8 @@ project-root/
 ### 1. การคัดแยกงานและแตก Subagent อัตโนมัติ (`Zero-Command Auto-Routing`)
 คุณสามารถพิมพ์สั่งงานด้วยภาษาไทยตามปกติ ระบบใน [`CLAUDE.md`](CLAUDE.md) จะประเมินขนาดงานให้อัตโนมัติ:
 * **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`):** หน้าต่างหลักลงมือแก้แบบ Surgical Edit และรันเทสต์เฉพาะไฟล์ทันที (**ไม่แตก Subagent ให้เสียเวลา Cold-Start ฟรี** ตามกฎ `No Ceremony Overhead`)
-* **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`):** แตก `explorer` (`haiku` บน Claude / `research` `flash` บน Antigravity) ไปสแกนหาบรรทัดและจุดเชื่อมต่อ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด
-* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`2–5 ไฟล์`):** แตก `implementer` (`sonnet` / `self`) ไปเขียนโค้ดและวนรันเทสต์ย่อยจนเขียว
+* **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด
+* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`2–5 ไฟล์`):** แตก `implementer` (`sonnet` / `self`) ไปเขียนโค้ดและวนรันเทสต์ย่อยจนเขียว (หากแตก `implementer` หลายตัวทำงานขนานกัน จะบังคับแบ่งรายชื่อไฟล์ไม่ให้ทับกันตามกฎ `Disjoint Files First`)
 * **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับ/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
 
 ### 2. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh`)
@@ -158,6 +158,11 @@ AI จะสกัดบทเรียนสั้นๆ บรรทัดเ�
    - **ความจำ & ส่งต่องาน:** Pitfalls `10/30` (**สกัดใหม่:** **[Flutter / Single Loading Indicator]:** Wrap sequential Supabase calls...) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ (`main@94ce7cf`)
    ```
    *(หากต้องการดูรายงานย้อนหลังทุกแชทแบบเต็ม ให้รัน `bash .claude/hooks/audit-session-proof.sh` ใน Terminal)*
+
+### 6. ส่งต่องานข้ามค่ายอัตโนมัติโดยไม่ต้องสั่ง `/handoff` (`2-Layer TASK_STATE.md Auto-Sync`)
+คุณสามารถสลับไปมาระหว่าง **Claude Code ⇄ Antigravity IDE** ได้ทันทีเมื่อโควต้าฝั่งใดฝั่งหนึ่งเต็ม โดยไม่ต้องพิมพ์คำสั่ง `/handoff` เอง:
+* **ชั้นที่ 1 (สรุปงานอัตโนมัติโดย AI):** ทุกครั้งที่แก้โค้ดหรือปิดงานย่อยเสร็จ AI จะอัปเดตสรุปสถานะปัจจุบันและงานถัดไปไว้ด้านบนของ `TASK_STATE.md` (ไม่เกิน 20 บรรทัด)
+* **ชั้นที่ 2 (ซิงก์สถานะ Git แบบ `0-Token` ใน `audit-session-proof.sh`):** สคริปต์จะดึงกิ่งปัจจุบัน (`Branch`), 5 คอมมิตล่าสุด (`git log -n 5`), ไฟล์ที่แก้ค้าง (`git status --short`), และพิกัดไฟล์ล่าสุด (`.agent-last-state.log`) ไปเขียนต่อท้าย `TASK_STATE.md` ให้อัตโนมัติทุกครั้งที่จบงาน เมื่อเปิดแชทใหม่ในอีกค่าย `auto-resume.sh` จะฉีดสถานะล่าสุดให้รับไม้ต่อได้ทันที
 
 ---
 
