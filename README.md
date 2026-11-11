@@ -155,7 +155,7 @@ AI จะสกัดบทเรียนสั้นๆ บรรทัดเ�
    - **สัดส่วนโมเดล (473 รอบ):** Parent (Argon/Pro) `35.7%` (169 รอบ) | Subagents (Self) `26.4%` (125 รอบ) | Subagents (Flash) `37.8%` (179 รอบ) ➔ **แบ่งเบาภาระหน้าต่างหลัก (Offload): `64.3%`**
    - **Subagents ที่เรียกใช้จริง:** `6` ตัว (`Explorer: 2`, `Implementer: 4`, `Debugger: 0`, `Reviewer: 0`) — รับภาระรวม `26,671,880 tokens`
    - **Hooks ป้องกันระบบ:** สแกนไฟล์ `1451` ครั้ง | แก้ไฟล์+Checkpoint `521` ครั้ง | รันเทสต์ `141` ครั้ง | บล็อกคำสั่งผิดกฎ `10` ครั้ง | 2-Strike: `0/3`
-   - **บทเรียนสะสม (Pitfall Memory):** `10/30` ข้อ — **สกัดใหม่ล่าสุด:** **[Flutter / Single Loading Indicator]:** Wrap sequential Supabase calls...
+   - **ความจำ & ส่งต่องาน:** Pitfalls `10/30` (**สกัดใหม่:** **[Flutter / Single Loading Indicator]:** Wrap sequential Supabase calls...) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ (`main@94ce7cf`)
    ```
    *(หากต้องการดูรายงานย้อนหลังทุกแชทแบบเต็ม ให้รัน `bash .claude/hooks/audit-session-proof.sh` ใน Terminal)*
 
