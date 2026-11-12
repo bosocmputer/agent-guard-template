@@ -562,6 +562,12 @@ def scan_ag_transcript_file(t_path):
         "steps": 0,
         "tokens": 0,
         "firstPrompt": "",
+        "lastPrompt": "",
+        "promptTurns": 0,
+        "promptSteps": 0,
+        "promptTokens": 0,
+        "promptInvokeSpecs": [],
+        "promptSpawnedCids": [],
         "parentCid": "",
         "isSubagent": False,
         "invokeSpecs": [],
@@ -569,6 +575,7 @@ def scan_ag_transcript_file(t_path):
         "checkpointSubs": [],
         "browserFacts": {},
         "stepRefs": {},
+        "replyCounts": {},
     }
     if not t_path:
         return info
@@ -581,25 +588,39 @@ def scan_ag_transcript_file(t_path):
         with open(use_p, "r", encoding="utf-8", errors="ignore") as fp:
             for idx, line in enumerate(fp):
                 info["steps"] += 1
-                if idx < 8:
-                    if '"USER_EXPLICIT"' in line and '"USER_INPUT"' in line:
-                        has_user_explicit = True
-                        try:
-                            uo = json.loads(line)
-                            raw_c = str(uo.get("content") or "")
-                            m_req = re.search(r"<USER_REQUEST>(.*?)</USER_REQUEST>", raw_c, flags=re.S)
-                            txt_c = m_req.group(1) if m_req else raw_c
-                            txt_c = re.sub(r"<[^>]+>.*?</[^>]+>", " ", txt_c, flags=re.S)
-                            txt_c = " ".join(txt_c.split()).strip()
-                            if txt_c:
+                info["promptSteps"] += 1
+                if '"USER_EXPLICIT"' in line and '"USER_INPUT"' in line:
+                    has_user_explicit = True
+                    try:
+                        uo = json.loads(line)
+                        raw_c = str(uo.get("content") or "")
+                        m_req = re.search(r"<USER_REQUEST>(.*?)</USER_REQUEST>", raw_c, flags=re.S)
+                        txt_c = m_req.group(1) if m_req else raw_c
+                        txt_c = re.sub(r"<[^>]+>.*?</[^>]+>", " ", txt_c, flags=re.S)
+                        txt_c = " ".join(txt_c.split()).strip()
+                        if txt_c:
+                            if not info["firstPrompt"]:
                                 info["firstPrompt"] = txt_c[:80]
-                        except Exception:
-                            pass
-                    elif not has_user_explicit and (('"SYSTEM_MESSAGE"' in line and "sender=" in line) or ("You are a subagent" in line)):
-                        m_snd = re.search(r"(?:sender=|conversation_id is )([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", line)
-                        if m_snd:
-                            info["parentCid"] = m_snd.group(1)
-                            info["isSubagent"] = True
+                            info["lastPrompt"] = txt_c[:80]
+                    except Exception:
+                        pass
+                    info["promptTurns"] = 0
+                    info["promptSteps"] = 1
+                    info["promptTokens"] = 0
+                    info["promptInvokeSpecs"] = []
+                    info["promptSpawnedCids"] = []
+                elif idx < 8 and not has_user_explicit and (('"SYSTEM_MESSAGE"' in line and "sender=" in line) or ("You are a subagent" in line)):
+                    m_snd = re.search(r"(?:sender=|conversation_id is )([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", line)
+                    if m_snd:
+                        info["parentCid"] = m_snd.group(1)
+                        info["isSubagent"] = True
+                elif '"SYSTEM_MESSAGE"' in line and "sender=" in line:
+                    m_rep = re.search(r"sender=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", line)
+                    if m_rep:
+                        rcid = m_rep.group(1)
+                        info["replyCounts"][rcid] = info["replyCounts"].get(rcid, 0) + 1
+                        if rcid not in info["promptSpawnedCids"]:
+                            info["promptSpawnedCids"].append(rcid)
                 if '"CHECKPOINT"' in line and "Subagents" in line:
                     try:
                         co = json.loads(line)
@@ -627,29 +648,43 @@ def scan_ag_transcript_file(t_path):
                         obj = json.loads(line)
                         if obj.get("type") == "PLANNER_RESPONSE":
                             info["turns"] += 1
-                            info["tokens"] += int(obj.get("input_tokens") or 0) + int(obj.get("cache_read_tokens") or 0) + int(obj.get("output_tokens") or 0)
+                            info["promptTurns"] += 1
+                            tok_inc = int(obj.get("input_tokens") or 0) + int(obj.get("cache_read_tokens") or 0) + int(obj.get("output_tokens") or 0)
+                            info["tokens"] += tok_inc
+                            info["promptTokens"] += tok_inc
                             for tc in (obj.get("tool_calls") or []):
-                                if isinstance(tc, dict) and tc.get("name") == "invoke_subagent":
+                                if isinstance(tc, dict):
+                                    tname = tc.get("name")
                                     args = tc.get("args") or {}
-                                    st = str(args.get("TypeName") or "self").strip('"').lower()
-                                    sm = str(args.get("Model") or ("flash" if ("research" in st or "browser" in st) else "inherit")).strip('"').lower()
-                                    sr = str(args.get("Role") or st).strip('"')
-                                    info["invokeSpecs"].append({
-                                        "type": st,
-                                        "model": sm,
-                                        "role": sr,
-                                        "desk": classify_ag_desk(st, sr),
-                                    })
+                                    if tname == "invoke_subagent":
+                                        st = str(args.get("TypeName") or "self").strip('"').lower()
+                                        sm = str(args.get("Model") or ("flash" if ("research" in st or "browser" in st) else "inherit")).strip('"').lower()
+                                        sr = str(args.get("Role") or st).strip('"')
+                                        sp_item = {
+                                            "type": st,
+                                            "model": sm,
+                                            "role": sr,
+                                            "desk": classify_ag_desk(st, sr),
+                                        }
+                                        info["invokeSpecs"].append(sp_item)
+                                        info["promptInvokeSpecs"].append(sp_item)
+                                    elif tname == "send_message":
+                                        rec = str(args.get("Recipient") or "").strip('"')
+                                        if re.match(r"^[0-9a-f-]{36}$", rec) and rec not in info["promptSpawnedCids"]:
+                                            info["promptSpawnedCids"].append(rec)
                     except Exception:
                         pass
                 elif "Created the following subagent:" in line:
                     m_scid = re.search(r'\\"conversationId\\"\s*:\s*\\"([0-9a-f-]{36})\\"', line) or re.search(r'"conversationId"\s*:\s*"([0-9a-f-]{36})"', line)
                     m_suri = re.search(r'\\"logAbsoluteUri\\"\s*:\s*\\"([^\\"]+)\\"', line) or re.search(r'"logAbsoluteUri"\s*:\s*"([^"]+)"', line)
                     if m_scid:
+                        scid_v = m_scid.group(1)
                         info["spawnedSubs"].append({
-                            "cid": m_scid.group(1),
+                            "cid": scid_v,
                             "uri": (m_suri.group(1) if m_suri else "").replace("file://", ""),
                         })
+                        if scid_v not in info["promptSpawnedCids"]:
+                            info["promptSpawnedCids"].append(scid_v)
                 if "BROWSER_HOST_FACTS" in line:
                     m_bf = re.search(r"\[BROWSER_HOST_FACTS\s+subagent=([0-9a-f-]{36})\]", line)
                     if m_bf:
@@ -657,6 +692,8 @@ def scan_ag_transcript_file(t_path):
                         m_fstep = re.search(r"final_step_(\d+)\.png", line)
                         f_steps = int(m_fstep.group(1)) if m_fstep else 2
                         info["browserFacts"][bf_cid] = max(info["browserFacts"].get(bf_cid, 0), f_steps)
+                        if bf_cid not in info["promptSpawnedCids"]:
+                            info["promptSpawnedCids"].append(bf_cid)
                 if ".system_generated/steps/" in line:
                     for m_sr in re.finditer(r"\.gemini/antigravity/brain/([0-9a-f-]{36})/\.system_generated/steps/(\d+)/", line):
                         sr_cid = m_sr.group(1)
@@ -703,6 +740,9 @@ def merge_scanned_subs_into_parent(ag_map, subs, scanned_obj):
     for sr_cid, sr_st in (scanned_obj.get("stepRefs") or {}).items():
         if sr_cid in subs:
             subs[sr_cid]["refSteps"] = max(int(subs[sr_cid].get("refSteps") or 0), sr_st)
+    for rp_cid, rp_cnt in (scanned_obj.get("replyCounts") or {}).items():
+        if rp_cid in subs:
+            subs[rp_cid]["refSteps"] = max(int(subs[rp_cid].get("refSteps") or 0), rp_cnt * 2)
     for scid, s_entry in subs.items():
         if int(s_entry.get("turns") or 0) == 0:
             ref_st = int(s_entry.get("refSteps") or 0)
@@ -712,6 +752,28 @@ def merge_scanned_subs_into_parent(ag_map, subs, scanned_obj):
             else:
                 s_entry["steps"] = max(int(s_entry.get("steps") or 0), 2)
                 s_entry["turns"] = 1
+
+def snapshot_prompt_baseline(state_obj, cid, prompt_str):
+    st_cur = state_obj.get("stats") or {}
+    pf_cnt = 0
+    pf_path = os.path.join(project_root, ".claude", "rules", "project-pitfalls.md")
+    if os.path.isfile(pf_path):
+        try:
+            with open(pf_path, "r", encoding="utf-8", errors="ignore") as fp:
+                pf_cnt = sum(1 for ln in fp if ln.strip().startswith("- **["))
+        except Exception:
+            pass
+    state_obj["promptBaseline"] = {
+        "cid": cid,
+        "prompt": prompt_str[:80],
+        "stats": {
+            "explorerReads": int(st_cur.get("explorerReads") or 0),
+            "filesEdited": int(st_cur.get("filesEdited") or 0),
+            "verifierRuns": int(st_cur.get("verifierRuns") or 0),
+            "blockedCount": int(st_cur.get("blockedCount") or 0),
+        },
+        "pitfallCount": pf_cnt,
+    }
 
 def detect_sandbox_ag_transcript():
     cands = glob.glob(os.path.expanduser("~/.gemini/antigravity/brain/*/.system_generated/logs/transcript.jsonl"))
@@ -778,6 +840,16 @@ def update_ag_session_cache(state_obj, cid, tpath):
         p_entry["tokens"] = scanned["tokens"]
     if scanned["firstPrompt"]:
         p_entry["firstPrompt"] = scanned["firstPrompt"]
+    if scanned["lastPrompt"]:
+        prev_lp = p_entry.get("lastPrompt") or ""
+        if prev_lp != scanned["lastPrompt"]:
+            snapshot_prompt_baseline(state_obj, cid, scanned["lastPrompt"])
+        p_entry["lastPrompt"] = scanned["lastPrompt"]
+    p_entry["promptTurns"] = scanned["promptTurns"]
+    p_entry["promptSteps"] = scanned["promptSteps"]
+    p_entry["promptTokens"] = scanned["promptTokens"]
+    p_entry["promptInvokeSpecs"] = scanned["promptInvokeSpecs"]
+    p_entry["promptSpawnedCids"] = scanned["promptSpawnedCids"]
     if scanned["invokeSpecs"]:
         p_entry["invokeSpecs"] = scanned["invokeSpecs"]
     subs = p_entry.setdefault("subagents", {})
@@ -967,6 +1039,8 @@ if mode_type == "stdin":
             state["currentTask"] = clean_p
 
     if stage == "prompt":
+        if not is_ag_sub:
+            snapshot_prompt_baseline(state, str(payload.get("conversationId") or state.get("lastConversationId") or ""), state.get("currentTask") or "")
         state["activeNode"] = ag_sub_desk if is_ag_sub else "core"
         if engine == "claude" and not payload.get("modelName"):
             state["activeModel"] = "opus"

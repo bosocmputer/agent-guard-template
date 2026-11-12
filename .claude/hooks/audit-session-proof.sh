@@ -31,16 +31,28 @@ def scan_file(fpath, acc, is_parent=False):
     try:
         with open(fpath, "r", encoding="utf-8", errors="ignore") as fp:
             for line in fp:
-                if is_parent and not acc["first_prompt"] and '"type":"user"' in line.replace(" ", ""):
+                if is_parent:
+                    acc["parent_steps"] = acc.get("parent_steps", 0) + 1
+                    acc["prompt_steps"] = acc.get("prompt_steps", 0) + 1
+                if is_parent and '"type":"user"' in line.replace(" ", ""):
                     try:
                         uo = json.loads(line)
                         if uo.get("type") == "user":
                             msg_c = (uo.get("message") or {}).get("content")
-                            if isinstance(msg_c, str) and len(msg_c.strip()) > 2:
+                            if isinstance(msg_c, str) and len(msg_c.strip()) > 2 and "<task-notification>" not in msg_c:
                                 clean_u = re.sub(r"<[^>]+>.*?</[^>]+>", " ", msg_c, flags=re.S)
                                 clean_u = " ".join(clean_u.split()).strip()
                                 if clean_u:
-                                    acc["first_prompt"] = clean_u[:75]
+                                    if not acc["first_prompt"]:
+                                        acc["first_prompt"] = clean_u[:75]
+                                    acc["last_prompt"] = clean_u[:75]
+                                    acc["prompt_opus"] = 0
+                                    acc["prompt_sonnet"] = 0
+                                    acc["prompt_haiku"] = 0
+                                    acc["prompt_steps"] = 1
+                                    acc["prompt_sub_calls"] = 0
+                                    acc["prompt_roles"] = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
+                                    acc["prompt_sub_tokens"] = 0
                     except Exception:
                         pass
                 if is_parent and "<task-notification>" in line and "<subagent_tokens>" in line:
@@ -48,7 +60,9 @@ def scan_file(fpath, acc, is_parent=False):
                     m_tok = re.search(r"<subagent_tokens>(\d+)</subagent_tokens>", line)
                     if m_tid and m_tok:
                         tid_k = m_tid.group(1)
-                        acc["sub_tokens_by_id"][tid_k] = max(acc["sub_tokens_by_id"].get(tid_k, 0), int(m_tok.group(1)))
+                        tok_v = int(m_tok.group(1))
+                        acc["sub_tokens_by_id"][tid_k] = max(acc["sub_tokens_by_id"].get(tid_k, 0), tok_v)
+                        acc["prompt_sub_tokens"] = acc.get("prompt_sub_tokens", 0) + tok_v
                 if '"assistant"' not in line:
                     continue
                 m_match = re.search(r'"model"\s*:\s*"([^"]+)"', line)
@@ -56,19 +70,27 @@ def scan_file(fpath, acc, is_parent=False):
                     ml = m_match.group(1).lower()
                     if "opus" in ml:
                         acc["opus"] += 1
+                        if is_parent:
+                            acc["prompt_opus"] = acc.get("prompt_opus", 0) + 1
                     elif "sonnet" in ml:
                         acc["sonnet"] += 1
+                        if is_parent:
+                            acc["prompt_sonnet"] = acc.get("prompt_sonnet", 0) + 1
                     elif "haiku" in ml:
                         acc["haiku"] += 1
+                        if is_parent:
+                            acc["prompt_haiku"] = acc.get("prompt_haiku", 0) + 1
                 if is_parent and '"name":"Agent"' in line.replace(" ", ""):
                     try:
                         obj = json.loads(line)
                         for c in ((obj.get("message") or {}).get("content") or []):
                             if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Agent":
                                 acc["sub_calls"] += 1
+                                acc["prompt_sub_calls"] = acc.get("prompt_sub_calls", 0) + 1
                                 st = str((c.get("input") or {}).get("subagent_type") or "implementer").lower()
                                 dk = "explorer" if "explor" in st else ("debugger" if "debug" in st else ("reviewer" if ("review" in st or "security" in st) else "implementer"))
                                 acc["parent_roles"][dk] = acc["parent_roles"].get(dk, 0) + 1
+                                acc["prompt_roles"][dk] = acc["prompt_roles"].get(dk, 0) + 1
                     except Exception:
                         pass
     except Exception:
@@ -83,12 +105,22 @@ def analyze_session(jf):
         "opus": 0,
         "sonnet": 0,
         "haiku": 0,
+        "parent_steps": 0,
         "sub_calls": 0,
         "sub_files": 0,
         "parent_roles": {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0},
         "meta_roles": {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0},
         "sub_tokens_by_id": {},
         "first_prompt": "",
+        "last_prompt": "",
+        "has_live_prompt": True,
+        "prompt_opus": 0,
+        "prompt_sonnet": 0,
+        "prompt_haiku": 0,
+        "prompt_steps": 0,
+        "prompt_sub_calls": 0,
+        "prompt_roles": {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0},
+        "prompt_sub_tokens": 0,
     }
     scan_file(jf, acc, is_parent=True)
     sub_dir = os.path.join(proj_dir, sess_id, "subagents")
@@ -106,6 +138,7 @@ def analyze_session(jf):
             except Exception:
                 pass
     acc["roles"] = acc["meta_roles"] if sum(acc["meta_roles"].values()) > 0 else acc["parent_roles"]
+    acc["prompt_sub_count"] = acc["prompt_sub_calls"]
     return acc
 
 def classify_ag_desk(sub_type, sub_role):
@@ -124,6 +157,12 @@ def scan_ag_file(fpath):
         "steps": 0,
         "tokens": 0,
         "first_prompt": "",
+        "last_prompt": "",
+        "prompt_turns": 0,
+        "prompt_steps": 0,
+        "prompt_tokens": 0,
+        "prompt_invoke_specs": [],
+        "prompt_spawned_cids": [],
         "is_subagent": False,
         "parent_cid": "",
         "invoke_specs": [],
@@ -131,6 +170,7 @@ def scan_ag_file(fpath):
         "checkpoint_subs": [],
         "browser_facts": {},
         "step_refs": {},
+        "reply_counts": {},
     }
     if not fpath:
         return res
@@ -143,25 +183,39 @@ def scan_ag_file(fpath):
         with open(use_p, "r", encoding="utf-8", errors="ignore") as fp:
             for idx, line in enumerate(fp):
                 res["steps"] += 1
-                if idx < 8:
-                    if '"USER_EXPLICIT"' in line and '"USER_INPUT"' in line:
-                        has_user_explicit = True
-                        try:
-                            uo = json.loads(line)
-                            raw_c = str(uo.get("content") or "")
-                            m_req = re.search(r"<USER_REQUEST>(.*?)</USER_REQUEST>", raw_c, flags=re.S)
-                            txt_c = m_req.group(1) if m_req else raw_c
-                            txt_c = re.sub(r"<[^>]+>.*?</[^>]+>", " ", txt_c, flags=re.S)
-                            txt_c = " ".join(txt_c.split()).strip()
-                            if txt_c:
+                res["prompt_steps"] += 1
+                if '"USER_EXPLICIT"' in line and '"USER_INPUT"' in line:
+                    has_user_explicit = True
+                    try:
+                        uo = json.loads(line)
+                        raw_c = str(uo.get("content") or "")
+                        m_req = re.search(r"<USER_REQUEST>(.*?)</USER_REQUEST>", raw_c, flags=re.S)
+                        txt_c = m_req.group(1) if m_req else raw_c
+                        txt_c = re.sub(r"<[^>]+>.*?</[^>]+>", " ", txt_c, flags=re.S)
+                        txt_c = " ".join(txt_c.split()).strip()
+                        if txt_c:
+                            if not res["first_prompt"]:
                                 res["first_prompt"] = txt_c[:75]
-                        except Exception:
-                            pass
-                    elif not has_user_explicit and (('"SYSTEM_MESSAGE"' in line and "sender=" in line) or ("You are a subagent" in line)):
-                        m_snd = re.search(r"(?:sender=|conversation_id is )([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", line)
-                        if m_snd:
-                            res["parent_cid"] = m_snd.group(1)
-                            res["is_subagent"] = True
+                            res["last_prompt"] = txt_c[:75]
+                    except Exception:
+                        pass
+                    res["prompt_turns"] = 0
+                    res["prompt_steps"] = 1
+                    res["prompt_tokens"] = 0
+                    res["prompt_invoke_specs"] = []
+                    res["prompt_spawned_cids"] = []
+                elif idx < 8 and not has_user_explicit and (('"SYSTEM_MESSAGE"' in line and "sender=" in line) or ("You are a subagent" in line)):
+                    m_snd = re.search(r"(?:sender=|conversation_id is )([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", line)
+                    if m_snd:
+                        res["parent_cid"] = m_snd.group(1)
+                        res["is_subagent"] = True
+                elif '"SYSTEM_MESSAGE"' in line and "sender=" in line:
+                    m_rep = re.search(r"sender=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", line)
+                    if m_rep:
+                        rcid = m_rep.group(1)
+                        res["reply_counts"][rcid] = res["reply_counts"].get(rcid, 0) + 1
+                        if rcid not in res["prompt_spawned_cids"]:
+                            res["prompt_spawned_cids"].append(rcid)
                 if '"CHECKPOINT"' in line and "Subagents" in line:
                     try:
                         co = json.loads(line)
@@ -189,29 +243,43 @@ def scan_ag_file(fpath):
                         obj = json.loads(line)
                         if obj.get("type") == "PLANNER_RESPONSE":
                             res["turns"] += 1
-                            res["tokens"] += int(obj.get("input_tokens") or 0) + int(obj.get("cache_read_tokens") or 0) + int(obj.get("output_tokens") or 0)
+                            res["prompt_turns"] += 1
+                            tok_inc = int(obj.get("input_tokens") or 0) + int(obj.get("cache_read_tokens") or 0) + int(obj.get("output_tokens") or 0)
+                            res["tokens"] += tok_inc
+                            res["prompt_tokens"] += tok_inc
                             for tc in (obj.get("tool_calls") or []):
-                                if isinstance(tc, dict) and tc.get("name") == "invoke_subagent":
+                                if isinstance(tc, dict):
+                                    tname = tc.get("name")
                                     args = tc.get("args") or {}
-                                    st = str(args.get("TypeName") or "self").strip('"').lower()
-                                    sm = str(args.get("Model") or ("flash" if ("research" in st or "browser" in st) else "inherit")).strip('"').lower()
-                                    sr = str(args.get("Role") or st).strip('"')
-                                    res["invoke_specs"].append({
-                                        "type": st,
-                                        "model": sm,
-                                        "role": sr,
-                                        "desk": classify_ag_desk(st, sr),
-                                    })
+                                    if tname == "invoke_subagent":
+                                        st = str(args.get("TypeName") or "self").strip('"').lower()
+                                        sm = str(args.get("Model") or ("flash" if ("research" in st or "browser" in st) else "inherit")).strip('"').lower()
+                                        sr = str(args.get("Role") or st).strip('"')
+                                        sp_item = {
+                                            "type": st,
+                                            "model": sm,
+                                            "role": sr,
+                                            "desk": classify_ag_desk(st, sr),
+                                        }
+                                        res["invoke_specs"].append(sp_item)
+                                        res["prompt_invoke_specs"].append(sp_item)
+                                    elif tname == "send_message":
+                                        rec = str(args.get("Recipient") or "").strip('"')
+                                        if re.match(r"^[0-9a-f-]{36}$", rec) and rec not in res["prompt_spawned_cids"]:
+                                            res["prompt_spawned_cids"].append(rec)
                     except Exception:
                         pass
                 elif "Created the following subagent:" in line:
                     m_scid = re.search(r'\\"conversationId\\"\s*:\s*\\"([0-9a-f-]{36})\\"', line) or re.search(r'"conversationId"\s*:\s*"([0-9a-f-]{36})"', line)
                     m_suri = re.search(r'\\"logAbsoluteUri\\"\s*:\s*\\"([^\\"]+)\\"', line) or re.search(r'"logAbsoluteUri"\s*:\s*"([^"]+)"', line)
                     if m_scid:
+                        scid_v = m_scid.group(1)
                         res["spawned_subs"].append({
-                            "cid": m_scid.group(1),
+                            "cid": scid_v,
                             "uri": (m_suri.group(1) if m_suri else "").replace("file://", ""),
                         })
+                        if scid_v not in res["prompt_spawned_cids"]:
+                            res["prompt_spawned_cids"].append(scid_v)
                 if "BROWSER_HOST_FACTS" in line:
                     m_bf = re.search(r"\[BROWSER_HOST_FACTS\s+subagent=([0-9a-f-]{36})\]", line)
                     if m_bf:
@@ -219,6 +287,8 @@ def scan_ag_file(fpath):
                         m_fstep = re.search(r"final_step_(\d+)\.png", line)
                         f_steps = int(m_fstep.group(1)) if m_fstep else 2
                         res["browser_facts"][bf_cid] = max(res["browser_facts"].get(bf_cid, 0), f_steps)
+                        if bf_cid not in res["prompt_spawned_cids"]:
+                            res["prompt_spawned_cids"].append(bf_cid)
                 if ".system_generated/steps/" in line:
                     for m_sr in re.finditer(r"\.gemini/antigravity/brain/([0-9a-f-]{36})/\.system_generated/steps/(\d+)/", line):
                         sr_cid = m_sr.group(1)
@@ -232,13 +302,18 @@ def analyze_ag_session(cid, p_cached, ag_map):
     tpath = p_cached.get("transcriptPath") or os.path.expanduser(f"~/.gemini/antigravity/brain/{cid}/.system_generated/logs/transcript.jsonl")
     cand = os.path.join(os.path.dirname(tpath), "transcript.jsonl") if tpath else ""
     use_p = cand if (cand and os.path.isfile(cand)) else (tpath if (tpath and os.path.isfile(tpath)) else "")
-    live = scan_ag_file(use_p) if use_p else {"turns": 0, "steps": 0, "tokens": 0, "first_prompt": "", "invoke_specs": [], "spawned_subs": [], "checkpoint_subs": [], "browser_facts": {}, "step_refs": {}}
+    live = scan_ag_file(use_p) if use_p else {"turns": 0, "steps": 0, "tokens": 0, "first_prompt": "", "last_prompt": "", "prompt_turns": 0, "prompt_steps": 0, "prompt_tokens": 0, "prompt_invoke_specs": [], "prompt_spawned_cids": [], "invoke_specs": [], "spawned_subs": [], "checkpoint_subs": [], "browser_facts": {}, "step_refs": {}, "reply_counts": {}}
 
     epoch = os.path.getmtime(use_p) if use_p else float(p_cached.get("epoch") or 0)
     mtime_str = datetime.fromtimestamp(epoch).strftime("%Y-%m-%d %H:%M:%S") if epoch > 0 else (p_cached.get("mtime") or "")
     p_turns = live["turns"] or int(p_cached.get("turns") or 0)
     p_steps = live["steps"] or int(p_cached.get("steps") or 0)
     first_p = live["first_prompt"] or p_cached.get("firstPrompt") or ""
+    last_p = live["last_prompt"] or p_cached.get("lastPrompt") or first_p
+    prompt_turns = live["prompt_turns"] if live["turns"] > 0 else int(p_cached.get("promptTurns") or 0)
+    prompt_steps = live["prompt_steps"] if live["turns"] > 0 else int(p_cached.get("promptSteps") or 0)
+    prompt_cids = list(live["prompt_spawned_cids"]) if live["turns"] > 0 else list(p_cached.get("promptSpawnedCids") or [])
+    prompt_specs = list(live["prompt_invoke_specs"]) if live["turns"] > 0 else list(p_cached.get("promptInvokeSpecs") or [])
     specs = live["invoke_specs"] if live["invoke_specs"] else (p_cached.get("invokeSpecs") or [])
 
     subs_dict = dict(p_cached.get("subagents") or {})
@@ -270,6 +345,8 @@ def analyze_ag_session(cid, p_cached, ag_map):
             ref_steps_map[bf_cid] = max(ref_steps_map.get(bf_cid, 0), bf_st)
         for sr_cid, sr_st in (scanned_data.get("step_refs") or {}).items():
             ref_steps_map[sr_cid] = max(ref_steps_map.get(sr_cid, 0), sr_st)
+        for rp_cid, rp_cnt in (scanned_data.get("reply_counts") or {}).items():
+            ref_steps_map[rp_cid] = max(ref_steps_map.get(rp_cid, 0), rp_cnt * 2)
 
     ingest_scanned_subs(live, fallback_specs=specs)
 
@@ -289,6 +366,10 @@ def analyze_ag_session(cid, p_cached, ag_map):
                     sinfo["tokens"] = s_live["tokens"]
                 subs_dict[scid] = sinfo
                 ingest_scanned_subs(s_live)
+                if scid in prompt_cids:
+                    for n_sp in (s_live.get("spawned_subs") or []):
+                        if n_sp["cid"] not in prompt_cids:
+                            prompt_cids.append(n_sp["cid"])
 
     roles = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
     if len(subs_dict) >= len(specs) and len(subs_dict) > 0:
@@ -332,8 +413,35 @@ def analyze_ag_session(cid, p_cached, ag_map):
         if stoks > 0:
             sub_tokens_by_id[scid] = stoks
 
-    if subs_dict != (p_cached.get("subagents") or {}):
+    prompt_self_turns = 0
+    prompt_flash_turns = 0
+    prompt_sub_tokens = 0
+    prompt_roles = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
+    for pcid in prompt_cids:
+        if pcid in subs_dict:
+            ps = subs_dict[pcid]
+            pt = int(ps.get("turns") or 0)
+            pm = str(ps.get("model") or "inherit").lower()
+            pdk = ps.get("desk") or "implementer"
+            prompt_roles[pdk] = prompt_roles.get(pdk, 0) + 1
+            if "flash" in pm:
+                prompt_flash_turns += pt
+            else:
+                prompt_self_turns += pt
+            prompt_sub_tokens += int(ps.get("tokens") or 0)
+    if not prompt_cids and prompt_specs:
+        for psp in prompt_specs:
+            pdk = psp.get("desk") or "implementer"
+            prompt_roles[pdk] = prompt_roles.get(pdk, 0) + 1
+
+    if subs_dict != (p_cached.get("subagents") or {}) or (live["turns"] > 0 and p_cached.get("promptTurns") != prompt_turns):
         p_cached["subagents"] = subs_dict
+        if live["turns"] > 0:
+            p_cached["lastPrompt"] = last_p
+            p_cached["promptTurns"] = prompt_turns
+            p_cached["promptSteps"] = prompt_steps
+            p_cached["promptInvokeSpecs"] = prompt_specs
+            p_cached["promptSpawnedCids"] = prompt_cids
         p_cached["_dirty"] = True
 
     return {
@@ -351,6 +459,15 @@ def analyze_ag_session(cid, p_cached, ag_map):
         "roles": roles,
         "sub_tokens_by_id": sub_tokens_by_id,
         "first_prompt": first_p,
+        "last_prompt": last_p,
+        "has_live_prompt": live["turns"] > 0 or ("promptTurns" in p_cached),
+        "prompt_opus": prompt_turns,
+        "prompt_sonnet": prompt_self_turns,
+        "prompt_haiku": prompt_flash_turns,
+        "prompt_steps": prompt_steps,
+        "prompt_sub_count": max(len(prompt_cids), len(prompt_specs)),
+        "prompt_roles": prompt_roles,
+        "prompt_sub_tokens": prompt_sub_tokens,
     }
 
 jsonl_files = sorted(glob.glob(os.path.join(proj_dir, "*.jsonl")), key=os.path.getmtime) if os.path.isdir(proj_dir) else []
@@ -532,18 +649,132 @@ if brief_mode:
     r = acc["roles"]
     sub_tot = max(acc["sub_files"], sum(r.values()), acc["sub_calls"])
     sub_toks = sum(acc["sub_tokens_by_id"].values())
-    tok_note = f" — รับภาระรวม `{sub_toks:,} tokens`" if sub_toks > 0 else ""
-    print(f"### 📊 ผลชี้วัด Agent Guard Template ({eng_lbl}Session `#{acc['sess_id'][:8]}`)")
-    if acc.get("engine") == "antigravity":
-        if (acc["sonnet"] + acc["haiku"]) > 0:
-            print(f"- **สัดส่วนโมเดล ({tot} รอบ):** Parent (Argon/Pro) `{op_p}%` ({acc['opus']} รอบ) | Subagents (Self) `{so_p}%` ({acc['sonnet']} รอบ) | Subagents (Flash) `{ha_p}%` ({acc['haiku']} รอบ) ➔ **แบ่งเบาภาระหน้าต่างหลัก (Offload): `{off_p}%`**")
-        else:
-            print(f"- **รอบทำงานหน้าต่างหลัก:** Parent (Argon/Pro) `{acc['opus']} รอบ` ({acc.get('parent_steps', 0)} steps) ➔ **กระจายงานให้ Subagents `{sub_tot}` ตัว**")
+
+    # คำนวณค่าเฉพาะคำสั่งล่าสุด (Per-Command / Per-Prompt Metrics)
+    tot_reads = int(st.get("explorerReads", 0))
+    tot_edits = int(st.get("filesEdited", 0))
+    tot_tests = int(st.get("verifierRuns", 0))
+    tot_blocks = int(st.get("blockedCount", 0))
+    state_sig = f"{acc['sess_id']}:{acc['opus']}:{acc['sonnet']}:{acc['haiku']}:{tot_reads}:{tot_edits}:{tot_tests}"
+
+    last_ab = td.get("lastAuditBaseline") if isinstance(td.get("lastAuditBaseline"), dict) else {}
+    prev_ab = td.get("prevAuditBaseline") if isinstance(td.get("prevAuditBaseline"), dict) else {}
+    prompt_b = td.get("promptBaseline") if isinstance(td.get("promptBaseline"), dict) else {}
+
+    # หากรันซ้ำในสถานะเดิม ให้ใช้ prevAuditBaseline เพื่อให้แสดงผลลัพธ์ของคำสั่งล่าสุดเหมือนเดิม (Idempotent)
+    if last_ab.get("sig") == state_sig and prev_ab:
+        use_base = prev_ab
+    elif last_ab.get("sessId") == acc["sess_id"]:
+        use_base = last_ab
+    elif prompt_b.get("cid") == acc["sess_id"]:
+        use_base = prompt_b
     else:
-        print(f"- **สัดส่วนโมเดล ({tot} รอบ):** Opus `{op_p}%` ({acc['opus']} รอบ) | Sonnet `{so_p}%` ({acc['sonnet']} รอบ) | Haiku `{ha_p}%` ({acc['haiku']} รอบ) ➔ **แบ่งเบาภาระ Opus (Offload): `{off_p}%`**")
-    print(f"- **Subagents ที่เรียกใช้จริง:** `{sub_tot}` ตัว (`Explorer: {r['explorer']}`, `Implementer: {r['implementer']}`, `Debugger: {r['debugger']}`, `Reviewer: {r['reviewer']}`){tok_note}")
-    print(f"- **Hooks ป้องกันระบบ:** สแกนไฟล์ `{st.get('explorerReads', 0)}` ครั้ง | แก้ไฟล์+Checkpoint `{st.get('filesEdited', 0)}` ครั้ง | รันเทสต์ `{st.get('verifierRuns', 0)}` ครั้ง | บล็อกคำสั่งผิดกฎ `{st.get('blockedCount', 0)}` ครั้ง | 2-Strike: `{strike_str}`")
-    print(pf_brief_line)
+        use_base = {}
+
+    base_st = use_base.get("stats") if isinstance(use_base.get("stats"), dict) else {}
+    if use_base:
+        d_reads = max(0, tot_reads - int(base_st.get("explorerReads", 0)))
+        d_edits = max(0, tot_edits - int(base_st.get("filesEdited", 0)))
+        d_tests = max(0, tot_tests - int(base_st.get("verifierRuns", 0)))
+        d_blocks = max(0, tot_blocks - int(base_st.get("blockedCount", 0)))
+    else:
+        d_reads, d_edits, d_tests, d_blocks = tot_reads, tot_edits, tot_tests, tot_blocks
+
+    # คำนวณรอบโมเดลและ Subagents ของคำสั่งนี้
+    if acc.get("has_live_prompt") and (acc.get("prompt_opus", 0) > 0 or acc.get("prompt_sub_count", 0) > 0):
+        cmd_opus = int(acc.get("prompt_opus") or 0)
+        cmd_sonnet = int(acc.get("prompt_sonnet") or 0)
+        cmd_haiku = int(acc.get("prompt_haiku") or 0)
+        cmd_steps = int(acc.get("prompt_steps") or 0)
+        cmd_sub_tot = int(acc.get("prompt_sub_count") or 0)
+        cr = acc.get("prompt_roles") or {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
+        cmd_sub_toks = int(acc.get("prompt_sub_tokens") or 0)
+    elif use_base and use_base.get("sessId") == acc["sess_id"]:
+        cmd_opus = max(0, acc["opus"] - int(use_base.get("opus", 0)))
+        cmd_sonnet = max(0, acc["sonnet"] - int(use_base.get("sonnet", 0)))
+        cmd_haiku = max(0, acc["haiku"] - int(use_base.get("haiku", 0)))
+        cmd_steps = max(0, int(acc.get("parent_steps") or 0) - int(use_base.get("parentSteps", 0)))
+        cmd_sub_tot = max(0, sub_tot - int(use_base.get("subCount", 0)))
+        base_r = use_base.get("roles") if isinstance(use_base.get("roles"), dict) else {}
+        cr = {k: max(0, r.get(k, 0) - int(base_r.get(k, 0))) for k in ("explorer", "implementer", "debugger", "reviewer")}
+        cmd_sub_toks = max(0, sub_toks - int(use_base.get("subTokens", 0)))
+    else:
+        cmd_opus, cmd_sonnet, cmd_haiku = acc["opus"], acc["sonnet"], acc["haiku"]
+        cmd_steps = int(acc.get("parent_steps") or 0)
+        cmd_sub_tot = sub_tot
+        cr = dict(r)
+        cmd_sub_toks = sub_toks
+
+    cmd_tot = cmd_opus + cmd_sonnet + cmd_haiku
+    cmd_op_p = round(cmd_opus * 100.0 / cmd_tot, 1) if cmd_tot else 0.0
+    cmd_so_p = round(cmd_sonnet * 100.0 / cmd_tot, 1) if cmd_tot else 0.0
+    cmd_ha_p = round(cmd_haiku * 100.0 / cmd_tot, 1) if cmd_tot else 0.0
+    cmd_off_p = round(((cmd_sonnet + cmd_haiku) * 100.0) / cmd_tot, 1) if cmd_tot else 0.0
+
+    # ตรวจสอบว่ามีการสกัด Pitfall ใหม่ในคำสั่งนี้จริงหรือไม่
+    base_pf_cnt = int(use_base.get("pitfallCount", -1)) if use_base else -1
+    base_pf_lat = str(use_base.get("latestPitfall") or "") if use_base else ""
+    is_new_pf = False
+    if base_pf_cnt >= 0:
+        if pf_info["count"] > base_pf_cnt or (pf_info["latest"] and pf_info["latest"] != base_pf_lat):
+            is_new_pf = True
+    elif pf_info["added_recent"]:
+        is_new_pf = True
+
+    if is_new_pf and (pf_info["added_recent"] or pf_info["latest"]):
+        new_rule_str = pf_info["added_recent"][-1] if pf_info["added_recent"] else pf_info["latest"]
+        pf_cmd_line = f"- **ความจำ & ส่งต่องาน:** Pitfalls `{pf_info['count']}/30` (**สกัดใหม่รอบนี้:** {new_rule_str}) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ ({ts_badge})"
+    else:
+        pf_cmd_line = f"- **ความจำ & ส่งต่องาน:** Pitfalls `{pf_info['count']}/30` (รอบนี้ไม่มีเพิ่มใหม่) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ ({ts_badge})"
+
+    # บันทึก Baseline ปัจจุบันลง .telemetry.json สำหรับเปรียบเทียบในคำสั่งถัดไป
+    if os.path.isfile(t_file) and last_ab.get("sig") != state_sig:
+        try:
+            if last_ab:
+                td["prevAuditBaseline"] = last_ab
+            td["lastAuditBaseline"] = {
+                "sig": state_sig,
+                "sessId": acc["sess_id"],
+                "opus": acc["opus"],
+                "sonnet": acc["sonnet"],
+                "haiku": acc["haiku"],
+                "parentSteps": int(acc.get("parent_steps") or 0),
+                "subCount": sub_tot,
+                "roles": dict(r),
+                "subTokens": sub_toks,
+                "stats": {
+                    "explorerReads": tot_reads,
+                    "filesEdited": tot_edits,
+                    "verifierRuns": tot_tests,
+                    "blockedCount": tot_blocks,
+                },
+                "pitfallCount": pf_info["count"],
+                "latestPitfall": pf_info["latest"],
+            }
+            with open(t_file, "w", encoding="utf-8") as fp_out:
+                json.dump(td, fp_out, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+
+    print(f"### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้ ({eng_lbl}Session `#{acc['sess_id'][:8]}`)")
+    if acc.get("engine") == "antigravity":
+        if (cmd_sonnet + cmd_haiku) > 0:
+            print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** Parent (Argon/Pro) `{cmd_op_p}%` ({cmd_opus} รอบ) | Subagents (Self) `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Subagents (Flash) `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
+        else:
+            st_note = f" ({cmd_steps} steps)" if cmd_steps > 0 else ""
+            print(f"- **รอบทำงานคำสั่งนี้:** Parent (Argon/Pro) `{cmd_opus} รอบ`{st_note} ➔ **งานขนาดเล็กทำตรงในแชทหลัก (ไม่เปิด Subagent เกินจำเป็น)** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
+    else:
+        print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** Opus `{cmd_op_p}%` ({cmd_opus} รอบ) | Sonnet `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Haiku `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
+
+    if cmd_sub_tot > 0:
+        cmd_tok_note = f" — รับภาระรอบนี้ `{cmd_sub_toks:,} tokens`" if cmd_sub_toks > 0 else ""
+        print(f"- **Subagents ที่เรียกในคำสั่งนี้:** `{cmd_sub_tot}` ตัว (`Explorer: {cr['explorer']}`, `Implementer: {cr['implementer']}`, `Debugger: {cr['debugger']}`, `Reviewer: {cr['reviewer']}`){cmd_tok_note} *(สะสมทั้งแชท: {sub_tot} ตัว)*")
+    else:
+        sess_tok_note = f" — รวม {sub_toks:,} tokens" if sub_toks > 0 else ""
+        print(f"- **Subagents ที่เรียกในคำสั่งนี้:** `0` ตัว *(สะสมทั้งแชท: {sub_tot} ตัว{sess_tok_note})*")
+
+    print(f"- **Hooks ที่ทำงานในคำสั่งนี้:** สแกนไฟล์ `{d_reads}` ครั้ง | แก้ไฟล์+Checkpoint `{d_edits}` ครั้ง | รันเทสต์ `{d_tests}` ครั้ง | บล็อกผิดกฎ `{d_blocks}` ครั้ง | 2-Strike: `{strike_str}` *(สะสมทั้งโปรเจกต์: สแกน {tot_reads}, แก้ {tot_edits}, เทสต์ {tot_tests})*")
+    print(pf_cmd_line)
     sys.exit(0)
 
 print("================================================================================")

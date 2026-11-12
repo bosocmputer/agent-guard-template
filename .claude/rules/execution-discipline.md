@@ -3,10 +3,11 @@ description: "(กฎส่งต่องานระหว่างแผน�
 ---
 # Execution Discipline & Non-Destructive Rollback
 
-## 1. Compact `State-Delta` Handoff & Fresh Subagents per Task
+## 1. Compact `State-Delta` Handoff & Smart Subagent Lifecycle
 - When chaining subagents (`explorer` ➔ `implementer` ➔ `reviewer` / `debugger`), never paste full chat history or raw file dumps.
-- Pass at most an **8-line `State Delta` payload**: (1) exact `path/to/file:LXX-LYY`, (2) confirmed business rules or blocker IDs (`[BLK-01]`), and (3) exact Tier 1 test command.
-- **Never Reuse Old Subagents Across Unrelated Tasks:** Once a subagent completes a task, do not `send_message` to reuse that same subagent for a new unrelated user request (reusing an old subagent carries its entire prior context on every turn, causing severe slowdowns and token bloat). Spawn a fresh subagent (`invoke_subagent` / `Agent`) for each new task.
+- Pass at most an **8-line `State Delta` payload**: (1) exact `path/to/file:LXX-LYY`, (2) confirmed business rules or blocker IDs (`[BLK-01]`), and (3) exact Tier 1 + Tier 2 test commands.
+- **No Micro-Verifier Spawning:** The `Surgical Implementer` that edits code MUST run Tier 1 (`single-file test`) and Tier 2 (`analyze` / `typecheck` / `build`) verification itself before returning. Never spawn a separate `QA Verifier` (`self`) subagent just to run 1–3 CLI commands (`analyze`, `build`, `git commit/push`). Reserve separate `QA Verifier` subagents for live `browser` (`Model="flash"`) UI checks or full end-of-feature reviews.
+- **Same-Feature Reuse (`< 40 turns`) vs Unrelated Task Isolation:** For small follow-up adjustments within the **same feature** where the active `Implementer` has used `< 40 turns`, reuse it via `send_message` to avoid cold-start context reload. Once a subagent exceeds `40 turns` or when switching to an **unrelated task/feature**, spawn a fresh subagent (`invoke_subagent` / `Agent`).
 
 ## 2. Non-Destructive Rollback Protocol
 - When reverting a failed hypothesis or broken edit, **always use `Edit` (`edit_file`) to restore the exact lines modified**.
