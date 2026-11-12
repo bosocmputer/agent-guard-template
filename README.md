@@ -77,11 +77,11 @@ project-root/
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks สำหรับ Claude Code
     ├── agents/                                 # ลูกมือ Subagents 4 ตำแหน่ง
     │   ├── explorer.md                         # สำรวจโค้ด & ค้นคว้าเว็บ WebSearch/WebFetch (haiku / flash, maxTurns: 15)
-    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + รันเทสต์ย่อย (sonnet / inherit, maxTurns: 35)
+    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + รันเทสต์ Tier 1–2 เองในตัว (sonnet / inherit, maxTurns: 40)
     │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, maxTurns: 18)
-    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker + รันเทสต์ E2E (sonnet / inherit, maxTurns: 35)
+    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker (research/flash) + รันเทสต์ E2E บน Browser (flash, maxTurns: 35)
     ├── rules/                                  # กฎต้นฉบับ 6 ไฟล์
-    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents อัตโนมัติ & ป้องกันการแก้ไฟล์ชนกัน (Disjoint Files)
+    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents, ห้ามแตก Micro-Verifier & ใช้ซ้ำตัวเดิมในฟีเจอร์เดียวกัน (<40 รอบ)
     │   ├── execution-discipline.md             # ส่งต่องานแบบ State-Delta (<=8 บรรทัด) & ห้าม git reset/restore ทับโค้ด
     │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
     │   ├── code-simplicity.md                  # กฎ Karpathy: คิดก่อนทำ, เรียบง่ายที่สุด, แก้เฉพาะจุด, ไม่สร้างไฟล์ขยะ
@@ -118,8 +118,8 @@ project-root/
 คุณสามารถพิมพ์สั่งงานด้วยภาษาไทยตามปกติ ระบบใน [`CLAUDE.md`](CLAUDE.md) จะประเมินขนาดงานให้อัตโนมัติ:
 * **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`):** หน้าต่างหลักลงมือแก้แบบ Surgical Edit และรันเทสต์เฉพาะไฟล์ทันที (**ไม่แตก Subagent ให้เสียเวลา Cold-Start ฟรี** ตามกฎ `No Ceremony Overhead`)
 * **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด
-* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`2–5 ไฟล์`):** แตก `implementer` (`sonnet` / `self`) ไปเขียนโค้ดและวนรันเทสต์ย่อยจนเขียว (หากแตก `implementer` หลายตัวทำงานขนานกัน จะบังคับแบ่งรายชื่อไฟล์ไม่ให้ทับกันตามกฎ `Disjoint Files First`)
-* **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับ/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
+* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`2–5 ไฟล์`):** แตก `implementer` (`sonnet` / `self`) ไปเขียนโค้ดและ **รันเทสต์ Tier 1 + Tier 2 (`analyze` + `test`) ให้จบในตัว** (ห้ามแตก `QA Verifier` ตัวใหม่ขึ้นมาเพื่อรัน CLI 1–3 คำสั่งซ้ำซ้อน) หากมีการปรับแก้ต่อในฟีเจอร์เดิมและยังไม่เกิน `40 รอบ` ให้ส่ง `send_message` ใช้ `implementer` ตัวเดิมต่อเพื่อประหยัด Cold-Start Tokens แต่ถ้าเปลี่ยนไปทำงานคนละเรื่องให้แตกตัวใหม่ทันที
+* **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับโค้ด/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent (`Pragmatic Code Reviewer` ใช้ `research` + `flash` แบบ Read-Only / งานเปิดเว็บใช้ `browser` + `flash`) เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
 
 ### 2. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh`)
 ทำงานด้วยสคริปต์ Bash/Python ก่อนและหลังการเรียกเครื่องมือของ AI โดยไม่เสีย Token:
@@ -149,13 +149,13 @@ AI จะสกัดบทเรียนสั้นๆ บรรทัดเ�
 ### 5. มาตรฐานการส่งมอบงาน (`Next Steps` + `audit-session-proof.sh --brief`)
 ทุกครั้งที่ AI ส่งมอบงานเสร็จ จะปิดท้ายด้วย 2 ส่วนนี้เสมอ:
 1. **`### ⏭️ ขั้นตอนถัดไป (Next Steps)` (1–3 ข้อกระชับ):** บอกชัดเจนว่าคุณต้องทำอะไรต่อ (เช่น มีไฟล์ Migration ใหม่ที่ต้องรัน `supabase db push`, จุดที่ควรเปิดตรวจบนหน้าเว็บ, หรือลำดับงานถัดไป)
-2. **`### 📊 ผลชี้วัด Agent Guard Template` (4 บรรทัดจากสคริปต์จริง):**
+2. **`### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้` (4 บรรทัดจากสคริปต์จริง แยกเฉพาะคำสั่งล่าสุด + ยอดสะสมทั้งแชท):**
    ```markdown
-   ### 📊 ผลชี้วัด Agent Guard Template (Antigravity Session `#be856e43`)
-   - **สัดส่วนโมเดล (473 รอบ):** Parent (Argon/Pro) `35.7%` (169 รอบ) | Subagents (Self) `26.4%` (125 รอบ) | Subagents (Flash) `37.8%` (179 รอบ) ➔ **แบ่งเบาภาระหน้าต่างหลัก (Offload): `64.3%`**
-   - **Subagents ที่เรียกใช้จริง:** `6` ตัว (`Explorer: 2`, `Implementer: 4`, `Debugger: 0`, `Reviewer: 0`) — รับภาระรวม `26,671,880 tokens`
-   - **Hooks ป้องกันระบบ:** สแกนไฟล์ `1451` ครั้ง | แก้ไฟล์+Checkpoint `521` ครั้ง | รันเทสต์ `141` ครั้ง | บล็อกคำสั่งผิดกฎ `10` ครั้ง | 2-Strike: `0/3`
-   - **ความจำ & ส่งต่องาน:** Pitfalls `10/30` (**สกัดใหม่:** **[Flutter / Single Loading Indicator]:** Wrap sequential Supabase calls...) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ (`main@94ce7cf`)
+   ### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้ (Antigravity Session `#c310d57e`)
+   - **รอบนี้ (3 รอบ):** Parent (Argon/Pro) `100.0%` (3 รอบ) | Subagents (Self) `0.0%` (0 รอบ) | Subagents (Flash) `0.0%` (0 รอบ) ➔ **Offload รอบนี้: `0.0%`** *(สะสมทั้งแชท 463 รอบ: Offload `79.0%`)*
+   - **Subagents รอบนี้:** เรียกใช้ `0` ตัว (`Explorer: 0`, `Implementer: 0`, `Debugger: 0`, `Reviewer: 0`) — ใช้ไป `0 tokens` *(สะสมทั้งแชท: `13` ตัว, `26,959,590 tokens`)*
+   - **Hooks รอบนี้:** สแกนไฟล์ `+2` ครั้ง | แก้ไฟล์+Checkpoint `+1` ครั้ง | รันเทสต์ `+0` ครั้ง | บล็อกคำสั่งผิดกฎ `+0` ครั้ง | 2-Strike: `0/3` *(สะสมทั้งโปรเจกต์: สแกน `2249`, แก้ `866`, เทสต์ `223`, บล็อก `10`)*
+   - **ความจำ & ส่งต่องาน:** Pitfalls `14/30` (**สกัดใหม่:** **[Printer / Thermal BLE & ESC/POS Raster (MP80C1)]:** Render Thai receipts as 1-bit monochrome raster bitmaps...) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ (`main@122b032`)
    ```
    *(หากต้องการดูรายงานย้อนหลังทุกแชทแบบเต็ม ให้รัน `bash .claude/hooks/audit-session-proof.sh` ใน Terminal)*
 

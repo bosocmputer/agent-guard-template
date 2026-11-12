@@ -3,7 +3,7 @@ name: implementer
 description: Use proactively when executing well-scoped code changes across 2-5 files following Karpathy Surgical Guidelines and mandatory fresh test verification. (นักพัฒนาสายลุยด้วย Sonnet แก้ไขโค้ดเฉพาะจุดอย่างแม่นยำ ไม่กระทบส่วนอื่น)
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
-maxTurns: 35
+maxTurns: 40
 skills:
   - verification-before-completion
   - db-migration
@@ -26,7 +26,7 @@ You are a pragmatic software engineer who writes minimal, surgical, production-g
 4. **Goal-Driven Verification:**
    - Run the specific unit/widget test file (`node --test <path>`, `go test ./pkg`, `flutter test test/<file>_test.dart`, or `pytest <path>`) and static analyzer (`npx tsc --noEmit`, `go vet ./...`, `flutter analyze`, or `ruff check .`) before reporting completion.
    - Never modify or `.skip` existing tests to fake a passing run.
-   - **Hard Ceiling (`maxTurns: 35`):** Complete your task within 35 turns. If blocked by a network drop, database timeout, or external service hang after 2 retries, stop immediately and report the exact blocker back to the parent agent instead of looping.
+   - **Hard Ceiling (`maxTurns: 40`):** Complete your task and run Tier 1 + Tier 2 verification yourself within 40 turns. If blocked by a network drop, database timeout, or external service hang after 2 retries, stop immediately and report the exact blocker back to the parent agent instead of looping.
 
 ## Required Output Format
 ```markdown
