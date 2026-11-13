@@ -31,9 +31,17 @@ allow_action() {
   exit 0
 }
 
-# 1. ดักจับการพลางคำสั่ง (Shell Obfuscation Tripwire — garrytan/gstack)
-if echo "$COMMAND" | grep -qE '(\$\{IFS\}|\$IFS|base64[[:space:]]+(-d|--decode)[^|]*\|[[:space:]]*(sh|bash|zsh))'; then
-  block_action "ตรวจพบการพลางคำสั่งด้วย IFS หรือ base64 decode เข้าสู่ Shell (Shell Obfuscation Blocked)"
+# 1. ดักจับการพลางคำสั่ง และการรันสคริปต์จากภายนอกเข้าสู่ Shell โดยตรง (gstack + agent-beacon MITRE Execution Guard)
+if echo "$COMMAND" | grep -qE '(\$\{IFS\}|\$IFS|base64[[:space:]]+(-d|--decode)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?(sh|bash|zsh)|(curl|wget)[[:space:]][^|;]*\|[[:space:]]*(sudo[[:space:]]+)?(sh|bash|zsh|python3?|node))'; then
+  block_action "ตรวจพบการพลางคำสั่งด้วย IFS/base64 หรือการรันสคริปต์ภายนอกเข้าสู่ Shell โดยตรง (curl/wget | sh Blocked)"
+fi
+
+# 1.1 ดักจับการดูดค่า Environment Secrets การแอบอ่านไฟล์ความลับผ่าน Shell และการแก้ไฟล์ระดับโฮสต์/ฝังตัว (agent-beacon MITRE Credential Access & Persistence Guard)
+if echo "$COMMAND" | grep -qE '(^|[;&|"])[[:space:]]*(printenv([[:space:]]|$|[|>;"])|env[[:space:]]*($|[|>;"]))'; then
+  block_action "ไม่อนุญาตให้ดึงค่า Environment Variables ทั้งระบบด้วย printenv หรือ env เพื่อป้องกันข้อมูลความลับรั่วไหล (Credential Dump Blocked)"
+fi
+if echo "$COMMAND" | grep -qE '((cat|less|more|head|tail|grep|awk|sed)[[:space:]]+[^;&|]*(^|[[:space:]/])(\.env([[:space:]"'\'']|$|\.[a-zA-Z0-9_-]+)|[^[:space:]"'\'']+\.(pem|key|p12|keystore|jks)([[:space:]"'\'']|$))|(~|\$HOME|\$\{HOME\}|/Users/[^/[:space:]]+|/home/[^/[:space:]]+)/\.(ssh|aws|kube|gnupg|netrc|npmrc|pypirc|zshrc|bashrc|bash_profile|zprofile)|crontab[[:space:]]+-[er])'; then
+  block_action "ไม่อนุญาตให้อ่านไฟล์ความลับ (.env/key) หรือเข้าถึงโฟลเดอร์ Credential และ Shell Profile ของเครื่องโฮสต์ (~/.ssh, ~/.aws, ~/.kube, ~/.zshrc, crontab)"
 fi
 
 # 2. ดักจับคำสั่งทำลายข้อมูล ทับโค้ดที่ยังไม่ Commit หรือบังคับ Push ทับกิ่งหลัก (รวมถึง git push +main และ git switch -f โดยไม่กวาดข้าม && หรือ ; ไปโดนคำสั่งอื่น)

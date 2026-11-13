@@ -5,7 +5,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$PROJECT_ROOT" || exit 0
 
 TELEMETRY_FILE="$PROJECT_ROOT/.claude/.telemetry.json"
-mkdir -p "$PROJECT_ROOT/.claude"
+mkdir -p "$PROJECT_ROOT/.claude" 2>/dev/null || true
 
 MODE_TYPE="cli"
 HOOK_STAGE="unknown"
@@ -19,6 +19,19 @@ if [ "${1:-}" = "--hook-stdin" ]; then
     ENGINE="antigravity"
   else
     ENGINE="claude"
+  fi
+  if [ "$HOOK_STAGE" = "read" ]; then
+    READ_PATH=$(echo "$RAW_STDIN" | grep -oE '"(Path|file_path)"[[:space:]]*:[[:space:]]*"(\\.|[^"\\])*"' | head -1 | sed -E 's/^"(Path|file_path)"[[:space:]]*:[[:space:]]*"//;s/"$//;s/\\"/"/g')
+    if [ -n "$READ_PATH" ] && echo "$READ_PATH" | grep -qE '((^|/)(\.env($|\.)|.*\.(pem|key|p12|keystore|jks|sqlite|db)$)|(^|/)(\.ssh|\.aws|\.kube|\.gnupg)(/|$)|(^|/)\.(netrc|npmrc|pypirc)$)'; then
+      bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$ENGINE" --node "core" --status "blocked" --detail "🛡️ Blocked reading sensitive/host credential file: $READ_PATH" --hook ".claude/hooks/telemetry-tracker.sh" --rule "CLAUDE.md (Secrets & Host Credential Guard)" >/dev/null 2>&1 || true
+      if [ "$ENGINE" = "antigravity" ]; then
+        printf '{"decision":"deny","reason":"ไม่อนุญาตให้อ่านไฟล์ความลับ (.env/key/db) หรือโฟลเดอร์ Credential ของเครื่องโฮสต์ (~/.ssh, ~/.aws, ~/.kube) โดยตรง (%s)"}\n' "$READ_PATH"
+        exit 0
+      else
+        echo "❌ [Hook Blocked - Secrets & Host Credential Guard]: ไม่อนุญาตให้อ่านไฟล์ความลับ (.env/key/db) หรือโฟลเดอร์ Credential ของเครื่องโฮสต์ (~/.ssh, ~/.aws, ~/.kube) โดยตรง ($READ_PATH)" >&2
+        exit 2
+      fi
+    fi
   fi
 else
   ENGINE="claude"

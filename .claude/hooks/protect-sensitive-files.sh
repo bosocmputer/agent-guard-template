@@ -22,6 +22,18 @@ if echo "$FILE_PATH" | grep -qE '(^|/)(\.env($|\.)|.*\.(pem|key|p12|keystore|jks
   fi
 fi
 
+# 1.1 ดักจับการเข้าถึง/แก้ไข Credential ของโฮสต์, Shell Profile หรือ .git/config & .git/hooks (agent-beacon MITRE Credential Access & Persistence Guard)
+if [ "${ALLOW_GIT_HOOK_EDIT:-0}" != "1" ] && echo "$FILE_PATH" | grep -qE '((^|/)(\.ssh|\.aws|\.kube|\.gnupg)(/|$)|(^|/)\.(netrc|npmrc|pypirc|zshrc|bashrc|bash_profile|zprofile)$|(^|/)\.git/(config|hooks($|/)))'; then
+  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "core" --status "blocked" --detail "🛡️ Blocked host credential/persistence path: $FILE_PATH" --hook ".claude/hooks/protect-sensitive-files.sh" --rule "CLAUDE.md (Host & Git Integrity Guard)" >/dev/null 2>&1 || true
+  if [ "$MODE" = "antigravity" ]; then
+    printf '{"decision":"deny","reason":"ไม่อนุญาตให้แก้ไขไฟล์ Credential ของโฮสต์ (~/.ssh, ~/.aws, ~/.kube), Shell Profile (~/.zshrc) หรือ .git/config และ .git/hooks โดยตรง (%s)"}\n' "$FILE_PATH"
+    exit 0
+  else
+    echo "❌ [Hook Blocked - protect-sensitive-files.sh]: ไม่อนุญาตให้แก้ไขไฟล์ Credential ของโฮสต์ (~/.ssh, ~/.aws, ~/.kube), Shell Profile (~/.zshrc) หรือ .git/config และ .git/hooks โดยตรง ($FILE_PATH)" >&2
+    exit 2
+  fi
+fi
+
 # 2. Anti-Test-Tampering Guard ตอนซ่อมบั๊ก (Anthropic AI-Native SDLC Playbook Stage 4 — Play 4.1)
 # หากอยู่ในโหมดซ่อมบั๊ก (activeNode == debugger หรือ strikeCount >= 1) ห้ามแอบแก้ไขไฟล์เทสต์ที่มีอยู่เดิมเพื่อให้เทสต์ผ่านหลอกๆ
 if [ "${ALLOW_TEST_EDIT:-0}" != "1" ] && [ -f "$PROJECT_ROOT/$FILE_PATH" -o -f "$FILE_PATH" ]; then

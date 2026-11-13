@@ -122,13 +122,15 @@ project-root/
 * **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับโค้ด/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent (`Pragmatic Code Reviewer` ใช้ `research` + `flash` แบบ Read-Only / งานเปิดเว็บใช้ `browser` + `flash`) เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
 
 ### 2. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh`)
-ทำงานด้วยสคริปต์ Bash/Python ก่อนและหลังการเรียกเครื่องมือของ AI โดยไม่เสีย Token:
-1. **`validate-bash.sh` (Git, Dependency & Production Gate):**
+ทำงานด้วยสคริปต์ Bash/Python ก่อนและหลังการเรียกเครื่องมือของ AI โดยไม่เสีย Token (พร้อมการันตี Fail-Open สำหรับส่วน Telemetry):
+1. **`validate-bash.sh` (Git, Dependency, Production & MITRE Execution/Exfiltration Gate):**
    * บล็อกคำสั่งทำลายงานค้าง เช่น `rm -rf`, `git reset --hard`, `git checkout .`, `git restore`, `git push --force` (แต่อนุญาตการสร้างและสลับกิ่ง `git checkout -b` / `git switch` ตามปกติ)
+   * บล็อกการรันสคริปต์ภายนอกเข้าสู่ Shell โดยตรง (`curl/wget ... | sh/bash/python/node`), การพลางคำสั่ง (`base64 -d | sh`, `$IFS`), และการดึงค่า Environment Secrets ทั้งระบบด้วย `printenv` หรือ `env` เปล่าๆ
+   * บล็อกการแอบอ่าน `.env*`/`*.key` ผ่านคำสั่ง Shell (`cat/grep/awk/sed`) และการแตะต้องโฟลเดอร์ Credential หรือ Shell Profile ของโฮสต์ (`~/.ssh`, `~/.aws`, `~/.kube`, `~/.zshrc`, `crontab`)
    * บล็อกการแอบติดตั้ง Package ใหม่ (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`) จนกว่าคุณจะอนุมัติ (`DEPS_APPROVED=1`)
    * บล็อกการสั่ง Deploy ขึ้น Production หรือยิง Migration ขึ้นฐานข้อมูลจริง (`vercel --prod`, `supabase db push`, `prisma migrate deploy`) จนกว่าคุณจะอนุมัติ (`RELEASE_APPROVED=1`) แต่อนุญาต `supabase db reset` บน Local Docker สำหรับรันเทสต์
-2. **`protect-sensitive-files.sh` (Secrets & Stage 4 Anti-Test-Tampering):**
-   * ห้ามอ่านหรือแก้ไขไฟล์ `.env*`, `*.key`, `*.pem`, `*.sqlite`, `*.db` และไฟล์ Lockfile
+2. **`protect-sensitive-files.sh` & `telemetry-tracker.sh` (Secrets, Host Credentials & Stage 4 Anti-Test-Tampering):**
+   * ห้ามอ่านหรือแก้ไขไฟล์ `.env*`, `*.key`, `*.pem`, `*.sqlite`, `*.db`, โฟลเดอร์ Credential ของโฮสต์ (`~/.ssh/*`, `~/.aws/*`, `~/.kube/*`, `~/.netrc`, `~/.npmrc`), Shell Profile (`~/.zshrc`, `~/.bashrc`), ไฟล์ `.git/config` / `.git/hooks/*` และไฟล์ Lockfile
    * ขณะอยู่ในโหมดซ่อมบั๊ก (`strikeCount >= 1`) จะบล็อกไม่ให้ AI แอบแก้ไขไฟล์เทสต์เดิม (`*.test.*`, `*.spec.*`, `*_test.*`) บังคับให้แก้ที่โค้ดต้นเหตุเท่านั้น
 3. **`post-edit-format.sh` & `loop-circuit-breaker.sh`:**
    * จัด Format โค้ดอัตโนมัติหลังแก้ไฟล์ บันทึกจุดค้างงานลง `.agent-last-state.log` และล้างตัวนับลูปคำสั่งเมื่อมีการแก้โค้ดจริง (ทำให้รันเทสต์ตรวจหลังแก้ไฟล์ได้ต่อเนื่องโดยไม่โดนบล็อกผิดพลาด)
