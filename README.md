@@ -81,8 +81,8 @@ project-root/
     │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, maxTurns: 18)
     │   └── reviewer.md                         # ตรวจเฉพาะ Blocker (research/flash) + รันเทสต์ E2E บน Browser (flash, maxTurns: 35)
     ├── rules/                                  # กฎต้นฉบับ 6 ไฟล์
-    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents, ห้ามแตก Micro-Verifier & ใช้ซ้ำตัวเดิมในฟีเจอร์เดียวกัน (<40 รอบ)
-    │   ├── execution-discipline.md             # ส่งต่องานแบบ State-Delta (<=8 บรรทัด) & ห้าม git reset/restore ทับโค้ด
+    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents, Fresh Context (ห้าม Fork แชทหลัก) & ใช้ซ้ำตัวเดิม (<40 รอบ)
+    │   ├── execution-discipline.md             # ส่งต่องาน State-Delta (<=8 บรรทัด), Grep ก่อนอ่านเฉพาะบรรทัด (>200 บรรทัด) & ห้าม git reset/restore
     │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
     │   ├── code-simplicity.md                  # กฎ Karpathy: คิดก่อนทำ, เรียบง่ายที่สุด, แก้เฉพาะจุด, ไม่สร้างไฟล์ขยะ
     │   ├── testing-and-api.md                  # บังคับเทสต์โค้ดจริง (Verify RED ➔ GREEN) & ตรวจสิทธิ์ BOLA/IDOR
@@ -99,7 +99,7 @@ project-root/
     │   └── verification-before-completion/     # กฎเหล็กห้ามส่งงานโดยไม่รันเทสต์สด & ดักจับ 0 tests ran
     ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /security-audit, /verify, /learn, /handoff)
     └── hooks/                                  # 🛡️ สคริปต์ยามรักษาความปลอดภัย 0-Token (ทำงานทั้ง Claude Code & Antigravity)
-        ├── auto-resume.sh                      # ฉีดสถานะงานค้างเข้าแชทใหม่อัตโนมัติ
+        ├── auto-resume.sh                      # ฉีดสถานะงานค้างตอนเปิดแชทใหม่ (SessionStart) และบันทึกความจำก่อนย่อแชท (PreCompact)
         ├── validate-bash.sh                    # บล็อก rm -rf, git restore/reset ทับโค้ด, ลง pkg มั่ว & กั้น Deploy Production
         ├── protect-sensitive-files.sh          # บล็อกการอ่าน/แก้ .env/.key, lockfiles & บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก
         ├── loop-circuit-breaker.sh             # ตัดวงจรเมื่อรันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน 3 ครั้งโดยไม่แก้โค้ด
@@ -118,7 +118,8 @@ project-root/
 คุณสามารถพิมพ์สั่งงานด้วยภาษาไทยตามปกติ ระบบใน [`CLAUDE.md`](CLAUDE.md) จะประเมินขนาดงานให้อัตโนมัติ:
 * **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`):** หน้าต่างหลักลงมือแก้แบบ Surgical Edit และรันเทสต์เฉพาะไฟล์ทันที (**ไม่แตก Subagent ให้เสียเวลา Cold-Start ฟรี** ตามกฎ `No Ceremony Overhead`)
 * **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด
-* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`2–5 ไฟล์`):** แตก `implementer` (`sonnet` / `self`) ไปเขียนโค้ดและ **รันเทสต์ Tier 1 + Tier 2 (`analyze` + `test`) ให้จบในตัว** (ห้ามแตก `QA Verifier` ตัวใหม่ขึ้นมาเพื่อรัน CLI 1–3 คำสั่งซ้ำซ้อน) หากมีการปรับแก้ต่อในฟีเจอร์เดิมและยังไม่เกิน `40 รอบ` ให้ส่ง `send_message` ใช้ `implementer` ตัวเดิมต่อเพื่อประหยัด Cold-Start Tokens แต่ถ้าเปลี่ยนไปทำงานคนละเรื่องให้แตกตัวใหม่ทันที
+* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`2–5 ไฟล์`):** แตก `implementer` (`sonnet` / `self`) ด้วยหน้าต่างสะอาด (**Fresh Context — ห้าม Fork ประวัติแชทหลัก**) พร้อมส่งเฉพาะ `State-Delta Brief (<=8 บรรทัด)` ไปเขียนโค้ดและ **รันเทสต์ Tier 1 + Tier 2 (`analyze` + `test`) ให้จบในตัว** (ห้ามแตก `QA Verifier` ตัวใหม่ขึ้นมาเพื่อรัน CLI 1–3 คำสั่งซ้ำซ้อน) หากมีการปรับแก้ต่อในฟีเจอร์เดิมและยังไม่เกิน `40 รอบ` ให้ส่ง `send_message` ใช้ `implementer` ตัวเดิมต่อเพื่อประหยัด Cold-Start Tokens แต่ถ้าเปลี่ยนไปทำงานคนละเรื่องให้แตกตัวใหม่ทันที
+* **กฎประหยัด Token ตอนอ่านไฟล์ใหญ่ (`Grep First, Read Line-Range Second`):** สำหรับไฟล์ที่ยาวเกิน `200 บรรทัด` บังคับใช้ `Grep`/`grep_search` หาเลขบรรทัดก่อน แล้วอ่านเฉพาะช่วงบรรทัด (`StartLine`–`EndLine` หรือ `offset`–`limit` ±40 บรรทัด) แทนการดึงไฟล์เต็มเข้า Context ซ้ำๆ (ประหยัด Input Tokens 70–80%)
 * **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับโค้ด/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent (`Pragmatic Code Reviewer` ใช้ `research` + `flash` แบบ Read-Only / งานเปิดเว็บใช้ `browser` + `flash`) เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
 
 ### 2. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh`)
@@ -161,10 +162,11 @@ AI จะสกัดบทเรียนสั้นๆ บรรทัดเ�
    ```
    *(หากต้องการดูรายงานย้อนหลังทุกแชทแบบเต็ม ให้รัน `bash .claude/hooks/audit-session-proof.sh` ใน Terminal)*
 
-### 6. ส่งต่องานข้ามค่ายอัตโนมัติโดยไม่ต้องสั่ง `/handoff` (`2-Layer TASK_STATE.md Auto-Sync`)
-คุณสามารถสลับไปมาระหว่าง **Claude Code ⇄ Antigravity IDE** ได้ทันทีเมื่อโควต้าฝั่งใดฝั่งหนึ่งเต็ม โดยไม่ต้องพิมพ์คำสั่ง `/handoff` เอง:
+### 6. ส่งต่องานข้ามค่ายและกันความจำเสื่อมตอนย่อแชทอัตโนมัติ (`2-Layer TASK_STATE.md + PreCompact Continuity Ledger`)
+คุณสามารถสลับไปมาระหว่าง **Claude Code ⇄ Antigravity IDE** ได้ทันทีเมื่อโควต้าฝั่งใดฝั่งหนึ่งเต็ม หรือคุยงานต่อเนื่องยาวๆ โดยไม่ต้องพิมพ์คำสั่ง `/handoff` เอง:
 * **ชั้นที่ 1 (สรุปงานอัตโนมัติโดย AI):** ทุกครั้งที่แก้โค้ดหรือปิดงานย่อยเสร็จ AI จะอัปเดตสรุปสถานะปัจจุบันและงานถัดไปไว้ด้านบนของ `TASK_STATE.md` (ไม่เกิน 20 บรรทัด)
-* **ชั้นที่ 2 (ซิงก์สถานะ Git แบบ `0-Token` ใน `audit-session-proof.sh`):** สคริปต์จะดึงกิ่งปัจจุบัน (`Branch`), 5 คอมมิตล่าสุด (`git log -n 5`), ไฟล์ที่แก้ค้าง (`git status --short`), และพิกัดไฟล์ล่าสุด (`.agent-last-state.log`) ไปเขียนต่อท้าย `TASK_STATE.md` ให้อัตโนมัติทุกครั้งที่จบงาน เมื่อเปิดแชทใหม่ในอีกค่าย `auto-resume.sh` จะฉีดสถานะล่าสุดให้รับไม้ต่อได้ทันที
+* **ชั้นที่ 2 (ซิงก์สถานะ Git แบบ `0-Token` ใน `audit-session-proof.sh`):** สคริปต์จะดึงกิ่งปัจจุบัน (`Branch`), 5 คอมมิตล่าสุด (`git log -n 5`), ไฟล์ที่แก้ค้าง (`git status --short`), และพิกัดไฟล์ล่าสุด (`.agent-last-state.log`) ไปเขียนต่อท้าย `TASK_STATE.md` ให้อัตโนมัติทุกครั้งที่จบงาน
+* **ชั้นที่ 3 (`PreCompact` Continuity Hook):** ก่อนที่ระบบจะสั่งย่อหน้าต่างความจำอัตโนมัติ (`/compact` หรือ Auto-Compaction) `auto-resume.sh --pre-compact` จะบังคับซิงก์ `TASK_STATE.md` ล่าสุดและฉีดเตือนให้ AI ยึด `TASK_STATE.md` + `project-pitfalls.md` เป็นหลักหลังย่อความจำ ป้องกันอาการความจำเสื่อมกลางแชท (`Post-Compaction Amnesia`)
 
 ---
 

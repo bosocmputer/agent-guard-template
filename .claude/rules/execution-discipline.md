@@ -14,6 +14,7 @@ description: "(กฎส่งต่องานระหว่างแผน�
 - **Strictly Forbidden:** Never run `git checkout .`, `git checkout -- <file>`, `git restore`, `git reset --hard`, or `git clean -f`—the working tree may contain uncommitted user work.
 
 ## 3. Goal-Driven Execution & Hard Stop
+- **Grep First, Read Line-Range Second (`> 200 lines`):** For files longer than 200 lines, use `Grep`/`grep_search` to locate target line numbers first, then read only the relevant slice (`offset`/`limit` or `StartLine`–`EndLine` ±40 lines) instead of repeatedly loading full files into context (saves 70–80% input tokens).
 - Read the target function and 1 adjacent sibling file before editing.
 - During active coding/debugging, run only the single target test file (Tier 1) rather than the full repository suite on every edit.
 - Once the stated objective passes verification with fresh terminal output, **STOP IMMEDIATELY**. Do not perform unsolicited refactoring or add unrequested files.
