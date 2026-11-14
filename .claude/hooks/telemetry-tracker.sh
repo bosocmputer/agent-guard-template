@@ -954,6 +954,10 @@ def extract_session_proof_metrics(root_dir, state_obj=None):
                                 proof["sonnetTurns"] += 1
                             elif "haiku" in m_low:
                                 proof["haikuTurns"] += 1
+                            elif count_agents:
+                                proof["opusTurns"] += 1
+                            else:
+                                proof["sonnetTurns"] += 1
                     if count_agents and "\"name\":\"Agent\"" in line.replace(" ", ""):
                         try:
                             obj = json.loads(line)

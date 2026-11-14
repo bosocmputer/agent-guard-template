@@ -80,6 +80,13 @@ def scan_file(fpath, acc, is_parent=False):
                         acc["haiku"] += 1
                         if is_parent:
                             acc["prompt_haiku"] = acc.get("prompt_haiku", 0) + 1
+                    elif is_parent:
+                        # โมเดลตระกูลใหม่ที่ไม่ใช่ opus/sonnet/haiku (เช่น claude-fable-5-2): แชทหลักนับเป็นระดับบนสุด ไม่ให้รอบหาย
+                        acc["opus"] += 1
+                        acc["prompt_opus"] = acc.get("prompt_opus", 0) + 1
+                    else:
+                        # Subagent ที่ใช้โมเดลตระกูลใหม่ (inherit): นับเป็นงานที่แบ่งเบาจากแชทหลัก
+                        acc["sonnet"] += 1
                 if is_parent and '"name":"Agent"' in line.replace(" ", ""):
                     try:
                         obj = json.loads(line)
