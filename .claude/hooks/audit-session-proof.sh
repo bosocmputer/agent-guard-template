@@ -605,6 +605,85 @@ def scan_pitfalls(r_dir):
         "latest": short_rule(rules[-1]) if rules else "",
     }
 
+def extract_latest_session_tail(p_dir, all_sess):
+    info = {"engine": "", "sess_id": "", "user_prompt": "", "assistant_text": "", "subagent_task": "", "interrupted": False}
+    try:
+        if not all_sess:
+            return info
+        latest = all_sess[-1]
+        info["engine"] = latest.get("engine") or "claude"
+        info["sess_id"] = str(latest.get("sess_id") or "")[:8]
+        if info["engine"] == "claude":
+            jf = os.path.join(p_dir, f"{latest.get('sess_id')}.jsonl")
+            if os.path.isfile(jf):
+                with open(jf, "r", encoding="utf-8", errors="ignore") as fp:
+                    lines = fp.readlines()
+                for ln in lines[-120:]:
+                    if "hit your 5-hour limit" in ln or "terminated early due to an API error" in ln or "rate_limit" in ln:
+                        info["interrupted"] = True
+                    try:
+                        obj = json.loads(ln)
+                    except Exception:
+                        continue
+                    tp = obj.get("type")
+                    if tp == "user":
+                        mc = (obj.get("message") or {}).get("content")
+                        if isinstance(mc, str) and len(mc.strip()) > 2 and not any(t in mc for t in ("<task-notification>", "<local-command-", "<command-name>", "<system-reminder>")):
+                            cl = re.sub(r"<[^>]+>.*?</[^>]+>", " ", mc, flags=re.S)
+                            cl = " ".join(cl.split()).strip()
+                            if cl:
+                                info["user_prompt"] = cl[:350]
+                                info["subagent_task"] = ""
+                    elif tp == "assistant":
+                        for b in ((obj.get("message") or {}).get("content") or []):
+                            if isinstance(b, dict):
+                                if b.get("type") == "text" and b.get("text"):
+                                    tx = " ".join(str(b.get("text")).split()).strip()
+                                    if tx:
+                                        info["assistant_text"] = tx[:350]
+                                elif b.get("type") == "tool_use" and b.get("name") == "Agent":
+                                    inp = b.get("input") or {}
+                                    desc = str(inp.get("description") or "subagent").strip()
+                                    prm = " ".join(str(inp.get("prompt") or "").split()).strip()
+                                    if prm:
+                                        info["subagent_task"] = f"[{desc}] {prm[:900]}"
+        else:
+            cid = latest.get("sess_id")
+            tf = os.path.expanduser(f"~/.gemini/antigravity/brain/{cid}/.system_generated/logs/transcript.jsonl")
+            if os.path.isfile(tf):
+                with open(tf, "r", encoding="utf-8", errors="ignore") as fp:
+                    lines = fp.readlines()
+                for ln in lines[-80:]:
+                    if '"ERROR"' in ln or "quota" in ln.lower():
+                        info["interrupted"] = True
+                    try:
+                        obj = json.loads(ln)
+                    except Exception:
+                        continue
+                    tp = obj.get("type")
+                    if tp == "USER_INPUT" and obj.get("source") == "USER_EXPLICIT":
+                        raw_c = str(obj.get("content") or "")
+                        m_req = re.search(r"<USER_REQUEST>(.*?)</USER_REQUEST>", raw_c, flags=re.S)
+                        txt_c = m_req.group(1) if m_req else raw_c
+                        txt_c = " ".join(re.sub(r"<[^>]+>.*?</[^>]+>", " ", txt_c, flags=re.S).split()).strip()
+                        if txt_c:
+                            info["user_prompt"] = txt_c[:350]
+                            info["subagent_task"] = ""
+                    elif tp == "PLANNER_RESPONSE":
+                        tx = " ".join(str(obj.get("content") or "").split()).strip()
+                        if tx:
+                            info["assistant_text"] = tx[:350]
+                        for tc in (obj.get("tool_calls") or []):
+                            if isinstance(tc, dict) and tc.get("name") == "invoke_subagent":
+                                args = tc.get("args") or {}
+                                sr = str(args.get("Role") or "subagent").strip('"')
+                                sp = " ".join(str(args.get("Prompt") or "").split()).strip()
+                                if sp:
+                                    info["subagent_task"] = f"[{sr}] {sp[:900]}"
+    except Exception:
+        pass
+    return info
+
 def sync_task_state(r_dir):
     ts_path = os.path.join(r_dir, "TASK_STATE.md")
     marker = "## 🔄 Auto-Synced Git & Session State"
@@ -629,6 +708,7 @@ def sync_task_state(r_dir):
                 last_ckpt = f.read().strip().replace("\n", " ")
         except Exception:
             pass
+    tail_info = extract_latest_session_tail(proj_dir, all_sessions)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     auto_lines = [
         f"{marker} (Updated: {now_str})",
@@ -640,6 +720,15 @@ def sync_task_state(r_dir):
         auto_lines.append(f"- **Uncommitted Changes:** `{'; '.join(dirty)}`")
     else:
         auto_lines.append("- **Working Tree:** `clean`")
+    if tail_info.get("user_prompt") or tail_info.get("assistant_text") or tail_info.get("subagent_task"):
+        status_tag = "⚠️ INTERRUPTED / QUOTA CUTOFF" if tail_info.get("interrupted") else "Latest Session Turn"
+        auto_lines.append(f"- **Last Session Snapshot (`{tail_info['engine']}#{tail_info['sess_id']}` — {status_tag}):**")
+        if tail_info.get("user_prompt"):
+            auto_lines.append(f"  - **Last User Prompt:** {tail_info['user_prompt']}")
+        if tail_info.get("assistant_text"):
+            auto_lines.append(f"  - **Last Agent Summary:** {tail_info['assistant_text']}")
+        if tail_info.get("subagent_task"):
+            auto_lines.append(f"  - **Last Dispatched Subagent Task:** {tail_info['subagent_task']}")
     if commits:
         auto_lines.append("- **Recent Commits (`git log -n 5`):**")
         for c in commits:
@@ -712,8 +801,10 @@ if brief_mode:
     else:
         use_base = {}
 
-    base_st = use_base.get("stats") if isinstance(use_base.get("stats"), dict) else {}
-    if use_base:
+    # สำหรับตัวนับ Hooks ระดับโปรเจกต์ (tot_reads/tot_edits/tot_tests/tot_blocks) ให้เทียบกับ baseline ล่าสุดเสมอแม้จะเพิ่งเปลี่ยน Session ใหม่
+    hook_base = use_base if use_base else (last_ab if last_ab else prompt_b)
+    base_st = hook_base.get("stats") if isinstance(hook_base.get("stats"), dict) else {}
+    if base_st:
         d_reads = max(0, tot_reads - int(base_st.get("explorerReads", 0)))
         d_edits = max(0, tot_edits - int(base_st.get("filesEdited", 0)))
         d_tests = max(0, tot_tests - int(base_st.get("verifierRuns", 0)))
