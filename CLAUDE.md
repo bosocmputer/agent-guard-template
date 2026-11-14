@@ -46,11 +46,13 @@ Inspect root manifest files (including monorepo subfolders such as `app/`, `supa
 2. **2-Strike Technical Bug Limit:**
    - When fixing a technical bug or failing test, if **2 consecutive fix attempts** still fail verification, **STOP immediately**.
    - Revert uncommitted experimental edits back to a clean state via `Edit` and emit `CIRCUIT_BREAKER: 2_STRIKES_REACHED` summarizing both attempts and presenting clear options in Thai.
-3. **Targeted Exploration Only:**
+3. **Targeted Exploration & Zero Main-Window Browser/Web Bloat:**
    - Use scoped `Grep` and `Glob` queries. Never read entire directory trees blindly.
    - Before creating a new file, read 1 existing sibling file to match naming, imports, and library conventions.
-4. **Execution Ceiling:**
+   - **Never run `mcp__playwright__browser_*`, `browser_snapshot`, or multi-page `WebFetch` inside the main orchestrator window** — always delegate browser/web tasks to a subagent so raw DOM snapshots and web HTML do not bloat the main Opus/Fable context window.
+4. **Execution Ceiling & One-Slice-Per-Prompt Quota Guard (No Unbounded Auto-Chaining):**
    - Do not modify more than 5 files in a single turn without confirming the file list with the user first.
+   - Execute **at most ONE milestone slice (max 1–2 parallel `implementer` subagents)** per user prompt. Once that slice passes tests, output `Next Steps` + `audit-session-proof.sh --brief` and **STOP for user confirmation** instead of auto-chaining the entire Sprint (`Step 1 ➔ Step 2 ➔ Step 3 ➔ Step 4`) in one continuous run.
 
 ---
 

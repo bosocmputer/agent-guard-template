@@ -27,7 +27,26 @@ slug = re.sub(r"[^A-Za-z0-9-]", "-", root_dir)
 proj_dir = os.path.expanduser(f"~/.claude/projects/{slug}")
 t_file = os.path.join(root_dir, ".claude", ".telemetry.json")
 
+def format_claude_model_label(raw_m):
+    ml = str(raw_m or "").strip().lower()
+    if not ml or ml == "<synthetic>":
+        return "Parent (Main)"
+    m_ver = re.search(r"claude-([a-z]+)-(\d+)-(\d+)", ml)
+    if m_ver:
+        fam = m_ver.group(1).capitalize()
+        return f"Parent ({fam} {m_ver.group(2)}.{m_ver.group(3)})"
+    if "fable" in ml:
+        return "Parent (Fable)"
+    if "opus" in ml:
+        return "Parent (Opus)"
+    if "sonnet" in ml:
+        return "Parent (Sonnet)"
+    if "haiku" in ml:
+        return "Parent (Haiku)"
+    return f"Parent ({raw_m})"
+
 def scan_file(fpath, acc, is_parent=False):
+    s_turns = {"opus": 0, "sonnet": 0, "haiku": 0}
     try:
         with open(fpath, "r", encoding="utf-8", errors="ignore") as fp:
             for line in fp:
@@ -39,7 +58,11 @@ def scan_file(fpath, acc, is_parent=False):
                         uo = json.loads(line)
                         if uo.get("type") == "user":
                             msg_c = (uo.get("message") or {}).get("content")
-                            if isinstance(msg_c, str) and len(msg_c.strip()) > 2 and "<task-notification>" not in msg_c:
+                            if (
+                                isinstance(msg_c, str)
+                                and len(msg_c.strip()) > 2
+                                and not any(tag in msg_c for tag in ("<task-notification>", "<local-command-", "<command-name>", "<system-reminder>"))
+                            ):
                                 clean_u = re.sub(r"<[^>]+>.*?</[^>]+>", " ", msg_c, flags=re.S)
                                 clean_u = " ".join(clean_u.split()).strip()
                                 if clean_u:
@@ -53,6 +76,7 @@ def scan_file(fpath, acc, is_parent=False):
                                     acc["prompt_sub_calls"] = 0
                                     acc["prompt_roles"] = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
                                     acc["prompt_sub_tokens"] = 0
+                                    acc["prompt_tool_use_ids"] = set()
                     except Exception:
                         pass
                 if is_parent and "<task-notification>" in line and "<subagent_tokens>" in line:
@@ -63,45 +87,45 @@ def scan_file(fpath, acc, is_parent=False):
                         tok_v = int(m_tok.group(1))
                         acc["sub_tokens_by_id"][tid_k] = max(acc["sub_tokens_by_id"].get(tid_k, 0), tok_v)
                         acc["prompt_sub_tokens"] = acc.get("prompt_sub_tokens", 0) + tok_v
-                if '"assistant"' not in line:
+                if not re.search(r'"type"\s*:\s*"assistant"', line):
                     continue
                 m_match = re.search(r'"model"\s*:\s*"([^"]+)"', line)
                 if m_match:
-                    ml = m_match.group(1).lower()
-                    if "opus" in ml:
-                        acc["opus"] += 1
-                        if is_parent:
-                            acc["prompt_opus"] = acc.get("prompt_opus", 0) + 1
-                    elif "sonnet" in ml:
-                        acc["sonnet"] += 1
-                        if is_parent:
-                            acc["prompt_sonnet"] = acc.get("prompt_sonnet", 0) + 1
-                    elif "haiku" in ml:
-                        acc["haiku"] += 1
-                        if is_parent:
-                            acc["prompt_haiku"] = acc.get("prompt_haiku", 0) + 1
-                    elif is_parent:
-                        # โมเดลตระกูลใหม่ที่ไม่ใช่ opus/sonnet/haiku (เช่น claude-fable-5-2): แชทหลักนับเป็นระดับบนสุด ไม่ให้รอบหาย
+                    raw_m = m_match.group(1).strip()
+                    ml = raw_m.lower()
+                    if ml == "<synthetic>":
+                        continue
+                    if is_parent:
+                        acc["parent_models"][raw_m] = acc["parent_models"].get(raw_m, 0) + 1
                         acc["opus"] += 1
                         acc["prompt_opus"] = acc.get("prompt_opus", 0) + 1
+                        s_turns["opus"] += 1
+                    elif "haiku" in ml:
+                        acc["haiku"] += 1
+                        s_turns["haiku"] += 1
                     else:
-                        # Subagent ที่ใช้โมเดลตระกูลใหม่ (inherit): นับเป็นงานที่แบ่งเบาจากแชทหลัก
                         acc["sonnet"] += 1
+                        s_turns["sonnet"] += 1
                 if is_parent and '"name":"Agent"' in line.replace(" ", ""):
                     try:
                         obj = json.loads(line)
-                        for c in ((obj.get("message") or {}).get("content") or []):
-                            if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Agent":
-                                acc["sub_calls"] += 1
-                                acc["prompt_sub_calls"] = acc.get("prompt_sub_calls", 0) + 1
-                                st = str((c.get("input") or {}).get("subagent_type") or "implementer").lower()
-                                dk = "explorer" if "explor" in st else ("debugger" if "debug" in st else ("reviewer" if ("review" in st or "security" in st) else "implementer"))
-                                acc["parent_roles"][dk] = acc["parent_roles"].get(dk, 0) + 1
-                                acc["prompt_roles"][dk] = acc["prompt_roles"].get(dk, 0) + 1
+                        if obj.get("type") == "assistant":
+                            for c in ((obj.get("message") or {}).get("content") or []):
+                                if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Agent":
+                                    acc["sub_calls"] += 1
+                                    acc["prompt_sub_calls"] = acc.get("prompt_sub_calls", 0) + 1
+                                    tuid = str(c.get("id") or "")
+                                    if tuid:
+                                        acc["prompt_tool_use_ids"].add(tuid)
+                                    st = str((c.get("input") or {}).get("subagent_type") or "implementer").lower()
+                                    dk = "explorer" if "explor" in st else ("debugger" if "debug" in st else ("reviewer" if ("review" in st or "security" in st) else "implementer"))
+                                    acc["parent_roles"][dk] = acc["parent_roles"].get(dk, 0) + 1
+                                    acc["prompt_roles"][dk] = acc["prompt_roles"].get(dk, 0) + 1
                     except Exception:
                         pass
     except Exception:
         pass
+    return s_turns
 
 def analyze_session(jf):
     sess_id = os.path.splitext(os.path.basename(jf))[0]
@@ -112,6 +136,8 @@ def analyze_session(jf):
         "opus": 0,
         "sonnet": 0,
         "haiku": 0,
+        "parent_models": {},
+        "parent_model_label": "Parent (Opus)",
         "parent_steps": 0,
         "sub_calls": 0,
         "sub_files": 0,
@@ -128,13 +154,17 @@ def analyze_session(jf):
         "prompt_sub_calls": 0,
         "prompt_roles": {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0},
         "prompt_sub_tokens": 0,
+        "prompt_tool_use_ids": set(),
     }
     scan_file(jf, acc, is_parent=True)
+    if acc["parent_models"]:
+        top_m = max(acc["parent_models"].items(), key=lambda kv: kv[1])[0]
+        acc["parent_model_label"] = format_claude_model_label(top_m)
     sub_dir = os.path.join(proj_dir, sess_id, "subagents")
     sub_files = glob.glob(os.path.join(sub_dir, "agent-*.jsonl")) if os.path.isdir(sub_dir) else []
     acc["sub_files"] = len(sub_files)
     for sf in sub_files:
-        scan_file(sf, acc, is_parent=False)
+        s_turns = scan_file(sf, acc, is_parent=False)
         meta_f = sf.replace(".jsonl", ".meta.json")
         if os.path.isfile(meta_f):
             try:
@@ -142,6 +172,10 @@ def analyze_session(jf):
                 at = str(mo.get("agentType") or mo.get("description") or "").lower()
                 dk = "explorer" if "explor" in at else ("debugger" if "debug" in at else ("reviewer" if ("review" in at or "security" in at) else "implementer"))
                 acc["meta_roles"][dk] = acc["meta_roles"].get(dk, 0) + 1
+                tuid = str(mo.get("toolUseId") or "")
+                if tuid and tuid in acc["prompt_tool_use_ids"]:
+                    acc["prompt_sonnet"] += s_turns.get("sonnet", 0)
+                    acc["prompt_haiku"] += s_turns.get("haiku", 0)
             except Exception:
                 pass
     acc["roles"] = acc["meta_roles"] if sum(acc["meta_roles"].values()) > 0 else acc["parent_roles"]
@@ -771,7 +805,8 @@ if brief_mode:
             st_note = f" ({cmd_steps} steps)" if cmd_steps > 0 else ""
             print(f"- **รอบทำงานคำสั่งนี้:** Parent (Argon/Pro) `{cmd_opus} รอบ`{st_note} ➔ **งานขนาดเล็กทำตรงในแชทหลัก (ไม่เปิด Subagent เกินจำเป็น)** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
     else:
-        print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** Opus `{cmd_op_p}%` ({cmd_opus} รอบ) | Sonnet `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Haiku `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
+        p_lbl = acc.get("parent_model_label") or "Parent (Opus)"
+        print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** {p_lbl} `{cmd_op_p}%` ({cmd_opus} รอบ) | Subagents (Sonnet) `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Subagents (Haiku) `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
 
     if cmd_sub_tot > 0:
         cmd_tok_note = f" — รับภาระรอบนี้ `{cmd_sub_toks:,} tokens`" if cmd_sub_toks > 0 else ""
@@ -802,7 +837,7 @@ for idx, acc in enumerate(all_sessions, 1):
     sub_toks = sum(acc["sub_tokens_by_id"].values())
     tag = "🔥 [แชทล่าสุด]" if idx == len(all_sessions) else "🕓 [แชทก่อนหน้า]"
     eng_tag = "Antigravity" if acc.get("engine") == "antigravity" else "Claude Code"
-    m1_lbl = "Parent (Argon/Pro)" if acc.get("engine") == "antigravity" else "Opus  "
+    m1_lbl = "Parent (Argon/Pro)" if acc.get("engine") == "antigravity" else (acc.get("parent_model_label") or "Parent (Opus)")
     m2_lbl = "Subagent (Self)   " if acc.get("engine") == "antigravity" else "Sonnet"
     m3_lbl = "Subagent (Flash)  " if acc.get("engine") == "antigravity" else "Haiku "
     print(f"\n{tag} [{eng_tag}] Session #{acc['sess_id'][:8]} (อัปเดตล่าสุด: {acc['mtime']})")
