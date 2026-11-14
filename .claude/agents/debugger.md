@@ -4,15 +4,15 @@ description: Use proactively when diagnosing bugs, test failures, build errors, 
 tools: Read, Edit, Grep, Glob, Bash
 disallowedTools: Write
 model: sonnet
-maxTurns: 18
+maxTurns: 12
 skills:
   - root-cause-debug
   - verification-before-completion
 ---
 # Systematic Root-Cause Debugger (`obra/superpowers` + Circuit Breaker)
 
-## The Iron Law
-> **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**
+## The Iron Law & Capability Budget (`Harness Engineering Layer 3 Table V`)
+> **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST. TARGET: <= 8 TURNS (HARD CAP: 12 TURNS).**
 
 Symptom fixes waste quota and create new bugs. You must follow this 4-phase progression:
 

@@ -34,19 +34,11 @@ chmod +x .claude/hooks/*.sh
 รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์ เพื่อติดตั้งหรืออัปเดตไฟล์มาตรฐานของ Template โดย**เก็บรักษาบทเรียนเฉพาะโปรเจกต์ (`.claude/rules/project-pitfalls.md`) และสถิติ (`.telemetry.json`) เดิมไว้ครบถ้วน**:
 
 ```bash
-git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update && \
-rsync -av \
-  --exclude='.git' \
-  --exclude='README.md' \
-  --exclude='docs' \
-  --exclude='.mcp.json' \
-  --exclude='.gitignore' \
-  --exclude='.telemetry.json*' \
-  --exclude='.quota_cache.json*' \
-  --exclude='/.claude/rules/project-pitfalls.md' \
-  /tmp/agt-update/ ./ && \
-[ -f .claude/rules/project-pitfalls.md ] || cp /tmp/agt-update/.claude/rules/project-pitfalls.md .claude/rules/project-pitfalls.md && \
-rm -rf /tmp/agt-update .agents/skills && \
+rm -rf /tmp/agt-update
+git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update
+rsync -av --exclude='.git' --exclude='README.md' --exclude='docs' --exclude='.mcp.json' --exclude='.gitignore' --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='/.claude/rules/project-pitfalls.md' /tmp/agt-update/ ./
+[ -f .claude/rules/project-pitfalls.md ] || cp /tmp/agt-update/.claude/rules/project-pitfalls.md .claude/rules/project-pitfalls.md
+rm -rf /tmp/agt-update .agents/skills
 chmod +x .claude/hooks/*.sh
 ```
 
@@ -75,15 +67,15 @@ project-root/
 │
 └── .claude/                                    # 🤖 แหล่งข้อมูลต้นฉบับ (Master Single Source of Truth)
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks สำหรับ Claude Code
-    ├── agents/                                 # ลูกมือ Subagents 4 ตำแหน่ง
-    │   ├── explorer.md                         # สำรวจโค้ด & ค้นคว้าเว็บ WebSearch/WebFetch (haiku / flash, maxTurns: 15)
-    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + รันเทสต์ Tier 1–2 เองในตัว (sonnet / inherit, maxTurns: 40)
-    │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, maxTurns: 18)
-    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker (research/flash) + รันเทสต์ E2E บน Browser (flash, maxTurns: 35)
+    ├── agents/                                 # ลูกมือ Subagents 4 ตำแหน่ง (พร้อม Capability Budgets ตาม Harness Engineering Layer 3)
+    │   ├── explorer.md                         # สำรวจโค้ด & ค้นคว้าเว็บ WebSearch/WebFetch (haiku / flash, maxTurns: 10 + Zero-Citation Stop)
+    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + รันเทสต์ Tier 1–2 เองในตัว (sonnet / inherit, 20-Turn Target / maxTurns: 40)
+    │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, 8-Turn Target / maxTurns: 12)
+    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker หลัง Computational Sensors ผ่าน (research/flash, maxTurns: 35)
     ├── rules/                                  # กฎต้นฉบับ 6 ไฟล์
-    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents, Fresh Context (ห้าม Fork แชทหลัก) & ใช้ซ้ำตัวเดิม (<40 รอบ)
+    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents, กฎ 1 Slice ต่อคำสั่ง & ห้ามรัน Browser/WebFetch ในหน้าต่างหลัก
     │   ├── execution-discipline.md             # ส่งต่องาน State-Delta (<=8 บรรทัด), Grep ก่อนอ่านเฉพาะบรรทัด (>200 บรรทัด) & ห้าม git reset/restore
-    │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
+    │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ตามหลัก The Ratchet Pattern (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
     │   ├── code-simplicity.md                  # กฎ Karpathy: คิดก่อนทำ, เรียบง่ายที่สุด, แก้เฉพาะจุด, ไม่สร้างไฟล์ขยะ
     │   ├── testing-and-api.md                  # บังคับเทสต์โค้ดจริง (Verify RED ➔ GREEN) & ตรวจสิทธิ์ BOLA/IDOR
     │   └── ui-anti-slop.md                     # มาตรฐานออกแบบ UI 9 ด้าน (ใช้ lucide, tabular-nums, ห้ามวาด SVG เอง)
@@ -149,18 +141,19 @@ AI จะสกัดบทเรียนสั้นๆ บรรทัดเ�
   bash .claude/hooks/install-skill.sh pdf xlsx docx pptx webapp-testing mcp-builder
   ```
 
-### 5. มาตรฐานการส่งมอบงาน (`Next Steps` + `audit-session-proof.sh --brief`)
+### 5. มาตรฐานการส่งมอบงาน & ลวดสะดุดแจ้งเตือนอัตโนมัติ (`Next Steps` + `Harness Tripwires` ใน `audit-session-proof.sh --brief`)
 ทุกครั้งที่ AI ส่งมอบงานเสร็จ จะปิดท้ายด้วย 2 ส่วนนี้เสมอ:
-1. **`### ⏭️ ขั้นตอนถัดไป (Next Steps)` (1–3 ข้อกระชับ):** บอกชัดเจนว่าคุณต้องทำอะไรต่อ (เช่น มีไฟล์ Migration ใหม่ที่ต้องรัน `supabase db push`, จุดที่ควรเปิดตรวจบนหน้าเว็บ, หรือลำดับงานถัดไป)
-2. **`### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้` (4 บรรทัดจากสคริปต์จริง แยกเฉพาะคำสั่งล่าสุด + ยอดสะสมทั้งแชท):**
+1. **`### ⏭️ ขั้นตอนถัดไป (Next Steps)` (1–3 ข้อกระชับ):** บอกชัดเจนว่าคุณต้องทำอะไรต่อ (เช่น มีไฟล์ Migration ใหม่ที่ต้องรัน `supabase db push`, จุดที่ควรเปิดตรวจบนหน้าเว็บ, หรือลำดับงานถัดไป) และ **หยุดรอคำสั่งถัดไป (One Slice Per Prompt — ห้ามรันลูกโซ่ข้ามขั้นเองจนโควต้าหมด)**
+2. **`### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้` (5 บรรทัดจากสคริปต์จริง แยกเฉพาะคำสั่งล่าสุด + ยอดสะสมทั้งแชท + `Harness Tripwires`):**
    ```markdown
-   ### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้ (Antigravity Session `#c310d57e`)
-   - **รอบนี้ (3 รอบ):** Parent (Argon/Pro) `100.0%` (3 รอบ) | Subagents (Self) `0.0%` (0 รอบ) | Subagents (Flash) `0.0%` (0 รอบ) ➔ **Offload รอบนี้: `0.0%`** *(สะสมทั้งแชท 463 รอบ: Offload `79.0%`)*
-   - **Subagents รอบนี้:** เรียกใช้ `0` ตัว (`Explorer: 0`, `Implementer: 0`, `Debugger: 0`, `Reviewer: 0`) — ใช้ไป `0 tokens` *(สะสมทั้งแชท: `13` ตัว, `26,959,590 tokens`)*
-   - **Hooks รอบนี้:** สแกนไฟล์ `+2` ครั้ง | แก้ไฟล์+Checkpoint `+1` ครั้ง | รันเทสต์ `+0` ครั้ง | บล็อกคำสั่งผิดกฎ `+0` ครั้ง | 2-Strike: `0/3` *(สะสมทั้งโปรเจกต์: สแกน `2249`, แก้ `866`, เทสต์ `223`, บล็อก `10`)*
-   - **ความจำ & ส่งต่องาน:** Pitfalls `14/30` (**สกัดใหม่:** **[Printer / Thermal BLE & ESC/POS Raster (MP80C1)]:** Render Thai receipts as 1-bit monochrome raster bitmaps...) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ (`main@122b032`)
+   ### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้ (Antigravity Session `#7217c67b`)
+   - **สัดส่วนโมเดลคำสั่งนี้ (26 รอบ):** Parent (Fable 5.2) `73.1%` (19 รอบ) | Subagents (Sonnet) `26.9%` (7 รอบ) | Subagents (Haiku) `0.0%` (0 รอบ) ➔ **Offload รอบนี้: `26.9%`** *(สะสมทั้งแชท: 535 รอบ, Offload 58.9%)*
+   - **Subagents ที่เรียกในคำสั่งนี้:** `2` ตัว (`Explorer: 0`, `Implementer: 2`, `Debugger: 0`, `Reviewer: 0`) — รับภาระรอบนี้ `450,873 tokens` *(สะสมทั้งแชท: 10 ตัว)*
+   - **Hooks ที่ทำงานในคำสั่งนี้:** สแกนไฟล์ `2` ครั้ง | แก้ไฟล์+Checkpoint `0` ครั้ง | รันเทสต์ `0` ครั้ง | บล็อกผิดกฎ `0` ครั้ง | 2-Strike: `0/3` *(สะสมทั้งโปรเจกต์: สแกน 63, แก้ 71, เทสต์ 13)*
+   - **ความจำ & ส่งต่องาน:** Pitfalls `7/30` (รอบนี้ไม่มีเพิ่มใหม่) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ (`feat/sprint1-foundation@3bddbed`)
+   - **⚡ Harness Tripwires (Layer 6 SLA):** ✅ `ปกติ (No Behavioral Drift)` — รอบคำสั่ง `12/20` · สะสมหน้าต่างหลัก `50/80`
    ```
-   *(หากต้องการดูรายงานย้อนหลังทุกแชทแบบเต็ม ให้รัน `bash .claude/hooks/audit-session-proof.sh` ใน Terminal)*
+   *(หากหน้าต่างหลักสะสมเกิน 80 รอบ, คำสั่งเดียวรันเกิน 20 รอบ, หรือ Offload ต่ำกว่า 30% บรรทัด `⚡ Harness Tripwires` จะเปลี่ยนเป็นป้ายเตือน `⚠️ CONTEXT_WINDOW_BLOAT` / `⚠️ TURN_BUDGET_EXCEEDED` เพื่อเตือนให้พิมพ์ `/compact` หรือเปิดแชทใหม่ทันที)*
 
 ### 6. ส่งต่องานข้ามค่ายและกันความจำเสื่อมตอนย่อแชทอัตโนมัติ (`2-Layer TASK_STATE.md + PreCompact Continuity Ledger`)
 คุณสามารถสลับไปมาระหว่าง **Claude Code ⇄ Antigravity IDE** ได้ทันทีเมื่อโควต้าฝั่งใดฝั่งหนึ่งเต็ม หรือคุยงานต่อเนื่องยาวๆ โดยไม่ต้องพิมพ์คำสั่ง `/handoff` เอง:
@@ -199,6 +192,7 @@ bash .claude/hooks/open-hud.sh
 
 ## 📚 มาตรฐานและงานวิจัยอ้างอิง
 
+* **Harness Engineering (*Agent = Model + Harness: The 6-Layer Production Playbook*, 2026):** สถาปัตยกรรม 6 ชั้น (*Guides, Computational vs. Inferential Sensors, Capability Budgets, 4-Tier Externalized Memory, Graduated Permissions, และ Layer 6 Behavioral Drift Tripwires*) รวมถึง *The Ratchet Pattern* ของ Mitchell Hashimoto (Ghostty)
 * **[Anthropic AI-Native SDLC Playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook) & [`anthropics/skills`](https://github.com/anthropics/skills):** กลไก *Stage 3 Pitfall Memory Distillation*, *Stage 4 Anti-Test-Tampering Guard*, *Stage 5 Production Approval Gate*, และคลังทักษะจัดการเอกสารทางการ
 * **[`SkillsBench` (2026)](https://arxiv.org/abs/2602.12670) & *The Bitter Lesson*:** ตัดทักษะสอนไวยากรณ์ภาษาพื้นฐานที่ซ้ำกับ Pre-trained Weights ออก คงไว้เฉพาะ *Hard Guardrails*, *Project-Specific Pitfalls*, และ *Capability Tooling*
 * **[`cloudflare/security-audit-skill`](https://github.com/cloudflare/security-audit-skill):** การไล่เส้นทางช่องโหว่ `entrypoint ➔ propagation ➔ sink` และการตรวจสิทธิ์ `Multi-Tenant Data Isolation (BOLA/IDOR)`

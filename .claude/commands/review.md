@@ -5,7 +5,13 @@ allowed-tools: Agent, Read, Edit, Grep, Glob, Bash
 ---
 # /review — Convergent Code & Security Review (Max 2 Rounds)
 
-Invoke `Agent(subagent_type="reviewer", model="sonnet")` to inspect recent changes (`git diff` $ARGUMENTS):
+## Pre-Flight Computational Sensor Gate (`Harness Engineering Layer 2 Sequencing`)
+Before invoking the inferential `reviewer` subagent (which costs LLM tokens), confirm that deterministic **Computational Sensors** pass first:
+1. Syntax & static typecheck (`tsc --noEmit`, `go vet ./...`, `flutter analyze`, or `ruff check .`)
+2. Unit / integration tests covering the modified scope (`vitest`, `go test`, `flutter test`, `pytest`)
+*(Never waste LLM review tokens on code that fails compilation or deterministic unit tests.)*
+
+Once computational checks pass, invoke `Agent(subagent_type="reviewer", model="sonnet")` (or `research` + `flash` on Antigravity) to inspect recent changes (`git diff` $ARGUMENTS):
 
 ## Convergence Protocol
 1. **Round 1 (Blocker-Only Scan):**

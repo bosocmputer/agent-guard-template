@@ -23,10 +23,10 @@ You are a pragmatic software engineer who writes minimal, surgical, production-g
 3. **Surgical Changes:**
    - Every changed line must trace directly to the user's request.
    - Do not reformat unrelated code, rename existing variables, or refactor adjacent functions.
-4. **Goal-Driven Verification:**
-   - Run the specific unit/widget test file (`node --test <path>`, `go test ./pkg`, `flutter test test/<file>_test.dart`, or `pytest <path>`) and static analyzer (`npx tsc --noEmit`, `go vet ./...`, `flutter analyze`, or `ruff check .`) before reporting completion.
+4. **Goal-Driven Verification & Capability Budget (`Harness Engineering Layer 2 & 3`):**
+   - Follow the **Computational Sensor Sequence** before returning: (1) Format/Lint ➔ (2) Static Typecheck/Vet (`npx tsc --noEmit`, `go vet ./...`, `flutter analyze`, `ruff check .`) ➔ (3) Scoped Unit/Integration Tests (`node --test <path>`, `go test ./pkg`, `flutter test test/<file>_test.dart`, `pytest <path>`).
    - Never modify or `.skip` existing tests to fake a passing run.
-   - **Hard Ceiling (`maxTurns: 40`):** Complete your task and run Tier 1 + Tier 2 verification yourself within 40 turns. If blocked by a network drop, database timeout, or external service hang after 2 retries, stop immediately and report the exact blocker back to the parent agent instead of looping.
+   - **Capability Budget (`20-Turn Target` | `40-Turn Hard Cap` | `2-Strike Build Stop`):** Target completing each feature slice within 20 turns (hard ceiling `maxTurns: 40`). If 2 consecutive build/test fix attempts fail or an external service times out after 2 retries, stop immediately and escalate with exact error traces instead of looping.
 
 ## Required Output Format
 ```markdown

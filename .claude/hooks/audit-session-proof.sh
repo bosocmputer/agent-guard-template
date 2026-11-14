@@ -817,6 +817,25 @@ if brief_mode:
 
     print(f"- **Hooks ที่ทำงานในคำสั่งนี้:** สแกนไฟล์ `{d_reads}` ครั้ง | แก้ไฟล์+Checkpoint `{d_edits}` ครั้ง | รันเทสต์ `{d_tests}` ครั้ง | บล็อกผิดกฎ `{d_blocks}` ครั้ง | 2-Strike: `{strike_str}` *(สะสมทั้งโปรเจกต์: สแกน {tot_reads}, แก้ {tot_edits}, เทสต์ {tot_tests})*")
     print(pf_cmd_line)
+
+    # Layer 6 Observability & Behavioral Drift Tripwires (Harness Engineering Table IX & X)
+    tripwires = []
+    cur_strikes = int(td.get("strikeCount", 0)) if isinstance(td, dict) else 0
+    if cur_strikes >= 2:
+        tripwires.append(f"⚠️ `LOOP_STRIKE_HIGH` ({strike_str} — หยุดเดาและถามผู้ใช้)")
+    if cmd_opus > 20:
+        tripwires.append(f"⚠️ `TURN_BUDGET_EXCEEDED` (หน้าต่างหลักรัน {cmd_opus} รอบ > เพดาน 20 รอบ/คำสั่ง)")
+    if tot >= 25 and off_p < 30.0:
+        tripwires.append(f"⚠️ `LOW_SUBAGENT_OFFLOAD` (Offload สะสม {off_p}% < 30% — ควรโยนงานใหญ่ให้ Subagent)")
+    if acc["opus"] >= 80:
+        tripwires.append(f"⚠️ `CONTEXT_WINDOW_BLOAT` (หน้าต่างหลักสะสม {acc['opus']} รอบ — แนะนำพิมพ์ `/compact` หรือเปิดแชทใหม่เมื่อจบขั้นนี้)")
+    if d_blocks > 0:
+        tripwires.append(f"⚠️ `PERMISSION_GATE_TRIGGERED` (บล็อกคำสั่งผิดกฎ {d_blocks} ครั้งในรอบนี้)")
+
+    if tripwires:
+        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** {' | '.join(tripwires)}")
+    else:
+        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** ✅ `ปกติ (No Behavioral Drift)` — รอบคำสั่ง `{cmd_opus}/20` · สะสมหน้าต่างหลัก `{acc['opus']}/80`")
     sys.exit(0)
 
 print("================================================================================")
