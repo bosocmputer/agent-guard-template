@@ -944,18 +944,22 @@ def extract_session_proof_metrics(root_dir, state_obj=None):
                 for line in fp:
                     if "\"assistant\"" not in line:
                         continue
+                    if count_agents and "\"cache_read_input_tokens\"" in line:
+                        m_cr = re.search(r'"cache_read_input_tokens"\s*:\s*(\d+)', line)
+                        m_cc = re.search(r'"cache_creation_input_tokens"\s*:\s*(\d+)', line)
+                        cr_v = (int(m_cr.group(1)) if m_cr else 0) + (int(m_cc.group(1)) if m_cc else 0)
+                        if cr_v > 0:
+                            proof["lastCacheTokens"] = cr_v
                     if "\"model\"" in line:
                         m_match = re.search(r'"model"\s*:\s*"([^"]+)"', line)
                         if m_match:
                             m_low = m_match.group(1).lower()
-                            if "opus" in m_low:
+                            if m_low == "<synthetic>":
+                                continue
+                            if count_agents:
                                 proof["opusTurns"] += 1
-                            elif "sonnet" in m_low:
-                                proof["sonnetTurns"] += 1
                             elif "haiku" in m_low:
                                 proof["haikuTurns"] += 1
-                            elif count_agents:
-                                proof["opusTurns"] += 1
                             else:
                                 proof["sonnetTurns"] += 1
                     if count_agents and "\"name\":\"Agent\"" in line.replace(" ", ""):
@@ -1495,6 +1499,10 @@ os.replace(tmp, t_file)
 PYEOF
 fi
 
+if [ "$MODE_TYPE" = "stdin" ] && [ "$HOOK_STAGE" = "stop" ]; then
+  bash "$PROJECT_ROOT/.claude/hooks/audit-session-proof.sh" --brief "$PROJECT_ROOT" >/dev/null 2>&1 || true
+fi
+
 if [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "antigravity" ]; then
   if [ "$HOOK_STAGE" = "read" ] || [ "$HOOK_STAGE" = "stop" ] || [ "$HOOK_STAGE" = "agent" ]; then
     printf '{"decision":"allow"}\n'
@@ -1508,6 +1516,11 @@ if [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "antigravity" ]; then
     printf '{}\n'
   fi
 elif [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "claude" ] && [ "$HOOK_STAGE" = "prompt" ]; then
-  echo "[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตล่วงหน้าอย่างเป็นทางการให้เรียกใช้เครื่องมือ Agent ทันทีเมื่อเจอก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ Agent(subagent_type='explorer', model='haiku') | แก้โค้ดหลายไฟล์+รันเทสต์ย่อย ➔ Agent(subagent_type='implementer', model='sonnet') | ซ่อมบั๊ก ➔ Agent(subagent_type='debugger', model='sonnet') | รีวิว/รัน E2E ➔ Agent(subagent_type='reviewer', model='sonnet')) เพื่อประหยัดโควต้าหน้าต่างหลัก"
+  LAST_CTX_TOK=$(grep -oE '"lastCacheTokens"[[:space:]]*:[[:space:]]*[0-9]+' "$TELEMETRY_FILE" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+  if [ "${LAST_CTX_TOK:-0}" -ge 150000 ] 2>/dev/null; then
+    echo "[MODEL-ROUTING AUTHORIZED + 🚨 CONTEXT BLOAT WARNING (${LAST_CTX_TOK} tokens/turn)]: แชทนี้สะสม Context เกิน 150,000 tokens แล้ว! บังคับโยนงานเขียนโค้ด/รันเทสต์ให้ Agent(subagent_type='implementer', model='sonnet') หรือ Agent(subagent_type='explorer', model='haiku') เท่านั้น ห้ามรัน Bash/Edit หลายรอบในหน้าต่างหลัก และให้แจ้งเตือนผู้ใช้ท้ายคำตอบให้พิมพ์ /clear เพื่อเริ่มแชทใหม่หลังจบขั้นนี้"
+  else
+    echo "[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตล่วงหน้าอย่างเป็นทางการให้เรียกใช้เครื่องมือ Agent ทันทีเมื่อเจอก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ Agent(subagent_type='explorer', model='haiku') | แก้โค้ดหลายไฟล์+รันเทสต์ย่อย ➔ Agent(subagent_type='implementer', model='sonnet') | ซ่อมบั๊ก ➔ Agent(subagent_type='debugger', model='sonnet') | รีวิว/รัน E2E ➔ Agent(subagent_type='reviewer', model='sonnet')) เพื่อประหยัดโควต้าหน้าต่างหลัก"
+  fi
 fi
 exit 0

@@ -45,6 +45,28 @@ def format_claude_model_label(raw_m):
         return "Parent (Haiku)"
     return f"Parent ({raw_m})"
 
+def extract_user_text_from_msg_content(msg_c):
+    raw_s = ""
+    if isinstance(msg_c, str):
+        raw_s = msg_c
+    elif isinstance(msg_c, list):
+        parts = []
+        for item in msg_c:
+            if isinstance(item, dict) and item.get("type") == "text":
+                t_val = str(item.get("text") or "")
+                if t_val and not any(tag in t_val for tag in ("<task-notification>", "<local-command-", "<command-name>", "<system-reminder>", "<browser_instruction>")):
+                    parts.append(t_val)
+        raw_s = " ".join(parts)
+    if not raw_s or len(raw_s.strip()) <= 2:
+        return ""
+    if any(tag in raw_s for tag in ("<task-notification>", "<local-command-", "<command-name>", "<system-reminder>", "Another Claude session sent a message:")):
+        return ""
+    clean_u = re.sub(r"<[^>]+>.*?</[^>]+>", " ", raw_s, flags=re.S)
+    clean_u = " ".join(clean_u.split()).strip()
+    if clean_u in ("[Request interrupted by user for tool use]",):
+        return ""
+    return clean_u
+
 def scan_file(fpath, acc, is_parent=False):
     s_turns = {"opus": 0, "sonnet": 0, "haiku": 0}
     try:
@@ -58,25 +80,19 @@ def scan_file(fpath, acc, is_parent=False):
                         uo = json.loads(line)
                         if uo.get("type") == "user":
                             msg_c = (uo.get("message") or {}).get("content")
-                            if (
-                                isinstance(msg_c, str)
-                                and len(msg_c.strip()) > 2
-                                and not any(tag in msg_c for tag in ("<task-notification>", "<local-command-", "<command-name>", "<system-reminder>"))
-                            ):
-                                clean_u = re.sub(r"<[^>]+>.*?</[^>]+>", " ", msg_c, flags=re.S)
-                                clean_u = " ".join(clean_u.split()).strip()
-                                if clean_u:
-                                    if not acc["first_prompt"]:
-                                        acc["first_prompt"] = clean_u[:75]
-                                    acc["last_prompt"] = clean_u[:75]
-                                    acc["prompt_opus"] = 0
-                                    acc["prompt_sonnet"] = 0
-                                    acc["prompt_haiku"] = 0
-                                    acc["prompt_steps"] = 1
-                                    acc["prompt_sub_calls"] = 0
-                                    acc["prompt_roles"] = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
-                                    acc["prompt_sub_tokens"] = 0
-                                    acc["prompt_tool_use_ids"] = set()
+                            clean_u = extract_user_text_from_msg_content(msg_c)
+                            if clean_u:
+                                if not acc["first_prompt"]:
+                                    acc["first_prompt"] = clean_u[:75]
+                                acc["last_prompt"] = clean_u[:75]
+                                acc["prompt_opus"] = 0
+                                acc["prompt_sonnet"] = 0
+                                acc["prompt_haiku"] = 0
+                                acc["prompt_steps"] = 1
+                                acc["prompt_sub_calls"] = 0
+                                acc["prompt_roles"] = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
+                                acc["prompt_sub_tokens"] = 0
+                                acc["prompt_tool_use_ids"] = set()
                     except Exception:
                         pass
                 if is_parent and "<task-notification>" in line and "<subagent_tokens>" in line:
@@ -89,6 +105,12 @@ def scan_file(fpath, acc, is_parent=False):
                         acc["prompt_sub_tokens"] = acc.get("prompt_sub_tokens", 0) + tok_v
                 if not re.search(r'"type"\s*:\s*"assistant"', line):
                     continue
+                if is_parent and '"cache_read_input_tokens"' in line:
+                    m_cr = re.search(r'"cache_read_input_tokens"\s*:\s*(\d+)', line)
+                    m_cc = re.search(r'"cache_creation_input_tokens"\s*:\s*(\d+)', line)
+                    cr_val = (int(m_cr.group(1)) if m_cr else 0) + (int(m_cc.group(1)) if m_cc else 0)
+                    if cr_val > 0:
+                        acc["last_cache_tokens"] = cr_val
                 m_match = re.search(r'"model"\s*:\s*"([^"]+)"', line)
                 if m_match:
                     raw_m = m_match.group(1).strip()
@@ -628,12 +650,10 @@ def extract_latest_session_tail(p_dir, all_sess):
                     tp = obj.get("type")
                     if tp == "user":
                         mc = (obj.get("message") or {}).get("content")
-                        if isinstance(mc, str) and len(mc.strip()) > 2 and not any(t in mc for t in ("<task-notification>", "<local-command-", "<command-name>", "<system-reminder>")):
-                            cl = re.sub(r"<[^>]+>.*?</[^>]+>", " ", mc, flags=re.S)
-                            cl = " ".join(cl.split()).strip()
-                            if cl:
-                                info["user_prompt"] = cl[:350]
-                                info["subagent_task"] = ""
+                        cl = extract_user_text_from_msg_content(mc)
+                        if cl:
+                            info["user_prompt"] = cl[:350]
+                            info["subagent_task"] = ""
                     elif tp == "assistant":
                         for b in ((obj.get("message") or {}).get("content") or []):
                             if isinstance(b, dict):
@@ -918,15 +938,19 @@ if brief_mode:
         tripwires.append(f"⚠️ `TURN_BUDGET_EXCEEDED` (หน้าต่างหลักรัน {cmd_opus} รอบ > เพดาน 20 รอบ/คำสั่ง)")
     if tot >= 25 and off_p < 30.0:
         tripwires.append(f"⚠️ `LOW_SUBAGENT_OFFLOAD` (Offload สะสม {off_p}% < 30% — ควรโยนงานใหญ่ให้ Subagent)")
-    if acc["opus"] >= 80:
-        tripwires.append(f"⚠️ `CONTEXT_WINDOW_BLOAT` (หน้าต่างหลักสะสม {acc['opus']} รอบ — แนะนำพิมพ์ `/compact` หรือเปิดแชทใหม่เมื่อจบขั้นนี้)")
+    last_cache_tok = int(acc.get("last_cache_tokens") or 0)
+    if last_cache_tok >= 150000:
+        tripwires.append(f"🚨 `CONTEXT_TOKEN_BLOAT` (Context สะสม {last_cache_tok:,} tokens/รอบ > 150k — พิมพ์ `/clear` ทันทีเมื่อจบขั้นนี้เพื่อประหยัดโควต้า 64%)")
+    elif acc["opus"] >= 80:
+        tripwires.append(f"⚠️ `CONTEXT_WINDOW_BLOAT` (หน้าต่างหลักสะสม {acc['opus']} รอบ — แนะนำพิมพ์ `/clear` หรือเปิดแชทใหม่เมื่อจบขั้นนี้)")
     if d_blocks > 0:
         tripwires.append(f"⚠️ `PERMISSION_GATE_TRIGGERED` (บล็อกคำสั่งผิดกฎ {d_blocks} ครั้งในรอบนี้)")
 
     if tripwires:
         print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** {' | '.join(tripwires)}")
     else:
-        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** ✅ `ปกติ (No Behavioral Drift)` — รอบคำสั่ง `{cmd_opus}/20` · สะสมหน้าต่างหลัก `{acc['opus']}/80`")
+        ctx_note = f" · Context `{last_cache_tok:,}/150,000 tokens`" if last_cache_tok > 0 else ""
+        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** ✅ `ปกติ (No Behavioral Drift)` — รอบคำสั่ง `{cmd_opus}/20` · สะสมหน้าต่างหลัก `{acc['opus']}/80`{ctx_note}")
     sys.exit(0)
 
 print("================================================================================")
