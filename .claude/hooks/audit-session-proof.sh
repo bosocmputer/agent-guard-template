@@ -67,8 +67,19 @@ def extract_user_text_from_msg_content(msg_c):
         return ""
     return clean_u
 
+def classify_claude_subagent_desk(agent_type, desc=""):
+    comb = (str(agent_type or "") + " " + str(desc or "")).lower()
+    if any(k in comb for k in ("explor", "map ", "scan", "search", "find ")):
+        return "explorer"
+    if any(k in comb for k in ("debug", "fix ", "defect")):
+        return "debugger"
+    if any(k in comb for k in ("review", "security", "verif", "browser", "audit", "qa ", "e2e")):
+        return "reviewer"
+    return "implementer"
+
 def scan_file(fpath, acc, is_parent=False):
     s_turns = {"opus": 0, "sonnet": 0, "haiku": 0}
+    seen_msg_ids = set()
     try:
         with open(fpath, "r", encoding="utf-8", errors="ignore") as fp:
             for line in fp:
@@ -111,6 +122,29 @@ def scan_file(fpath, acc, is_parent=False):
                     cr_val = (int(m_cr.group(1)) if m_cr else 0) + (int(m_cc.group(1)) if m_cc else 0)
                     if cr_val > 0:
                         acc["last_cache_tokens"] = cr_val
+                if is_parent and '"name":"Agent"' in line.replace(" ", ""):
+                    try:
+                        obj = json.loads(line)
+                        if obj.get("type") == "assistant":
+                            for c in ((obj.get("message") or {}).get("content") or []):
+                                if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Agent":
+                                    acc["sub_calls"] += 1
+                                    acc["prompt_sub_calls"] = acc.get("prompt_sub_calls", 0) + 1
+                                    tuid = str(c.get("id") or "")
+                                    if tuid:
+                                        acc["prompt_tool_use_ids"].add(tuid)
+                                    inp_c = c.get("input") or {}
+                                    dk = classify_claude_subagent_desk(inp_c.get("subagent_type"), inp_c.get("description"))
+                                    acc["parent_roles"][dk] = acc["parent_roles"].get(dk, 0) + 1
+                                    acc["prompt_roles"][dk] = acc["prompt_roles"].get(dk, 0) + 1
+                    except Exception:
+                        pass
+                m_mid = re.search(r'"id"\s*:\s*"(msg_[^"]+)"', line)
+                if m_mid:
+                    mid_val = m_mid.group(1)
+                    if mid_val in seen_msg_ids:
+                        continue
+                    seen_msg_ids.add(mid_val)
                 m_match = re.search(r'"model"\s*:\s*"([^"]+)"', line)
                 if m_match:
                     raw_m = m_match.group(1).strip()
@@ -128,23 +162,6 @@ def scan_file(fpath, acc, is_parent=False):
                     else:
                         acc["sonnet"] += 1
                         s_turns["sonnet"] += 1
-                if is_parent and '"name":"Agent"' in line.replace(" ", ""):
-                    try:
-                        obj = json.loads(line)
-                        if obj.get("type") == "assistant":
-                            for c in ((obj.get("message") or {}).get("content") or []):
-                                if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Agent":
-                                    acc["sub_calls"] += 1
-                                    acc["prompt_sub_calls"] = acc.get("prompt_sub_calls", 0) + 1
-                                    tuid = str(c.get("id") or "")
-                                    if tuid:
-                                        acc["prompt_tool_use_ids"].add(tuid)
-                                    st = str((c.get("input") or {}).get("subagent_type") or "implementer").lower()
-                                    dk = "explorer" if "explor" in st else ("debugger" if "debug" in st else ("reviewer" if ("review" in st or "security" in st) else "implementer"))
-                                    acc["parent_roles"][dk] = acc["parent_roles"].get(dk, 0) + 1
-                                    acc["prompt_roles"][dk] = acc["prompt_roles"].get(dk, 0) + 1
-                    except Exception:
-                        pass
     except Exception:
         pass
     return s_turns
@@ -185,23 +202,34 @@ def analyze_session(jf):
     sub_dir = os.path.join(proj_dir, sess_id, "subagents")
     sub_files = glob.glob(os.path.join(sub_dir, "agent-*.jsonl")) if os.path.isdir(sub_dir) else []
     acc["sub_files"] = len(sub_files)
+    verified_prompt_roles = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
+    verified_prompt_subs = 0
     for sf in sub_files:
         s_turns = scan_file(sf, acc, is_parent=False)
         meta_f = sf.replace(".jsonl", ".meta.json")
         if os.path.isfile(meta_f):
             try:
                 mo = json.load(open(meta_f, encoding="utf-8"))
-                at = str(mo.get("agentType") or mo.get("description") or "").lower()
-                dk = "explorer" if "explor" in at else ("debugger" if "debug" in at else ("reviewer" if ("review" in at or "security" in at) else "implementer"))
+                dk = classify_claude_subagent_desk(mo.get("agentType"), mo.get("description"))
                 acc["meta_roles"][dk] = acc["meta_roles"].get(dk, 0) + 1
                 tuid = str(mo.get("toolUseId") or "")
                 if tuid and tuid in acc["prompt_tool_use_ids"]:
                     acc["prompt_sonnet"] += s_turns.get("sonnet", 0)
                     acc["prompt_haiku"] += s_turns.get("haiku", 0)
+                    verified_prompt_roles[dk] = verified_prompt_roles.get(dk, 0) + 1
+                    verified_prompt_subs += 1
             except Exception:
                 pass
-    acc["roles"] = acc["meta_roles"] if sum(acc["meta_roles"].values()) > 0 else acc["parent_roles"]
-    acc["prompt_sub_count"] = acc["prompt_sub_calls"]
+    if sum(acc["meta_roles"].values()) > 0:
+        acc["roles"] = acc["meta_roles"]
+        acc["sub_calls"] = acc["sub_files"]
+    else:
+        acc["roles"] = acc["parent_roles"]
+    if verified_prompt_subs > 0:
+        acc["prompt_roles"] = verified_prompt_roles
+        acc["prompt_sub_count"] = verified_prompt_subs
+    else:
+        acc["prompt_sub_count"] = acc["prompt_sub_calls"]
     return acc
 
 def classify_ag_desk(sub_type, sub_role):
