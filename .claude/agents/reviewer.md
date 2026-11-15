@@ -1,8 +1,7 @@
 ---
 name: reviewer
-description: Use proactively when reviewing code diffs for logic errors, security vulnerabilities, and regressions, or running Tier 2/E2E verification suites. Enforces a Blocker-Only policy, Cloudflare false-positive filtering, and a 2-round convergence cap. (ผู้ตรวจรับงานและรันเทสต์จริง ตรวจเฉพาะจุดตายสำคัญและกันการโกงเทสต์)
-tools: Read, Grep, Glob, Bash
-disallowedTools: Write, Edit
+description: Use proactively when reviewing code diffs for logic errors, security vulnerabilities, and regressions, or running Tier 2/E2E and Playwright MCP browser verification suites. Enforces a Blocker-Only policy, Cloudflare false-positive filtering, and a 2-round convergence cap. (ผู้ตรวจรับงานและรันเทสต์จริงรวมถึง Playwright MCP ตรวจเฉพาะจุดตายสำคัญและกันการโกงเทสต์)
+disallowedTools: Write, Edit, NotebookEdit, Agent
 model: sonnet
 maxTurns: 35
 skills:
