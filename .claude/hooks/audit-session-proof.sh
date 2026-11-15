@@ -78,7 +78,7 @@ def classify_claude_subagent_desk(agent_type, desc=""):
     return "implementer"
 
 def scan_file(fpath, acc, is_parent=False):
-    s_turns = {"opus": 0, "sonnet": 0, "haiku": 0}
+    s_turns = {"opus": 0, "sonnet": 0, "haiku": 0, "reads": 0, "edits": 0, "tests": 0}
     seen_msg_ids = set()
     try:
         with open(fpath, "r", encoding="utf-8", errors="ignore") as fp:
@@ -96,14 +96,19 @@ def scan_file(fpath, acc, is_parent=False):
                                 if not acc["first_prompt"]:
                                     acc["first_prompt"] = clean_u[:75]
                                 acc["last_prompt"] = clean_u[:75]
-                                acc["prompt_opus"] = 0
-                                acc["prompt_sonnet"] = 0
-                                acc["prompt_haiku"] = 0
-                                acc["prompt_steps"] = 1
-                                acc["prompt_sub_calls"] = 0
-                                acc["prompt_roles"] = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
-                                acc["prompt_sub_tokens"] = 0
-                                acc["prompt_tool_use_ids"] = set()
+                                is_short_resume = len(clean_u) <= 45 and any(k in clean_u.lower() for k in ("ทำต่อ", "ลุยต่อ", "ต่อเลย", "continue", "resume"))
+                                if not is_short_resume:
+                                    acc["prompt_opus"] = 0
+                                    acc["prompt_sonnet"] = 0
+                                    acc["prompt_haiku"] = 0
+                                    acc["prompt_steps"] = 1
+                                    acc["prompt_sub_calls"] = 0
+                                    acc["prompt_roles"] = {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0}
+                                    acc["prompt_sub_tokens"] = 0
+                                    acc["prompt_tool_use_ids"] = set()
+                                    acc["prompt_reads"] = 0
+                                    acc["prompt_edits"] = 0
+                                    acc["prompt_tests"] = 0
                     except Exception:
                         pass
                 if is_parent and "<task-notification>" in line and "<subagent_tokens>" in line:
@@ -122,21 +127,49 @@ def scan_file(fpath, acc, is_parent=False):
                     cr_val = (int(m_cr.group(1)) if m_cr else 0) + (int(m_cc.group(1)) if m_cc else 0)
                     if cr_val > 0:
                         acc["last_cache_tokens"] = cr_val
-                if is_parent and '"name":"Agent"' in line.replace(" ", ""):
+                if '"tool_use"' in line:
                     try:
                         obj = json.loads(line)
                         if obj.get("type") == "assistant":
                             for c in ((obj.get("message") or {}).get("content") or []):
-                                if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Agent":
-                                    acc["sub_calls"] += 1
-                                    acc["prompt_sub_calls"] = acc.get("prompt_sub_calls", 0) + 1
-                                    tuid = str(c.get("id") or "")
-                                    if tuid:
-                                        acc["prompt_tool_use_ids"].add(tuid)
+                                if isinstance(c, dict) and c.get("type") == "tool_use":
+                                    tn = str(c.get("name") or "")
                                     inp_c = c.get("input") or {}
-                                    dk = classify_claude_subagent_desk(inp_c.get("subagent_type"), inp_c.get("description"))
-                                    acc["parent_roles"][dk] = acc["parent_roles"].get(dk, 0) + 1
-                                    acc["prompt_roles"][dk] = acc["prompt_roles"].get(dk, 0) + 1
+                                    if is_parent and tn == "Agent":
+                                        acc["sub_calls"] += 1
+                                        acc["prompt_sub_calls"] = acc.get("prompt_sub_calls", 0) + 1
+                                        tuid = str(c.get("id") or "")
+                                        if tuid:
+                                            acc["prompt_tool_use_ids"].add(tuid)
+                                        dk = classify_claude_subagent_desk(inp_c.get("subagent_type"), inp_c.get("description"))
+                                        acc["parent_roles"][dk] = acc["parent_roles"].get(dk, 0) + 1
+                                        acc["prompt_roles"][dk] = acc["prompt_roles"].get(dk, 0) + 1
+                                    elif tn in ("Read", "Grep", "Glob"):
+                                        s_turns["reads"] += 1
+                                        if is_parent:
+                                            acc["prompt_reads"] = acc.get("prompt_reads", 0) + 1
+                                    elif tn in ("Write", "Edit", "MultiEdit"):
+                                        s_turns["edits"] += 1
+                                        if is_parent:
+                                            acc["prompt_edits"] = acc.get("prompt_edits", 0) + 1
+                                    elif tn.startswith("mcp__playwright__browser_"):
+                                        s_turns["tests"] += 1
+                                        if is_parent:
+                                            acc["prompt_tests"] = acc.get("prompt_tests", 0) + 1
+                                    elif tn == "Bash":
+                                        cmd_s = str(inp_c.get("command") or "")
+                                        if any(k in cmd_s for k in ("go test", "go vet", "npm run test", "npm test", "npm run typecheck", "npm run build", "vitest", "pytest", "flutter test")):
+                                            s_turns["tests"] += 1
+                                            if is_parent:
+                                                acc["prompt_tests"] = acc.get("prompt_tests", 0) + 1
+                                        if any(k in cmd_s for k in ("cat >", "sed -i", "python3 - <<")):
+                                            s_turns["edits"] += 1
+                                            if is_parent:
+                                                acc["prompt_edits"] = acc.get("prompt_edits", 0) + 1
+                                        elif any(k in cmd_s for k in ("grep ", "sed -n", "cat ")):
+                                            s_turns["reads"] += 1
+                                            if is_parent:
+                                                acc["prompt_reads"] = acc.get("prompt_reads", 0) + 1
                     except Exception:
                         pass
                 m_mid = re.search(r'"id"\s*:\s*"(msg_[^"]+)"', line)
@@ -145,6 +178,12 @@ def scan_file(fpath, acc, is_parent=False):
                     if mid_val in seen_msg_ids:
                         continue
                     seen_msg_ids.add(mid_val)
+                if not is_parent:
+                    m_in_t = re.search(r'"input_tokens"\s*:\s*(\d+)', line)
+                    m_out_t = re.search(r'"output_tokens"\s*:\s*(\d+)', line)
+                    m_cr_t = re.search(r'"cache_read_input_tokens"\s*:\s*(\d+)', line)
+                    m_cc_t = re.search(r'"cache_creation_input_tokens"\s*:\s*(\d+)', line)
+                    s_turns["tokens"] = s_turns.get("tokens", 0) + (int(m_in_t.group(1)) if m_in_t else 0) + (int(m_out_t.group(1)) if m_out_t else 0) + (int(m_cr_t.group(1)) if m_cr_t else 0) + (int(m_cc_t.group(1)) if m_cc_t else 0)
                 m_match = re.search(r'"model"\s*:\s*"([^"]+)"', line)
                 if m_match:
                     raw_m = m_match.group(1).strip()
@@ -194,6 +233,9 @@ def analyze_session(jf):
         "prompt_roles": {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0},
         "prompt_sub_tokens": 0,
         "prompt_tool_use_ids": set(),
+        "prompt_reads": 0,
+        "prompt_edits": 0,
+        "prompt_tests": 0,
     }
     scan_file(jf, acc, is_parent=True)
     if acc["parent_models"]:
@@ -206,6 +248,9 @@ def analyze_session(jf):
     verified_prompt_subs = 0
     for sf in sub_files:
         s_turns = scan_file(sf, acc, is_parent=False)
+        sf_id = os.path.splitext(os.path.basename(sf))[0].replace("agent-", "")
+        if s_turns.get("tokens", 0) > 0:
+            acc["sub_tokens_by_id"][sf_id] = max(acc["sub_tokens_by_id"].get(sf_id, 0), s_turns["tokens"])
         meta_f = sf.replace(".jsonl", ".meta.json")
         if os.path.isfile(meta_f):
             try:
@@ -216,6 +261,11 @@ def analyze_session(jf):
                 if tuid and tuid in acc["prompt_tool_use_ids"]:
                     acc["prompt_sonnet"] += s_turns.get("sonnet", 0)
                     acc["prompt_haiku"] += s_turns.get("haiku", 0)
+                    acc["prompt_reads"] = acc.get("prompt_reads", 0) + s_turns.get("reads", 0)
+                    acc["prompt_edits"] = acc.get("prompt_edits", 0) + s_turns.get("edits", 0)
+                    acc["prompt_tests"] = acc.get("prompt_tests", 0) + s_turns.get("tests", 0)
+                    if s_turns.get("tokens", 0) > 0:
+                        acc["prompt_sub_tokens"] = max(acc.get("prompt_sub_tokens", 0), 0)
                     verified_prompt_roles[dk] = verified_prompt_roles.get(dk, 0) + 1
                     verified_prompt_subs += 1
             except Exception:
@@ -859,6 +909,9 @@ if brief_mode:
         d_blocks = max(0, tot_blocks - int(base_st.get("blockedCount", 0)))
     else:
         d_reads, d_edits, d_tests, d_blocks = tot_reads, tot_edits, tot_tests, tot_blocks
+    d_reads = max(d_reads, int(acc.get("prompt_reads") or 0))
+    d_edits = max(d_edits, int(acc.get("prompt_edits") or 0))
+    d_tests = max(d_tests, int(acc.get("prompt_tests") or 0))
 
     # คำนวณรอบโมเดลและ Subagents ของคำสั่งนี้
     if acc.get("has_live_prompt") and (acc.get("prompt_opus", 0) > 0 or acc.get("prompt_sub_count", 0) > 0):

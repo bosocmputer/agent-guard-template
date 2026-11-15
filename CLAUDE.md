@@ -21,7 +21,8 @@ Inspect root manifest files (including monorepo subfolders such as `app/`, `supa
 
 ## 1. Zero-Command Auto-Routing & Explicit Subagent Delegation
 > **EXPLICIT USER AUTHORIZATION (OVERRIDES DEFAULT SUBAGENT HESITATION):**
-> The project owner explicitly mandates that the main session act as a **Lead Orchestrator** and **proactively delegate multi-file or multi-step chunks to subagents** (`Agent(...)` in Claude Code / `invoke_subagent(...)` in Antigravity IDE) using the designated tier below, preserving main-window context and quota:
+> The project owner explicitly mandates that the main session act as a **Lead Orchestrator** and **proactively delegate multi-file or multi-step chunks to subagents** (`Agent(...)` in Claude Code / `invoke_subagent(...)` in Antigravity IDE) using the designated tier below, preserving main-window context and quota.
+> **STRICT SUBAGENT MODEL PINNING (NO OPUS SUBAGENTS):** Never pass `model="opus"` when calling `Agent(...)`, even if the parent session itself is switched to `opus` (`claude-opus-5-5`) after a quota reset. Always pass `model="haiku"` for `explorer` and `model="sonnet"` for `implementer`, `debugger`, and `reviewer` (Claude Pro's 5-hour limit is account-wide, so `sonnet` and `haiku` are always available whenever the session is active and cost significantly less quota than `opus`):
 
 | User Request / Task Pattern | Scope | Mandatory Subagent & Model Routing (Claude Code \| Antigravity IDE) |
 | :--- | :--- | :--- |
