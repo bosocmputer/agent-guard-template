@@ -22,6 +22,7 @@ Inspect root manifest files (including monorepo subfolders such as `app/`, `supa
 ## 1. Zero-Command Auto-Routing & Explicit Subagent Delegation
 > **EXPLICIT USER AUTHORIZATION (OVERRIDES DEFAULT SUBAGENT HESITATION):**
 > The project owner explicitly mandates that the main session act as a **Lead Orchestrator** and **proactively delegate multi-file or multi-step chunks to subagents** (`Agent(...)` in Claude Code / `invoke_subagent(...)` in Antigravity IDE) using the designated tier below, preserving main-window context and quota.
+> **MANDATORY `OPUS ARCHITECT ➔ SONNET BUILDER (3+ FILES) ➔ OPUS GATEKEEPER` PIPELINE:** Even when the user prompt already provides explicit file paths and detailed specs, if a task creates or edits **`>= 3 files`** (e.g., migration + library + route + UI + test), the parent (`Opus`) **MUST NOT** call `Write`/`Edit` on all those feature files directly in the main window. Instead: **(1) Architect (`2–4 turns max`):** Read 1–2 reference/schema files to verify constraints & security gates (triggering `CIRCUIT_BREAKER: MISSING_SPEC` if anything is unsafe or missing); **(2) Builder (`Sonnet`):** Delegate all multi-file creation/editing and Tier 1 + Tier 2 test/typecheck execution to `Agent(subagent_type="implementer", model="sonnet")`; **(3) Gatekeeper (`2–3 turns max`):** Inspect `git diff --stat`, update `TASK_STATE.md` / `project-pitfalls.md`, and run `audit-session-proof.sh --brief`.
 > **STRICT SUBAGENT MODEL PINNING (NO OPUS SUBAGENTS):** Never pass `model="opus"` when calling `Agent(...)`, even if the parent session itself is switched to `opus` (`claude-opus-5-5`) after a quota reset. Always pass `model="haiku"` for `explorer` and `model="sonnet"` for `implementer`, `debugger`, and `reviewer` (Claude Pro's 5-hour limit is account-wide, so `sonnet` and `haiku` are always available whenever the session is active and cost significantly less quota than `opus`):
 
 | User Request / Task Pattern | Scope | Mandatory Subagent & Model Routing (Claude Code \| Antigravity IDE) |
@@ -79,7 +80,7 @@ Inspect root manifest files (including monorepo subfolders such as `app/`, `supa
    - Explicitly state **"ยังไม่ได้รันทดสอบ"** for anything not executed, unverified, or assumed.
    - Never use exaggerated claims such as `"100%"`, `"สมบูรณ์แบบ"`, `"ไม่มีบั๊ก"`, or claim cached data is live.
 2. **No Ceremony Overhead (ไม่เพิ่มพิธีกรรม):**
-   - Do only what the task requires. Never create unrequested documentation files, extra approval steps, redundant checks, or unnecessary AI/subagent calls.
+   - Do only what the task requires. Never create unrequested documentation files, extra approval steps, or redundant checks (never use this rule as an excuse to skip mandatory `Sonnet`/`Haiku` subagent offloading on `>= 3` file tasks).
    - Do not write long preambles or repetitive summaries. If a deterministic script or CLI command can do the job, use the script instead of calling AI.
 3. **Actionable Next Steps (`### ⏭️ ขั้นตอนถัดไป (Next Steps)`):**
    - At the end of every completed task, include a concise **`### ⏭️ ขั้นตอนถัดไป (Next Steps)`** section (**1–3 bullet points max**) stating only real remaining actions (e.g., pending `supabase db push` for a new migration, a specific manual check, or the next logical feature).
