@@ -25,6 +25,17 @@ root_dir = os.path.realpath(sys.argv[1])
 brief_mode = sys.argv[2] == "1"
 slug = re.sub(r"[^A-Za-z0-9-]", "-", root_dir)
 proj_dir = os.path.expanduser(f"~/.claude/projects/{slug}")
+if not glob.glob(os.path.join(proj_dir, "*.jsonl")):
+    try:
+        g_common = subprocess.check_output(["git", "--no-optional-locks", "rev-parse", "--git-common-dir"], cwd=root_dir, stderr=subprocess.DEVNULL, timeout=1.5).decode("utf-8", errors="ignore").strip()
+        if g_common:
+            main_root = os.path.dirname(os.path.realpath(os.path.join(root_dir, g_common)))
+            alt_slug = re.sub(r"[^A-Za-z0-9-]", "-", main_root)
+            alt_proj = os.path.expanduser(f"~/.claude/projects/{alt_slug}")
+            if glob.glob(os.path.join(alt_proj, "*.jsonl")):
+                proj_dir = alt_proj
+    except Exception:
+        pass
 t_file = os.path.join(root_dir, ".claude", ".telemetry.json")
 
 def format_claude_model_label(raw_m):
