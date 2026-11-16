@@ -1032,7 +1032,9 @@ if brief_mode:
     burn_5hr_sub = 0
     burn_5hr_projs = set()
     try:
+        from datetime import timezone
         cutoff_5hr = time.time() - (5 * 3600)
+        cutoff_iso = datetime.fromtimestamp(cutoff_5hr, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
         all_proj_root = os.path.expanduser("~/.claude/projects")
         if os.path.isdir(all_proj_root):
             for p_slug in os.listdir(all_proj_root):
@@ -1044,9 +1046,13 @@ if brief_mode:
                     if os.path.getmtime(jf_cand) < cutoff_5hr:
                         continue
                     seen_p_ids = set()
+                    last_ts_ok = False
                     with open(jf_cand, "r", encoding="utf-8", errors="ignore") as fp_b:
                         for ln_b in fp_b:
-                            if '"type":"assistant"' in ln_b.replace(" ", ""):
+                            m_ts = re.search(r'"timestamp"\s*:\s*"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})', ln_b)
+                            if m_ts:
+                                last_ts_ok = (m_ts.group(1) >= cutoff_iso)
+                            if last_ts_ok and '"type":"assistant"' in ln_b.replace(" ", ""):
                                 m_id_b = re.search(r'"id"\s*:\s*"(msg_[^"]+)"', ln_b)
                                 if m_id_b and m_id_b.group(1) not in seen_p_ids:
                                     seen_p_ids.add(m_id_b.group(1))
