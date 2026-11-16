@@ -210,6 +210,9 @@ def scan_file(fpath, acc, is_parent=False):
                         acc["haiku"] += 1
                         s_turns["haiku"] += 1
                     else:
+                        if "opus" in ml or "fable" in ml:
+                            s_turns["sub_opus"] = s_turns.get("sub_opus", 0) + 1
+                            acc["sub_opus_leaks"] = acc.get("sub_opus_leaks", 0) + 1
                         acc["sonnet"] += 1
                         s_turns["sonnet"] += 1
     except Exception:
@@ -225,6 +228,7 @@ def analyze_session(jf):
         "opus": 0,
         "sonnet": 0,
         "haiku": 0,
+        "sub_opus_leaks": 0,
         "parent_models": {},
         "parent_model_label": "Parent (Opus)",
         "parent_steps": 0,
@@ -239,6 +243,7 @@ def analyze_session(jf):
         "prompt_opus": 0,
         "prompt_sonnet": 0,
         "prompt_haiku": 0,
+        "prompt_sub_opus": 0,
         "prompt_steps": 0,
         "prompt_sub_calls": 0,
         "prompt_roles": {"explorer": 0, "implementer": 0, "debugger": 0, "reviewer": 0},
@@ -272,6 +277,7 @@ def analyze_session(jf):
                 if tuid and tuid in acc["prompt_tool_use_ids"]:
                     acc["prompt_sonnet"] += s_turns.get("sonnet", 0)
                     acc["prompt_haiku"] += s_turns.get("haiku", 0)
+                    acc["prompt_sub_opus"] = acc.get("prompt_sub_opus", 0) + s_turns.get("sub_opus", 0)
                     acc["prompt_reads"] = acc.get("prompt_reads", 0) + s_turns.get("reads", 0)
                     acc["prompt_edits"] = acc.get("prompt_edits", 0) + s_turns.get("edits", 0)
                     acc["prompt_tests"] = acc.get("prompt_tests", 0) + s_turns.get("tests", 0)
@@ -1021,6 +1027,48 @@ if brief_mode:
     print(f"- **Hooks ที่ทำงานในคำสั่งนี้:** สแกนไฟล์ `{d_reads}` ครั้ง | แก้ไฟล์+Checkpoint `{d_edits}` ครั้ง | รันเทสต์ `{d_tests}` ครั้ง | บล็อกผิดกฎ `{d_blocks}` ครั้ง | 2-Strike: `{strike_str}` *(สะสมทั้งโปรเจกต์: สแกน {tot_reads}, แก้ {tot_edits}, เทสต์ {tot_tests})*")
     print(pf_cmd_line)
 
+    # คำนวณอัตราเผาโควต้า 5 ชั่วโมงล่าสุดข้ามทุกโปรเจกต์ในเครื่อง (Cross-Project 5-Hour Rolling Window)
+    burn_5hr_parent = 0
+    burn_5hr_sub = 0
+    burn_5hr_projs = set()
+    try:
+        cutoff_5hr = time.time() - (5 * 3600)
+        all_proj_root = os.path.expanduser("~/.claude/projects")
+        if os.path.isdir(all_proj_root):
+            for p_slug in os.listdir(all_proj_root):
+                p_path = os.path.join(all_proj_root, p_slug)
+                if not os.path.isdir(p_path):
+                    continue
+                short_p = p_slug.split("-")[-1] if "-" in p_slug else p_slug
+                for jf_cand in glob.glob(os.path.join(p_path, "*.jsonl")):
+                    if os.path.getmtime(jf_cand) < cutoff_5hr:
+                        continue
+                    seen_p_ids = set()
+                    with open(jf_cand, "r", encoding="utf-8", errors="ignore") as fp_b:
+                        for ln_b in fp_b:
+                            if '"type":"assistant"' in ln_b.replace(" ", ""):
+                                m_id_b = re.search(r'"id"\s*:\s*"(msg_[^"]+)"', ln_b)
+                                if m_id_b and m_id_b.group(1) not in seen_p_ids:
+                                    seen_p_ids.add(m_id_b.group(1))
+                                    burn_5hr_parent += 1
+                                    burn_5hr_projs.add(short_p)
+                    sub_d = os.path.join(os.path.splitext(jf_cand)[0], "subagents")
+                    if os.path.isdir(sub_d):
+                        for sf_cand in glob.glob(os.path.join(sub_d, "agent-*.jsonl")):
+                            if os.path.getmtime(sf_cand) < cutoff_5hr:
+                                continue
+                            seen_s_ids = set()
+                            with open(sf_cand, "r", encoding="utf-8", errors="ignore") as fp_sb:
+                                for ln_sb in fp_sb:
+                                    if '"type":"assistant"' in ln_sb.replace(" ", ""):
+                                        m_id_sb = re.search(r'"id"\s*:\s*"(msg_[^"]+)"', ln_sb)
+                                        if m_id_sb and m_id_sb.group(1) not in seen_s_ids:
+                                            seen_s_ids.add(m_id_sb.group(1))
+                                            burn_5hr_sub += 1
+                                            burn_5hr_projs.add(short_p)
+    except Exception:
+        pass
+
     # Layer 6 Observability & Behavioral Drift Tripwires (Harness Engineering Table IX & X)
     tripwires = []
     cur_strikes = int(td.get("strikeCount", 0)) if isinstance(td, dict) else 0
@@ -1028,6 +1076,10 @@ if brief_mode:
         tripwires.append(f"⚠️ `LOOP_STRIKE_HIGH` ({strike_str} — หยุดเดาและถามผู้ใช้)")
     if cmd_opus > 20:
         tripwires.append(f"⚠️ `TURN_BUDGET_EXCEEDED` (หน้าต่างหลักรัน {cmd_opus} รอบ > เพดาน 20 รอบ/คำสั่ง)")
+    if int(acc.get("prompt_sub_opus") or 0) > 0:
+        tripwires.append(f"🔥 `OPUS_SUBAGENT_LEAK` (พบ Subagent รันด้วย Opus {acc.get('prompt_sub_opus')} รอบ — บังคับใช้ Sonnet/Haiku เท่านั้น)")
+    if cmd_sub_toks >= 3500000 or burn_5hr_parent >= 90:
+        tripwires.append(f"🔥 `TOKEN_BURST_WARNING` (5 ชม. ล่าสุดรันหน้าต่างหลักรวม {burn_5hr_parent} รอบ / Subagent รอบนี้ {cmd_sub_toks:,} tokens)")
     if tot >= 25 and off_p < 30.0:
         tripwires.append(f"⚠️ `LOW_SUBAGENT_OFFLOAD` (Offload สะสม {off_p}% < 30% — ควรโยนงานใหญ่ให้ Subagent)")
     last_cache_tok = int(acc.get("last_cache_tokens") or 0)
@@ -1038,11 +1090,16 @@ if brief_mode:
     if d_blocks > 0:
         tripwires.append(f"⚠️ `PERMISSION_GATE_TRIGGERED` (บล็อกคำสั่งผิดกฎ {d_blocks} ครั้งในรอบนี้)")
 
+    burn_note = ""
+    if burn_5hr_parent > 0 or burn_5hr_sub > 0:
+        projs_str = "+".join(sorted(burn_5hr_projs)) if burn_5hr_projs else "local"
+        burn_note = f" · 5hr Burn ({projs_str}): `Main {burn_5hr_parent}t + Sub {burn_5hr_sub}t`"
+
     if tripwires:
-        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** {' | '.join(tripwires)}")
+        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** {' | '.join(tripwires)}{burn_note}")
     else:
         ctx_note = f" · Context `{last_cache_tok:,}/150,000 tokens`" if last_cache_tok > 0 else ""
-        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** ✅ `ปกติ (No Behavioral Drift)` — รอบคำสั่ง `{cmd_opus}/20` · สะสมหน้าต่างหลัก `{acc['opus']}/80`{ctx_note}")
+        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** ✅ `ปกติ (No Behavioral Drift)` — รอบคำสั่ง `{cmd_opus}/20` · สะสมหน้าต่างหลัก `{acc['opus']}/80`{ctx_note}{burn_note}")
     sys.exit(0)
 
 print("================================================================================")
