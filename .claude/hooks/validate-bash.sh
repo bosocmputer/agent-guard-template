@@ -40,7 +40,7 @@ fi
 if echo "$COMMAND" | grep -qE '(^|[;&|"])[[:space:]]*(printenv([[:space:]]|$|[|>;"])|env[[:space:]]*($|[|>;"]))'; then
   block_action "ไม่อนุญาตให้ดึงค่า Environment Variables ทั้งระบบด้วย printenv หรือ env เพื่อป้องกันข้อมูลความลับรั่วไหล (Credential Dump Blocked)"
 fi
-if echo "$COMMAND" | grep -qE '((cat|less|more|head|tail|grep|awk|sed)[[:space:]]+[^;&|]*(^|[[:space:]/])(\.env([[:space:]"'\'']|$|\.[a-zA-Z0-9_-]+)|[^[:space:]"'\'']+\.(pem|key|p12|keystore|jks)([[:space:]"'\'']|$))|(~|\$HOME|\$\{HOME\}|/Users/[^/[:space:]]+|/home/[^/[:space:]]+)/\.(ssh|aws|kube|gnupg|netrc|npmrc|pypirc|zshrc|bashrc|bash_profile|zprofile)|crontab[[:space:]]+-[er])'; then
+if echo "$COMMAND" | grep -qE '((cat|less|more|head|tail|grep|awk|sed)[[:space:]]+([^;&|]*[[:space:]/])?(\.env([[:space:]"'\'']|$|\.[a-zA-Z0-9_-]+)|[^[:space:]"'\'']+\.(pem|key|p12|keystore|jks)([[:space:]"'\'']|$))|(~|\$HOME|\$\{HOME\}|/Users/[^/[:space:]]+|/home/[^/[:space:]]+)/\.(ssh|aws|kube|gnupg|netrc|npmrc|pypirc|zshrc|bashrc|bash_profile|zprofile)|crontab[[:space:]]+-[er])'; then
   block_action "ไม่อนุญาตให้อ่านไฟล์ความลับ (.env/key) หรือเข้าถึงโฟลเดอร์ Credential และ Shell Profile ของเครื่องโฮสต์ (~/.ssh, ~/.aws, ~/.kube, ~/.zshrc, crontab)"
 fi
 
@@ -64,10 +64,14 @@ if echo "$COMMAND" | grep -qE 'git[[:space:]]+checkout[[:space:]]+'; then
   fi
 fi
 
-# 3. ดักจับการแอบติดตั้งแพ็กเกจใหม่โดยไม่ขออนุญาต (รองรับ JS/TS, Go, Flutter/Dart, Python, Rust — ปลดล็อกด้วย DEPS_APPROVED=1 เมื่อผู้ใช้อนุญาตแล้ว)
-if [ "${DEPS_APPROVED:-0}" != "1" ] && ! echo "$COMMAND" | grep -q 'DEPS_APPROVED=1'; then
+# 3. ดักจับการแอบติดตั้งแพ็กเกจใหม่โดยไม่ขออนุญาต (รองรับ JS/TS, Go, Flutter/Dart, Python, Rust — ปลดล็อกด้วย DEPS_APPROVED=1 หรือโหมด AGENT_GUARD_MODE=relaxed)
+GUARD_MODE="${AGENT_GUARD_MODE:-strict}"
+if [ -f "$PROJECT_ROOT/.agent-guard-mode" ]; then
+  GUARD_MODE="$(head -n 1 "$PROJECT_ROOT/.agent-guard-mode" | tr -d '[:space:]')"
+fi
+if [ "$GUARD_MODE" != "relaxed" ] && [ "${DEPS_APPROVED:-0}" != "1" ] && ! echo "$COMMAND" | grep -q 'DEPS_APPROVED=1'; then
   if echo "$COMMAND" | grep -qE '(npm (install|i) [a-zA-Z0-9@_]|pnpm add |yarn add |bun add |flutter pub add |dart pub add |go get [a-zA-Z0-9]|pip install [a-zA-Z0-9]|uv add |poetry add |cargo add )'; then
-    block_action "ห้ามติดตั้งแพ็กเกจหรือ Library ใหม่โดยไม่ถามผู้ใช้ก่อนตามกฎ No Unapproved Dependencies (หากผู้ใช้อนุญาตในแชทแล้ว ให้รันโดยใส่ DEPS_APPROVED=1 นำหน้าคำสั่ง)"
+    block_action "ห้ามติดตั้งแพ็กเกจหรือ Library ใหม่โดยไม่ถามผู้ใช้ก่อนตามกฎ No Unapproved Dependencies (หากผู้ใช้อนุญาตในแชทแล้ว ให้รันโดยใส่ DEPS_APPROVED=1 นำหน้าคำสั่ง หรือตั้งโหมด AGENT_GUARD_MODE=relaxed สำหรับช่วงปั้น Prototype)"
   fi
 fi
 

@@ -1,8 +1,31 @@
 # 🛡️ Agent Guard Template
 
-**ระบบควบคุมวินัย AI Coding Agent แบบ Dual-Engine (`Claude Code` & `Antigravity IDE`) — เน้นแก้โค้ดเฉพาะจุด ประหยัดโควต้าหน้าต่างหลัก 50–70% ด้วย Subagents อัตโนมัติ พร้อมระบบป้องกันคำสั่งอันตรายและความจำระยะยาวเฉพาะโปรเจกต์**
+[![Agent Guard CI](https://github.com/bosocmputer/agent-guard-template/actions/workflows/ci.yml/badge.svg)](https://github.com/bosocmputer/agent-guard-template/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![Engines: Claude Code + Antigravity IDE](https://img.shields.io/badge/Engines-Claude%20Code%20%7C%20Antigravity%20IDE-6366f1)](CLAUDE.md)
+[![Zero-Dependency Hooks](https://img.shields.io/badge/Hooks-0--Token%20Bash%2FPython-f59e0b)](.claude/hooks/)
+
+> **🇬🇧 English Summary (For Global Developers):**
+> **Agent Guard Template** is a battle-tested, 6-layer **AI Coding Agent Harness & Governance Framework** for **Claude Code** and **Antigravity IDE** (built on a Single Source of Truth in `.claude/`).
+> - **Save 70–83% of Main-Window Quota:** Automatically offloads codebase exploration (`haiku`/`flash`, capped at 10 turns), multi-file implementation (`sonnet`, capped at 40 turns), and batched Playwright MCP QA (`sonnet`, capped at 22 turns) out of your expensive `Opus`/`Fable` orchestrator window.
+> - **0-Token OS & Git Safety Shields:** Deterministic Bash/Python hooks block `git reset --hard`, `git checkout .`, `.env`/credential dumps, unapproved dependencies, and test-tampering during bug fixes (`exit 2`).
+> - **Zero-Prompt Cross-Agent Handoff & 5-Hour Quota Radar:** Auto-syncs git/session state into `TASK_STATE.md` before context compaction or 5-hour quota cutoffs, tracks rolling 5-hour token burn across all local projects, and distills project-specific lessons into `.claude/rules/project-pitfalls.md`.
+
+**🇹🇭 ระบบควบคุมวินัย AI Coding Agent แบบ Dual-Engine (`Claude Code` & `Antigravity IDE`) — เน้นแก้โค้ดเฉพาะจุด ประหยัดโควต้าหน้าต่างหลัก 70–83% ด้วย Subagents อัตโนมัติ พร้อมระบบป้องกันคำสั่งอันตราย 0-Token, ตัววัดอัตราเผาโควต้า 5 ชั่วโมงข้ามโปรเจกต์ และความจำระยะยาวเฉพาะโปรเจกต์**
 
 ออกแบบตามหลัก **Single Source of Truth (แก้ที่ `CLAUDE.md` และ `.claude/` จุดเดียว)**, **No Over-Claiming (รายงานตามจริงพร้อมหลักฐานเทสต์)**, และ **No Ceremony Overhead (ไม่เพิ่มพิธีกรรมหรือไฟล์ขยะ)**
+
+---
+
+## 📈 ผลลัพธ์จากการใช้งานจริงบน Production (Verified Benchmarks)
+
+ตัวเลขจริงจากการวัดผลด้วย `audit-session-proof.sh` บนระบบ ERP/OMS ระดับ Production (`Go + React 19 + PostgreSQL RLS`):
+
+| ตัวชี้วัด (Metric) | ก่อนใช้ / แชทสะสมแบบไม่แยก Subagent | หลังใช้ `agent-guard-template` (v2) | ผลลัพธ์ที่ได้ |
+| :--- | :---: | :---: | :---: |
+| **จำนวนรอบรวมต่อ 1 ฟีเจอร์ใหญ่ (Full-Stack + CI + QA)** | `392 รอบ` | **`66 รอบ`** (`Parent 12` + `Sonnet 54`) | ⚡ **ลดลง 83.2%** |
+| **การตรวจหน้าเว็บจริงด้วย Playwright MCP (`reviewer`)** | `120 รอบ` (`8.67M tokens`) | **`11 รอบ`** (Batching + Turn Reserve) | 🎯 **ลดลง 90.8%** |
+| **ขนาด Context ต่อรอบในหน้าต่างหลัก (`Opus`/`Fable`)** | `234,820 tokens/turn` | **`83,109 – 94,653 tokens/turn`** | 💰 **ประหยัดโควต้า 60–65%** |
 
 ---
 
@@ -27,20 +50,35 @@
 ```bash
 git clone https://github.com/bosocmputer/agent-guard-template.git my-project
 cd my-project
+mkdir -p ~/.claude/agents && cp .claude/agents/*.md ~/.claude/agents/
 chmod +x .claude/hooks/*.sh
 ```
 
 ### วิธีที่ 2: นำไปติดตั้งหรืออัปเดตในโปรเจกต์ที่มีอยู่แล้ว (`rsync` One-Liner)
-รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์ เพื่อติดตั้งหรืออัปเดตไฟล์มาตรฐานของ Template โดย**เก็บรักษาบทเรียนเฉพาะโปรเจกต์ (`.claude/rules/project-pitfalls.md`) และสถิติ (`.telemetry.json`) เดิมไว้ครบถ้วน**:
+รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์ เพื่อติดตั้งหรืออัปเดตไฟล์มาตรฐานของ Template (พร้อมซิงก์ Custom Subagents ลง `~/.claude/agents/` สำหรับ Claude Code Desktop รุ่นล่าสุด) โดย**เก็บรักษาบทเรียนเฉพาะโปรเจกต์ (`.claude/rules/project-pitfalls.md`) และสถิติ (`.telemetry.json`) เดิมไว้ครบถ้วน**:
 
 ```bash
 rm -rf /tmp/agt-update
 git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update
-rsync -av --exclude='.git' --exclude='README.md' --exclude='docs' --exclude='.mcp.json' --exclude='.gitignore' --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='/.claude/rules/project-pitfalls.md' /tmp/agt-update/ ./
+rsync -av --exclude='.git' --exclude='README.md' --exclude='LICENSE' --exclude='tests' --exclude='.github' --exclude='docs' --exclude='.mcp.json' --exclude='.gitignore' --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='/.claude/rules/project-pitfalls.md' /tmp/agt-update/ ./
 [ -f .claude/rules/project-pitfalls.md ] || cp /tmp/agt-update/.claude/rules/project-pitfalls.md .claude/rules/project-pitfalls.md
+mkdir -p ~/.claude/agents && cp .claude/agents/*.md ~/.claude/agents/
 rm -rf /tmp/agt-update .agents/skills
 chmod +x .claude/hooks/*.sh
 ```
+
+### โหมดความเข้มงวด (`strict` vs `relaxed`) และสคริปต์เสริม `0-Token`
+- **สลับโหมดสำหรับช่วงปั้น Prototype วันแรก (`AGENT_GUARD_MODE=relaxed`):**
+  - ค่าเริ่มต้นคือ `strict` (บังคับถามก่อนลง Package ใหม่ และล็อกไม่ให้แก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก)
+  - หากกำลังทดลองปั้น Prototype เร็วๆ สามารถรัน `echo relaxed > .agent-guard-mode` (หรือตั้ง `export AGENT_GUARD_MODE=relaxed`) เพื่อปลดล็อกการลง Package และการแก้ไฟล์เทสต์ชั่วคราว โดยที่ระบบป้องกันไฟล์ความลับ `.env` และคำสั่งลบ Git (`reset --hard`) ยังทำงานเต็ม 100%
+- **สร้างโพยสรุปงาน / PR Changelog อัตโนมัติแบบ `0-Token`:**
+  ```bash
+  bash .claude/hooks/release-summary.sh
+  ```
+- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite):**
+  ```bash
+  bash tests/test-hooks.sh
+  ```
 
 ---
 

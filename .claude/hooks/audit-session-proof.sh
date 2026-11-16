@@ -1095,6 +1095,8 @@ if brief_mode:
         tripwires.append(f"⚠️ `CONTEXT_WINDOW_BLOAT` (หน้าต่างหลักสะสม {acc['opus']} รอบ — แนะนำพิมพ์ `/clear` หรือเปิดแชทใหม่เมื่อจบขั้นนี้)")
     if d_blocks > 0:
         tripwires.append(f"⚠️ `PERMISSION_GATE_TRIGGERED` (บล็อกคำสั่งผิดกฎ {d_blocks} ครั้งในรอบนี้)")
+    if pf_info["count"] >= 25:
+        tripwires.append(f"⚠️ `PITFALL_MEMORY_NEAR_FULL` (Pitfalls {pf_info['count']}/30 ข้อ — แนะนำยุบรวมกฎที่ซ้ำหมวดกันเพื่อกัน Rule Conflict)")
 
     burn_note = ""
     if burn_5hr_parent > 0 or burn_5hr_sub > 0:
