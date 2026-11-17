@@ -26,9 +26,10 @@ if [ -z "$COMMAND" ]; then
 fi
 
 # 1) ตรวจจับการเขียน/แก้ไขไฟล์ผ่านสคริปต์ใน Bash (เช่น open(...,'w'), p='...'; open(p,'w'), cat > path <<'EOF', sed -i)
+READ_STREAK_FILE="/tmp/claude_read_streak_$(pwd | cksum | cut -d' ' -f1).cnt"
 WRITE_TARGET=""
 if echo "$COMMAND" | grep -qE "(open\([^)]*,[[:space:]]*['\"]w|cat[[:space:]]*>+[[:space:]]*[^[:space:]<]+|cat[[:space:]]+<<[^>]*>[[:space:]]*[^[:space:]]+|sed[[:space:]]+-i)"; then
-  rm -f "/tmp/claude_cmd_history_$(pwd | cksum | cut -d' ' -f1).log" 2>/dev/null || true
+  rm -f "/tmp/claude_cmd_history_$(pwd | cksum | cut -d' ' -f1).log" "$READ_STREAK_FILE" 2>/dev/null || true
   WRITE_TARGET=$(echo "$COMMAND" | grep -oE "[A-Za-z0-9_./-]+\.(dart|sql|ts|tsx|js|jsx|py|go|rs|sh|md|json|yaml|yml)" | head -1)
   if [ -z "$WRITE_TARGET" ]; then
     WRITE_TARGET="source-file"
@@ -37,9 +38,27 @@ if echo "$COMMAND" | grep -qE "(open\([^)]*,[[:space:]]*['\"]w|cat[[:space:]]*>+
   bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "implementer" --status "working" --file "$WRITE_TARGET" --detail "✍️ $ACTION_LBL ($WRITE_TARGET)" --hook ".claude/hooks/post-edit-format.sh" >/dev/null 2>&1 || true
 fi
 
-# 2) คำสั่งอ่าน/สแกนค้นหาข้อมูล (ห้ามมี cat > หรือ sed -i เด็ดขาด)
+# 2) คำสั่งอ่าน/สแกนค้นหาข้อมูล (ห้ามมี cat > หรือ sed -i เด็ดขาด) + Read-Loop Circuit Breaker (ดักการค้นหาวนลูปเกิน 14 ครั้งโดยไม่แก้โค้ด)
 if [ -z "$WRITE_TARGET" ] && echo "$COMMAND" | grep -qE '^([[:space:]]*cd[[:space:]]+[^;&|]+[;&]+[[:space:]]*)*(git[[:space:]]+(status|diff|log|branch|show)|ls|pwd|cat[[:space:]]+[^><-]|head|tail|sed[[:space:]]+-n|grep|rg|find|wc|awk|stat|which|echo)[[:space:]]' && ! echo "$COMMAND" | grep -qE '(^|[;&|[:space:]])(flutter[[:space:]]+(test|analyze)|dart[[:space:]]+(test|analyze)|npm[[:space:]]+(test|run)|npx[[:space:]]+(vitest|jest|tsc|playwright)|pytest|go[[:space:]]+(test|vet|build)|cargo[[:space:]]+(test|check|clippy)|supa\.sh[[:space:]]+test)'; then
-  READ_DETAIL="🔍 ${DESC:-Inspecting}: $COMMAND"
+  CUR_STREAK=0
+  if [ -f "$READ_STREAK_FILE" ]; then
+    CUR_STREAK=$(cat "$READ_STREAK_FILE" 2>/dev/null | tr -dc '0-9')
+    CUR_STREAK=${CUR_STREAK:-0}
+  fi
+  CUR_STREAK=$((CUR_STREAK + 1))
+  echo "$CUR_STREAK" > "$READ_STREAK_FILE"
+  if [ "$CUR_STREAK" -ge 15 ]; then
+    rm -f "$READ_STREAK_FILE"
+    bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "debugger" --status "blocked" --detail "🛑 Read-Loop Circuit Breaker ($CUR_STREAK reads without edit): $COMMAND" --strike "3" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
+    if [ "$MODE" = "antigravity" ]; then
+      printf '{"decision":"deny","reason":"🛑 [Read-Loop Circuit Breaker]: รันคำสั่งค้นหา/อ่านไฟล์ติดต่อกันเกิน 14 ครั้งโดยยังไม่เริ่มแก้โค้ด! หยุดค้นหาวนลูปและเริ่มแก้ไขไฟล์ตามแผนทันที (หรือใช้ Explorer model=flash แทน)"}\n'
+      exit 0
+    else
+      echo "🛑 [Read-Loop Circuit Breaker - loop-circuit-breaker.sh]: รันคำสั่งค้นหา/อ่านไฟล์ติดต่อกันเกิน 14 ครั้งโดยยังไม่เริ่มแก้โค้ด! หยุดค้นหาวนลูปและเริ่มแก้ไขไฟล์ตามแผนทันที!" >&2
+      exit 2
+    fi
+  fi
+  READ_DETAIL="🔍 ${DESC:-Inspecting} ($CUR_STREAK/14): $COMMAND"
   bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "explorer" --status "working" --detail "$READ_DETAIL" --hook ".claude/hooks/loop-circuit-breaker.sh" >/dev/null 2>&1 || true
   allow_action
 fi

@@ -1,2 +1,103 @@
-# Antigravity & Universal Agent Governance (Pointer to CLAUDE.md)
-@[CLAUDE.md](./CLAUDE.md)
+# Project Overview & Universal Agent Governance (Claude Code & Antigravity IDE)
+> **Communication Mandate:** Always respond to the user in **Thai (ภาษาไทย)**, keeping technical terms, file paths, commands, and code identifiers in English.
+> **Upstream Architectures:** [`anthropics/skills`](https://github.com/anthropics/skills) • [Anthropic AI-Native SDLC Playbook](https://claude.com/resources/articles/the-ai-native-sdlc-playbook) • [`cloudflare/security-audit-skill`](https://github.com/cloudflare/security-audit-skill) • [`andrej-karpathy-skills`](https://github.com/forrestchang/andrej-karpathy-skills) • [`obra/superpowers`](https://github.com/obra/superpowers) • [`garrytan/gstack`](https://github.com/garrytan/gstack) • [`jeffallan/claude-skills`](https://github.com/jeffallan/claude-skills) • [`supabase/agent-skills`](https://github.com/supabase/agent-skills) • [`trailofbits/claude-code-config`](https://github.com/trailofbits/claude-code-config) • [`heydamir/unslop`](https://github.com/heydamir/unslop) • [`mrdoob/three.js`](https://github.com/mrdoob/three.js)
+
+## 0. Auto-Detect Tech Stack & Quick Commands
+Inspect root manifest files (including monorepo subfolders such as `app/`, `supabase/`, `packages/`) to select the exact Tier 1 and Tier 2 verification commands:
+
+| Tech Stack / Manifest | Tier 1: Single-File Test (Run after every edit) | Tier 2: Typecheck / Analyze / Build |
+| :--- | :--- | :--- |
+| **Node.js / TypeScript** (`package.json`) | `node --test <path>` or `npm test -- <path>` | `npx tsc --noEmit` \| `npm run build` |
+| **Go (Golang)** (`go.mod`) | `go test -v ./path/to/pkg -run <TestName>` | `go vet ./...` \| `go build ./...` |
+| **Flutter / Dart** (`pubspec.yaml` / `app/pubspec.yaml`) | `flutter test test/<file>_test.dart` | `flutter analyze` |
+| **Supabase / PostgreSQL** (`supabase/config.toml`) | `supabase test db` (local Docker pgTAP) | `supabase db reset` (local Docker only) |
+| **Python** (`pyproject.toml` / `requirements.txt`) | `pytest <path/to/test_file.py>` | `ruff check .` \| `mypy .` |
+| **Rust** (`Cargo.toml`) | `cargo test <test_name>` | `cargo check` \| `cargo clippy` |
+
+- **Dev Server / App Runner:** Never run long-lived foreground servers (`npm run dev`, `go run`, `flutter run`) in the agent shell; check ports via `lsof -i :<port>` instead.
+- **Local Framework Docs (`llms.txt`):** If `docs/llms/` or `llms.txt` exists in the repo, read it first instead of spawning heavy external documentation searches.
+
+---
+
+## 1. Zero-Command Auto-Routing & Explicit Subagent Delegation
+> **EXPLICIT USER AUTHORIZATION (OVERRIDES DEFAULT SUBAGENT HESITATION):**
+> The project owner explicitly mandates that the main session act as a **Lead Orchestrator** and **proactively delegate multi-file or multi-step chunks to subagents** (`Agent(...)` in Claude Code / `invoke_subagent(...)` in Antigravity IDE) using the designated tier below, preserving main-window context and quota.
+> **MANDATORY `OPUS ARCHITECT ➔ SONNET BUILDER (3+ FILES) ➔ OPUS GATEKEEPER` PIPELINE:** Even when the user prompt already provides explicit file paths and detailed specs, if a task creates or edits **`>= 3 files`** (e.g., migration + library + route + UI + test), the parent (`Opus`) **MUST NOT** call `Write`/`Edit` on all those feature files directly in the main window. Instead: **(1) Architect (`2–4 turns max`):** Read 1–2 reference/schema files (or spawn `Explorer` on `haiku`/`flash` if exact target file paths and line numbers are not yet known — **NEVER spawn `Surgical Implementer` (`self`) blind without exact file paths and line numbers!**) to verify constraints & security gates (triggering `CIRCUIT_BREAKER: MISSING_SPEC` if anything is unsafe or missing); **(2) Builder (`Sonnet` / `Surgical Implementer`):** Delegate all multi-file creation/editing and Tier 1 + Tier 2 test/typecheck execution with explicit target file paths + line numbers and a strict **Max 10 Read Steps Before Edit** ceiling; **(3) Gatekeeper (`2–3 turns max`):** Inspect `git diff --stat`, update `TASK_STATE.md` / `project-pitfalls.md`, and run `audit-session-proof.sh --brief`.
+> **STRICT SUBAGENT MODEL PINNING (NO OPUS SUBAGENTS):** Never pass `model="opus"` when calling `Agent(...)`, even if the parent session itself is switched to `opus` (`claude-opus-5-5`) after a quota reset. Always pass `model="haiku"` for `explorer` and `model="sonnet"` for `implementer`, `debugger`, and `reviewer` (Claude Pro's 5-hour limit is account-wide, so `sonnet` and `haiku` are always available whenever the session is active and cost significantly less quota than `opus`):
+
+| User Request / Task Pattern | Scope | Mandatory Subagent & Model Routing (Claude Code \| Antigravity IDE) |
+| :--- | :--- | :--- |
+| **Document / Tooling Capability (`pdf`, `docx`, `xlsx`, `pptx`, `mcp-builder`, `webapp-testing`)** | Specialized Tooling Skill | Load `tech-stack-skills` and install via `bash .claude/hooks/install-skill.sh` (do NOT install generic language skills like `react-expert` or `flutter-expert` unless explicitly requested) |
+| **"ทำต่อจากที่ค้างไว้ / โควต้าอีกฝั่งหมด"** | Cross-agent handoff | Load `auto-resume-handoff`, inspect `.agent-last-state.log` + `git status` + `TASK_STATE.md` (if present), and resume immediately |
+| **"สร้างระบบ... / เพิ่มฟีเจอร์..." (Broad/Ambiguous)** | Architectural / Multi-option | Load `common-ground` and confirm 3–4 concise assumptions in Thai before writing code |
+| **Trivial Edit / CLI Check (1–2 known files or 1–3 CLI commands)** | **Trivial Task (Main Window)** | Execute directly in the main window via surgical `Edit` + Tier 1/2 check (do NOT spawn subagents for 1–2 file edits, config tweaks, or short CLI build/git checks) |
+| **Unfamiliar codebase search / tracing (>3 files)** | **Multi-File Exploration** | Claude: `Agent(subagent_type="explorer", model="haiku")` \| Antigravity: `invoke_subagent(TypeName="research", Model="flash", Role="Codebase Explorer")` |
+| **Multi-file implementation (3+ files) + self-verification** | **Multi-Step Implementation** | Claude: `Agent(subagent_type="implementer", model="sonnet")` \| Antigravity: `invoke_subagent(TypeName="self", Model="inherit", Role="Surgical Implementer")` (Implementer MUST run Tier 1 + Tier 2 tests/analyze itself before returning; reuse via `send_message` for same-feature follow-ups `< 40 turns`) |
+| **"เทสต์พัง / บั๊กหน้า... / Error..." (Bug investigation)** | **Root-Cause Debugging** | Claude: `Agent(subagent_type="debugger", model="sonnet")` \| Antigravity: `invoke_subagent(TypeName="self", Model="inherit", Role="2-Strike Debugger")` |
+| **"ช่วยตรวจโค้ด / รีวิว / เปิดเว็บตรวจ UI หรือรัน Full E2E"** | **QA Review & Browser E2E** | Claude: `Agent(subagent_type="reviewer", model="sonnet")` \| Antigravity: `invoke_subagent(TypeName="browser", Model="flash", Role="QA Browser Verifier")` for UI/web checks, or `TypeName="self"` for full milestone E2E/review (NEVER spawn a separate `self` Verifier just to run 1–3 CLI build/test/git commands) |
+| **"ตรวจความปลอดภัย / `/security-audit` / เช็ก RLS & RPC"** | **Security Audit (Cloudflare Gate)** | Load `security-audit`: map attack surface with `explorer`/`research` (`haiku`/`flash`) + trace `entrypoint ➔ sink` with `reviewer`/`self` (`sonnet`/`inherit`) |
+| **"สร้าง 3D Viewer / Three.js / WebGL"** | Web 3D Visualization | Load `threejs-expert` (`mrdoob/three.js r187+`: `three/addons/*`, `HDRLoader`, `OutputPass`, `dispose()`) |
+| **"จดเป็นบทเรียน / จำไว้ว่า... / `/learn`"** | Self-Learning Memory | Distill into a 1-line rule in `.claude/rules/project-pitfalls.md` (max 30 rules; auto-imported by `.agents/rules/project-pitfalls.md`) |
+| **"เปิดจอ 3D / เช็กหลักฐานโมเดล"** | 3D HUD / Session Proof | Run `bash .claude/hooks/open-hud.sh` (3D Monitor) or `bash .claude/hooks/audit-session-proof.sh` (`.jsonl` model audit) |
+
+---
+
+## 2. Anti-Loop & Quota Protection Guardrails
+1. **0-Strike for Missing Business Spec:**
+   - If a task requires an unstated business formula, discount rule, tax rate, or organization-specific constant not found in code or `docs/llms/`, **never guess or invent numbers**. Emit `CIRCUIT_BREAKER: MISSING_SPEC` and ask the user immediately.
+2. **2-Strike Technical Bug Limit:**
+   - When fixing a technical bug or failing test, if **2 consecutive fix attempts** still fail verification, **STOP immediately**.
+   - Revert uncommitted experimental edits back to a clean state via `Edit` and emit `CIRCUIT_BREAKER: 2_STRIKES_REACHED` summarizing both attempts and presenting clear options in Thai.
+3. **Targeted Exploration & Zero Main-Window Browser/Web Bloat:**
+   - Use scoped `Grep` and `Glob` queries. Never read entire directory trees blindly.
+   - Before creating a new file, read 1 existing sibling file to match naming, imports, and library conventions.
+   - **Never run `mcp__playwright__browser_*`, `browser_snapshot`, or multi-page `WebFetch` inside the main orchestrator window** — always delegate browser/web tasks to a subagent so raw DOM snapshots and web HTML do not bloat the main Opus/Fable context window.
+4. **Execution Ceiling & One-Slice-Per-Prompt Quota Guard (No Unbounded Auto-Chaining):**
+   - Do not modify more than 5 files in a single turn without confirming the file list with the user first.
+   - Execute **at most ONE milestone slice (max 1–2 parallel `implementer` subagents)** per user prompt. Once that slice passes tests, output `Next Steps` + `audit-session-proof.sh --brief` and **STOP for user confirmation** instead of auto-chaining the entire Sprint (`Step 1 ➔ Step 2 ➔ Step 3 ➔ Step 4`) in one continuous run.
+
+---
+
+## 3. Integrity, Git Safety & Security Rules
+1. **Gate Integrity & Anti-Reward-Hacking (`garrytan/gstack RH-1..RH-16 & PL-2`):**
+   - Never weaken `expect`/`assert` conditions, delete failing tests, add `.skip` / `.only` (`RH-1`), or inflate timeouts/thresholds (`RH-15`) to force a green run.
+   - Never branch on `process.env.NODE_ENV === 'test'` or `process.env.CI` inside production logic to bypass validation (`RH-12`).
+   - Never add `@ts-ignore`, `@ts-expect-error`, `eslint-disable`, `# type: ignore`, or `// nolint` to silence errors (`RH-13`).
+   - **Zero-Run Green (`PL-2`):** A test command exiting `0` with `0 tests ran` is a **FAILED** verification. Fix the test path/filter until `tests_ran >= 1`.
+2. **Git, Dependency & Production Release Gate (`Anthropic AI-Native SDLC Stage 5`):**
+   - Never run `git checkout .`, `git checkout -- <file>`, `git checkout <filepath>`, `git restore`, `git reset --hard`, `git clean -f`, `git switch -f`, or `git push --force` / `+main` (enforced by `validate-bash.sh`). Branch creation (`git checkout -b <branch>`, `git switch -c <branch>`) and switching branches (`git checkout <branch>`, `git switch <branch>`) are allowed.
+   - Never install new packages (`npm install <pkg>`, `pnpm add`, `flutter pub add`, `go get`, `pip install`, `cargo add`) without user approval. Once approved in chat, prefix the command with `DEPS_APPROVED=1`.
+   - **Production Deploy & Remote DB Gate:** Never deploy to production (`vercel --prod`, `firebase deploy`, `wrangler deploy`, `fly deploy`) or push migrations to a remote/linked database (`prisma migrate deploy`, `supabase db push`, `supabase db reset --linked`, `terraform apply`, `kubectl apply`) without user approval. Local Docker resets (`supabase db reset` without `--linked`/`--db-url`) are allowed for local testing. Once remote deploy/push is approved, prefix with `RELEASE_APPROVED=1`.
+   - **Anti-Test-Tampering (`Stage 4`):** While debugging (`strikeCount >= 1`), `protect-sensitive-files.sh` blocks edits to existing test files (`exit 2`) so fixes must target production root causes.
+3. **Secrets & Database Protection:**
+   - Never read, edit, output, or commit `.env*`, `*.key`, `*.pem`, `*.keystore`, `*.jks`, `*.p12`, `*.sqlite`, or `*.db` files (inspect `.env.example` instead).
+
+---
+
+## 4. Evidence-Based Reporting (No Over-Claiming), No Ceremony Overhead & Next Steps
+1. **No Over-Claiming (รายงานตามจริง):**
+   - Report only what was actually executed and verified in the current turn, citing the **exact command run** and **real terminal output**.
+   - Explicitly state **"ยังไม่ได้รันทดสอบ"** for anything not executed, unverified, or assumed.
+   - Never use exaggerated claims such as `"100%"`, `"สมบูรณ์แบบ"`, `"ไม่มีบั๊ก"`, or claim cached data is live.
+2. **No Ceremony Overhead (ไม่เพิ่มพิธีกรรม):**
+   - Do only what the task requires. Never create unrequested documentation files, extra approval steps, or redundant checks (never use this rule as an excuse to skip mandatory `Sonnet`/`Haiku` subagent offloading on `>= 3` file tasks).
+   - Do not write long preambles or repetitive summaries. If a deterministic script or CLI command can do the job, use the script instead of calling AI.
+3. **Actionable Next Steps (`### ⏭️ ขั้นตอนถัดไป (Next Steps)`):**
+   - At the end of every completed task, include a concise **`### ⏭️ ขั้นตอนถัดไป (Next Steps)`** section (**1–3 bullet points max**) stating only real remaining actions (e.g., pending `supabase db push` for a new migration, a specific manual check, or the next logical feature).
+4. **Always-Current Handoff State (`TASK_STATE.md`), Zero-Prompt Resume & Session Proof (`### 📊 ผลชี้วัด Agent Guard Template`):**
+   - **Zero-Prompt Resume (`"ทำต่อ"` / `"ลุยต่อ"` / `"resume"`):** Whenever a user starts a new session or switches between Claude Code and Antigravity with a short resume phrase (even if the previous session was cut off mid-turn by a 5-hour quota limit), immediately read `TASK_STATE.md` (including the auto-extracted `Last Session Snapshot` and `Last Dispatched Subagent Task` at the bottom) and `.claude/rules/project-pitfalls.md`, then continue the interrupted subagent task or `Next Immediate Step` without asking the user to re-explain.
+   - Whenever finishing a feature/task that modified code or state, closing a milestone, merging a PR, or running `/verify` or `/handoff`:
+     1. **Update `TASK_STATE.md` (`<= 20` lines above `## 🔄 Auto-Synced Git & Session State`):** Keep the top summary current (Current Phase/Objective, Recent Completed Work, Active Constraints, and Next Immediate Step) **every time a task completes — do not wait for `/handoff`**, so switching between Claude Code and Antigravity is seamless at any moment.
+     2. **Run Session Proof (`0-Token Auto-Sync`):** Execute `bash .claude/hooks/audit-session-proof.sh --brief` (which also auto-syncs the latest Git branch, 5 commits, working tree, checkpoint, and last session snapshot into `TASK_STATE.md`) and append its 5-line `### 📊 ผลชี้วัด Agent Guard Template` output at the bottom of your final response.
+
+---
+
+## 5. Self-Learning Pitfall Memory (`Anthropic SDLC Playbook Stage 3 — Single Source of Truth`)
+> **Persistence & Anti-Bloat Rule (Survives Template `rsync` Upgrades):**
+> Automatically distill project-specific lessons into **`.claude/rules/project-pitfalls.md`** (which `.agents/rules/project-pitfalls.md` automatically imports via `@[project-pitfalls]`) across **3 mandatory triggers**:
+> 1. **After Fixing a `[BLOCKER] [CONFIRMED]`:** When a blocker caught by `reviewer` or a recurring test failure is resolved, append a 1-line prevention rule so future milestones never repeat it.
+> 2. **On User Correction or `/learn`:** When the user corrects a project assumption or invokes `/learn`, record the rule in `.claude/rules/project-pitfalls.md` immediately.
+> 3. **At Milestone Close / `/handoff`:** Before closing a milestone or writing `TASK_STATE.md`, distill any new project-specific gotchas (e.g., DB unit conventions, RLS quirks, test viewport requirements) into `.claude/rules/project-pitfalls.md`.
+> - **Format & Cap:** Strictly **1 line per rule** (`- **[Category]:** <Rule + short reason>`), capped at **30 rules maximum** (merge overlapping rules if full).
+- Never weaken or edit existing test assertions (`expect`/`assert`) to make a failing test pass; fix the root cause in production code.
+- **Single Source of Truth (`.claude/` Master):** All rules (`.claude/rules/*.md`) and skills (`.claude/skills/*/SKILL.md`) are authored in `.claude/` only; `.agents/` automatically imports them via `.agents/skills.json` and `@[...]` pointers.
