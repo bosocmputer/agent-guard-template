@@ -1056,10 +1056,10 @@ if brief_mode:
     print(f"### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้ ({eng_lbl}Session `#{acc['sess_id'][:8]}`)")
     if acc.get("engine") == "antigravity":
         if (cmd_sonnet + cmd_haiku) > 0:
-            print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** Parent (Argon/Pro) `{cmd_op_p}%` ({cmd_opus} รอบ) | Subagents (Self) `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Subagents (Flash) `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
+            print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** Parent (Orchestrator/Neon) `{cmd_op_p}%` ({cmd_opus} รอบ) | Subagents (Self) `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Subagents (Flash) `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
         else:
             st_note = f" ({cmd_steps} steps)" if cmd_steps > 0 else ""
-            print(f"- **รอบทำงานคำสั่งนี้:** Parent (Argon/Pro) `{cmd_opus} รอบ`{st_note} ➔ **งานขนาดเล็กทำตรงในแชทหลัก (ไม่เปิด Subagent เกินจำเป็น)** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
+            print(f"- **รอบทำงานคำสั่งนี้:** Parent (Orchestrator/Neon) `{cmd_opus} รอบ`{st_note} ➔ **งานขนาดเล็กทำตรงในแชทหลัก (ไม่เปิด Subagent เกินจำเป็น)** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
     else:
         p_lbl = acc.get("parent_model_label") or "Parent (Opus)"
         print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** {p_lbl} `{cmd_op_p}%` ({cmd_opus} รอบ) | Subagents (Sonnet) `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Subagents (Haiku) `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
@@ -1131,10 +1131,11 @@ if brief_mode:
         tripwires.append(f"⚠️ `TURN_BUDGET_EXCEEDED` (หน้าต่างหลักรัน {cmd_opus} รอบ > เพดาน 20 รอบ/คำสั่ง)")
     if int(acc.get("prompt_sub_opus") or 0) > 0:
         tripwires.append(f"🔥 `OPUS_SUBAGENT_LEAK` (พบ Subagent รันด้วย Opus {acc.get('prompt_sub_opus')} รอบ — บังคับใช้ Sonnet/Haiku เท่านั้น)")
-    if cmd_sub_toks >= 3500000 or burn_5hr_parent >= 90:
+    if cmd_sub_toks >= 6000000 or burn_5hr_parent >= 300:
         tripwires.append(f"🔥 `TOKEN_BURST_WARNING` (5 ชม. ล่าสุดรันหน้าต่างหลักรวม {burn_5hr_parent} รอบ / Subagent รอบนี้ {cmd_sub_toks:,} tokens)")
-    if tot >= 25 and off_p < 30.0:
-        tripwires.append(f"⚠️ `LOW_SUBAGENT_OFFLOAD` (Offload สะสม {off_p}% < 30% — ควรโยนงานใหญ่ให้ Subagent)")
+    cmd_sub_total = cmd_sonnet + cmd_haiku
+    if acc["opus"] >= 40 and off_p < 25.0 and not (cmd_opus <= 15 and cmd_sub_total == 0):
+        tripwires.append(f"⚠️ `LOW_SUBAGENT_OFFLOAD` (Offload สะสม {off_p}% < 25% — ควรโยนงานหลายไฟล์ให้ Subagent)")
     last_cache_tok = int(acc.get("last_cache_tokens") or 0)
     if last_cache_tok >= 150000:
         tripwires.append(f"🚨 `CONTEXT_TOKEN_BLOAT` (Context สะสม {last_cache_tok:,} tokens/รอบ > 150k — พิมพ์ `/clear` ทันทีเมื่อจบขั้นนี้เพื่อประหยัดโควต้า 64%)")
@@ -1175,7 +1176,7 @@ for idx, acc in enumerate(all_sessions, 1):
     sub_toks = sum(acc["sub_tokens_by_id"].values())
     tag = "🔥 [แชทล่าสุด]" if idx == len(all_sessions) else "🕓 [แชทก่อนหน้า]"
     eng_tag = "Antigravity" if acc.get("engine") == "antigravity" else "Claude Code"
-    m1_lbl = "Parent (Argon/Pro)" if acc.get("engine") == "antigravity" else (acc.get("parent_model_label") or "Parent (Opus)")
+    m1_lbl = "Parent (Orchestrator/Neon)" if acc.get("engine") == "antigravity" else (acc.get("parent_model_label") or "Parent (Opus)")
     m2_lbl = "Subagent (Self)   " if acc.get("engine") == "antigravity" else "Sonnet"
     m3_lbl = "Subagent (Flash)  " if acc.get("engine") == "antigravity" else "Haiku "
     print(f"\n{tag} [{eng_tag}] Session #{acc['sess_id'][:8]} (อัปเดตล่าสุด: {acc['mtime']})")

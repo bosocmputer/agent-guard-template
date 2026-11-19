@@ -75,7 +75,7 @@ chmod +x .claude/hooks/*.sh
   ```bash
   bash .claude/hooks/release-summary.sh
   ```
-- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite — 29 เคส):**
+- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite — 33 เคส):**
   ```bash
   bash tests/test-hooks.sh
   ```
@@ -162,7 +162,7 @@ project-root/
    * บล็อกการรันสคริปต์ภายนอกเข้าสู่ Shell โดยตรง (`curl/wget ... | sh/bash/python/node`), การพลางคำสั่ง (`base64 -d | sh`, `$IFS`), และการดึงค่า Environment Secrets ทั้งระบบด้วย `printenv` หรือ `env` เปล่าๆ
    * บล็อกการแอบอ่าน `.env*`/`*.key` ผ่านคำสั่ง Shell (`cat/grep/awk/sed`) และการแตะต้องโฟลเดอร์ Credential หรือ Shell Profile ของโฮสต์ (`~/.ssh`, `~/.aws`, `~/.kube`, `~/.zshrc`, `crontab`)
    * บล็อกการแอบติดตั้ง Package ใหม่ (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`) จนกว่าคุณจะอนุมัติ (`DEPS_APPROVED=1`)
-   * บล็อกการสั่ง Deploy ขึ้น Production หรือยิง Migration ขึ้นฐานข้อมูลจริง (`vercel --prod`, `supabase db push`, `prisma migrate deploy`) จนกว่าคุณจะอนุมัติ (`RELEASE_APPROVED=1`) แต่อนุญาต `supabase db reset` บน Local Docker สำหรับรันเทสต์
+   * บล็อกการสั่ง Deploy ขึ้น Production หรือยิง Migration ขึ้นฐานข้อมูลจริง (`vercel --prod`, `supabase db push`, `prisma migrate deploy`) รวมถึงบล็อก **`git push origin main` เมื่อมีไฟล์ SQL migration ใหม่ที่ยังไม่ยืนยันบน Prod DB** (ปลดล็อกด้วย `MIGRATION_PROD_VERIFIED=1` หรือ `RELEASE_APPROVED=1` โดยยังอนุญาต `git push origin main:uat` / กิ่ง preview ตามปกติ) และอนุญาต `supabase db reset` บน Local Docker สำหรับรันเทสต์
 2. **`protect-sensitive-files.sh` & `telemetry-tracker.sh` (Secrets, Host Credentials & Stage 4 Anti-Test-Tampering):**
    * ห้ามอ่านหรือแก้ไขไฟล์ `.env*`, `*.key`, `*.pem`, `*.sqlite`, `*.db`, โฟลเดอร์ Credential ของโฮสต์ (`~/.ssh/*`, `~/.aws/*`, `~/.kube/*`, `~/.netrc`, `~/.npmrc`), Shell Profile (`~/.zshrc`, `~/.bashrc`), ไฟล์ `.git/config` / `.git/hooks/*` และไฟล์ Lockfile
    * ขณะอยู่ในโหมดซ่อมบั๊ก (`strikeCount >= 1`) จะบล็อกไม่ให้ AI แอบแก้ไขไฟล์เทสต์เดิม (`*.test.*`, `*.spec.*`, `*_test.*`) บังคับให้แก้ที่โค้ดต้นเหตุเท่านั้น
@@ -200,7 +200,7 @@ AI จะสกัดบทเรียนสั้นๆ บรรทัดเ�
 
 ### 6. ส่งต่องานข้ามค่ายเมื่อโควต้าตัดกลางอากาศ & กันความจำเสื่อมตอนย่อแชทอัตโนมัติ (`Zero-Prompt Resume + PreCompact Continuity Ledger`)
 คุณสามารถสลับไปมาระหว่าง **Claude Code ⇄ Antigravity IDE** ได้ทันทีแม้ในจังหวะที่โควต้า 5 ชั่วโมงตัดกลางอากาศ (`You've hit your 5-hour limit`) โดย**แค่เปิดแชทใหม่แล้วพิมพ์สั้นๆ ว่า `"ทำต่อ"` หรือ `"ลุยต่อ"` คำเดียว**:
-* **ชั้นที่ 1 (สรุปงานอัตโนมัติ + 0-Token Auto-Trim & Archive):** AI อัปเดตสถานะปัจจุบันไว้ด้านบนของ `TASK_STATE.md` (`<= 20 บรรทัด` และ `<= 2,500 bytes`) หากไฟล์เกิน `2,800 bytes` สคริปต์ `audit-session-proof.sh` จะเก็บเฉพาะสถานะล่าสุดและย้ายประวัติ deploy เก่าลง `.claude/.task-state-archive.md` อัตโนมัติแบบ `0-Token` เพื่อไม่ให้กิน Input Tokens ฟรีทุกเทิร์น (และเมื่อหน้าต่างหลักสะสมถึง `>= 100 รอบ` หรือ `>= 130k tokens` ในแชทเดิม `telemetry-tracker.sh` จะยิง **Auto-Handoff Nudge** แนะนำให้ `/clear` แล้วพิมพ์ `"ทำต่อ"` อัตโนมัติ)
+* **ชั้นที่ 1 (สรุปงานอัตโนมัติ + 0-Token Auto-Trim & Archive + No-`/clear` Survival Mode):** AI อัปเดตสถานะปัจจุบันไว้ด้านบนของ `TASK_STATE.md` (`<= 20 บรรทัด` และ `<= 2,500 bytes`) หากไฟล์เกิน `2,800 bytes` สคริปต์ `audit-session-proof.sh` จะเก็บเฉพาะสถานะล่าสุดและย้ายประวัติ deploy เก่าลง `.claude/.task-state-archive.md` อัตโนมัติแบบ `0-Token` เมื่อหน้าต่างหลักสะสม `100–119 รอบ` จะยิง **Auto-Handoff Nudge** แบบกระชับ และหากผู้ใช้เลือกทำต่อโดยไม่ `/clear` จนถึง **`>= 120 รอบ` หรือ `>= 150k tokens`** ระบบจะสลับเป็น **Survival Mode (Ultra-Thin Dispatcher)** โยนแม้แต่งานแก้ 1–2 ไฟล์ให้ Subagent ใหม่ทำแทนโดยไม่บ่นซ้ำ เพื่อประคองโควต้าให้ไปต่อได้ยาวๆ
 * **ชั้นที่ 2 (แกะรอยงานที่โดนตัดกลางคันแบบ `0-Token` ใน `auto-resume.sh` & `audit-session-proof.sh`):** ทันทีที่คุณเปิดแชทใหม่ (`SessionStart`) สคริปต์จะไปอ่านท้ายไฟล์ `.jsonl` ของแชทล่าสุดที่เพิ่งดับไป ดึง **`Last User Prompt`** (โจทย์ที่คุณสั่งไว้), **`Last Agent Summary`** (สิ่งที่ตัวแม่ทำเสร็จไปแล้วก่อนดับ), และ **`Last Dispatched Subagent Task`** (คำสั่งที่ส่งให้ลูกน้องทำค้างไว้ก่อนโควต้าตัด) มาเขียนต่อท้าย `TASK_STATE.md` พร้อมกิ่งและ 5 คอมมิตล่าสุดให้อัตโนมัติ!
 * **ชั้นที่ 3 (`PreCompact` Continuity Hook):** ก่อนที่ระบบจะสั่งย่อหน้าต่างความจำอัตโนมัติ (`/compact` หรือ Auto-Compaction) `auto-resume.sh --pre-compact` จะบังคับซิงก์ `TASK_STATE.md` ล่าสุดและฉีดเตือนให้ AI ยึด `TASK_STATE.md` + `project-pitfalls.md` เป็นหลักหลังย่อความจำ ป้องกันอาการความจำเสื่อมกลางแชท (`Post-Compaction Amnesia`)
 

@@ -143,20 +143,49 @@ PYEOF
 assert_exit "Oversized TASK_STATE.md trimmed <= 2800B and older entries archived" 0 "$TRIM_OK"
 rm -rf "$TMP_TRIM_DIR"
 
-# 8. Same-session Auto-Handoff Nudge (>= 100 opusTurns) vs fresh session isolation
+# 8. Same-session Auto-Handoff Nudge (>= 100) & Survival Mode (>= 120) vs fresh session isolation
 TMP_NUDGE_DIR="$(mktemp -d /tmp/agt-nudge-XXXXXX)"
 mkdir -p "$TMP_NUDGE_DIR/.claude/hooks"
 cp "$ROOT_DIR/.claude/hooks/telemetry-tracker.sh" "$TMP_NUDGE_DIR/.claude/hooks/"
 printf '{"sessionProof":{"sessionId":"abcd1234","opusTurns":105,"lastCacheTokens":90000},"events":[]}\n' > "$TMP_NUDGE_DIR/.claude/.telemetry.json"
 NUDGE_SAME=$(bash "$TMP_NUDGE_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin prompt <<< '{"session_id":"abcd1234-full","prompt":"ทำต่อ"}' 2>/dev/null || true)
 NUDGE_FRESH=$(bash "$TMP_NUDGE_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin prompt <<< '{"session_id":"ffff9999-new","prompt":"ทำต่อ"}' 2>/dev/null || true)
+printf '{"sessionProof":{"sessionId":"abcd1234","opusTurns":125,"lastCacheTokens":90000},"events":[]}\n' > "$TMP_NUDGE_DIR/.claude/.telemetry.json"
+SURVIVAL_SAME=$(bash "$TMP_NUDGE_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin prompt <<< '{"session_id":"abcd1234-full","prompt":"ทำต่อ"}' 2>/dev/null || true)
 echo "$NUDGE_SAME" | grep -q "AUTO-HANDOFF NUDGE" && RC_NUDGE_SAME=0 || RC_NUDGE_SAME=1
 echo "$NUDGE_FRESH" | grep -q "AUTO-HANDOFF NUDGE" && RC_NUDGE_FRESH=1 || RC_NUDGE_FRESH=0
-assert_exit "Emit AUTO-HANDOFF NUDGE when same session has >=100 opusTurns" 0 "$RC_NUDGE_SAME"
+echo "$SURVIVAL_SAME" | grep -q "SURVIVAL MODE" && RC_SURVIVAL_SAME=0 || RC_SURVIVAL_SAME=1
+assert_exit "Emit AUTO-HANDOFF NUDGE when same session has 100-119 opusTurns" 0 "$RC_NUDGE_SAME"
 assert_exit "Do NOT emit stale AUTO-HANDOFF NUDGE on fresh /clear session" 0 "$RC_NUDGE_FRESH"
+assert_exit "Emit SURVIVAL MODE when same session has >=120 opusTurns without /clear" 0 "$RC_SURVIVAL_SAME"
 rm -rf "$TMP_NUDGE_DIR"
 
-# 9. Audit & Release Summary scripts must execute cleanly (exit 0) without leaving scratch TASK_STATE.md in template root
+# 9. Migration-Before-Main Push Gate: block pushing new SQL migration to main, allow uat & MIGRATION_PROD_VERIFIED=1
+TMP_MIG_DIR="$(mktemp -d /tmp/agt-mig-XXXXXX)"
+git -C "$TMP_MIG_DIR" init -b main >/dev/null 2>&1
+git -C "$TMP_MIG_DIR" config user.email "test@example.com" && git -C "$TMP_MIG_DIR" config user.name "Test"
+mkdir -p "$TMP_MIG_DIR/.claude/hooks" "$TMP_MIG_DIR/supabase/migrations"
+cp "$ROOT_DIR/.claude/hooks/validate-bash.sh" "$TMP_MIG_DIR/.claude/hooks/"
+cp "$ROOT_DIR/.claude/hooks/telemetry-tracker.sh" "$TMP_MIG_DIR/.claude/hooks/"
+echo "init" > "$TMP_MIG_DIR/README.md"
+git -C "$TMP_MIG_DIR" add README.md && git -C "$TMP_MIG_DIR" commit -m "init" >/dev/null 2>&1
+git -C "$TMP_MIG_DIR" update-ref refs/remotes/origin/main HEAD
+echo "alter table orders add column if not exists demo text;" > "$TMP_MIG_DIR/supabase/migrations/20261119_demo.sql"
+git -C "$TMP_MIG_DIR" add supabase/migrations/20261119_demo.sql && git -C "$TMP_MIG_DIR" commit -m "add mig" >/dev/null 2>&1
+set +e
+bash "$TMP_MIG_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"git push origin main"}' >/dev/null 2>&1
+RC_MIG_MAIN=$?
+bash "$TMP_MIG_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"git push origin main:uat"}' >/dev/null 2>&1
+RC_MIG_UAT=$?
+bash "$TMP_MIG_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"MIGRATION_PROD_VERIFIED=1 git push origin main"}' >/dev/null 2>&1
+RC_MIG_OK=$?
+set -e
+assert_exit "Block git push origin main when new SQL migration is unverified" 2 "$RC_MIG_MAIN"
+assert_exit "Allow git push origin main:uat even with new SQL migration" 0 "$RC_MIG_UAT"
+assert_exit "Allow MIGRATION_PROD_VERIFIED=1 git push origin main" 0 "$RC_MIG_OK"
+rm -rf "$TMP_MIG_DIR"
+
+# 10. Audit & Release Summary scripts must execute cleanly (exit 0) without leaving scratch TASK_STATE.md in template root
 HAD_ROOT_TS=0
 [ -f "$ROOT_DIR/TASK_STATE.md" ] && HAD_ROOT_TS=1
 set +e

@@ -83,4 +83,51 @@ if [ "${RELEASE_APPROVED:-0}" != "1" ] && ! echo "$COMMAND" | grep -q 'RELEASE_A
   fi
 fi
 
+# 6. Migration-Before-Main Push Gate: ป้องกันการ push คอมมิตที่มีไฟล์ SQL migration ใหม่ขึ้น main/master (Production) ก่อนรัน SQL บน Production DB
+if [ "$GUARD_MODE" != "relaxed" ] && [ "${RELEASE_APPROVED:-0}" != "1" ] && [ "${MIGRATION_PROD_VERIFIED:-0}" != "1" ] && ! echo "$COMMAND" | grep -qE '(RELEASE_APPROVED=1|MIGRATION_PROD_VERIFIED=1)'; then
+  if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]"'"'"'])git[[:space:]]+push([[:space:]"'"'"']|$)'; then
+    PUSH_CMD=$(echo "$COMMAND" | sed -E 's/^.*"command"[[:space:]]*:[[:space:]]*"//;s/^.*"CommandLine"[[:space:]]*:[[:space:]]*"//;s/"$//')
+    PUSH_TARGETS_MAIN=$(python3 - "$PUSH_CMD" "$PROJECT_ROOT" <<'PYEOF' 2>/dev/null || echo "0"
+import re, shlex, subprocess, sys
+cmd, root = sys.argv[1], sys.argv[2]
+for seg in re.split(r'[;&|]+', cmd):
+    try:
+        toks = shlex.split(seg)
+    except Exception:
+        toks = seg.split()
+    for i in range(len(toks) - 1):
+        if toks[i] == "git" and toks[i+1] == "push":
+            args = [t for t in toks[i+2:] if not t.startswith("-")]
+            # args[0] = remote (if any), args[1:] = refspecs
+            refspecs = args[1:] if len(args) >= 2 else []
+            if not refspecs:
+                br = subprocess.check_output(["git", "--no-optional-locks", "-C", root, "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
+                if br in ("main", "master"):
+                    print("1"); sys.exit(0)
+            for ref in refspecs:
+                dst = ref.split(":", 1)[1] if ":" in ref else ref
+                dst = dst.lstrip("+").replace("refs/heads/", "")
+                if dst in ("main", "master"):
+                    print("1"); sys.exit(0)
+print("0")
+PYEOF
+)
+    if [ "$PUSH_TARGETS_MAIN" -eq 1 ]; then
+      # หา ref ปลายทางของ origin/main หรือ origin/master
+      BASE_REF=""
+      if git --no-optional-locks -C "$PROJECT_ROOT" rev-parse --verify origin/main >/dev/null 2>&1; then
+        BASE_REF="origin/main"
+      elif git --no-optional-locks -C "$PROJECT_ROOT" rev-parse --verify origin/master >/dev/null 2>&1; then
+        BASE_REF="origin/master"
+      fi
+      if [ -n "$BASE_REF" ]; then
+        NEW_MIGS=$(git --no-optional-locks -C "$PROJECT_ROOT" diff --name-only --diff-filter=A "${BASE_REF}...HEAD" 2>/dev/null | grep -E '(^|/)migrations/.*\.sql$' | head -n 3 | tr '\n' ',' | sed 's/,$//')
+        if [ -n "$NEW_MIGS" ]; then
+          block_action "พบไฟล์ SQL Migration ใหม่ (${NEW_MIGS}) ที่กำลังจะ push ขึ้น main (Production)! กรุณารัน migration บน Production DB ก่อน (หรือ push เฉพาะกิ่ง uat/preview ก่อน) — ถ้ารันบน Prod แล้วให้ใส่ MIGRATION_PROD_VERIFIED=1 นำหน้าคำสั่ง"
+        fi
+      fi
+    fi
+  fi
+fi
+
 allow_action

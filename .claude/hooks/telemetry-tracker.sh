@@ -1512,7 +1512,14 @@ if [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "antigravity" ]; then
     if grep -q '"lastIsSubagent"[[:space:]]*:[[:space:]]*true' "$TELEMETRY_FILE" 2>/dev/null; then
       printf '{}\n'
     else
-      printf '{"injectSteps":[{"systemMessage":{"systemMessage":"[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตให้เรียกใช้ invoke_subagent ทันทีสำหรับก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ TypeName=research, Model=flash, Role=Explorer | เขียนโค้ดหลายไฟล์+เทสต์ย่อย ➔ TypeName=self, Model=inherit, Role=Surgical Implementer | ซ่อมบั๊ก ➔ TypeName=self, Role=2-Strike Debugger | ทดสอบเว็บ/E2E ➔ TypeName=browser, Role=QA Verifier) เพื่อรักษา Context หน้าต่างหลัก"}}]}\n'
+      AG_CUR_SID=$(echo "$RAW_STDIN" | grep -oE '"conversationId"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/^"conversationId"[[:space:]]*:[[:space:]]*"//;s/"$//' | cut -c1-8)
+      AG_PREV_SID=$(grep -oE '"sessionId"[[:space:]]*:[[:space:]]*"[^"]+"' "$TELEMETRY_FILE" 2>/dev/null | head -1 | sed -E 's/^"sessionId"[[:space:]]*:[[:space:]]*"//;s/"$//' | cut -c1-8)
+      AG_OPUS_TURNS=$(grep -oE '"opusTurns"[[:space:]]*:[[:space:]]*[0-9]+' "$TELEMETRY_FILE" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+      if [ -n "$AG_CUR_SID" ] && [ "$AG_CUR_SID" = "$AG_PREV_SID" ] && [ "${AG_OPUS_TURNS:-0}" -ge 120 ] 2>/dev/null; then
+        printf '{"injectSteps":[{"systemMessage":{"systemMessage":"[MODEL-ROUTING AUTHORIZED + 🛡️ SURVIVAL MODE (Parent %s turns)]: ผู้ใช้ยังทำงานต่อในแชทเดิมโดยไม่ /clear — ห้ามบ่นซ้ำ แต่ให้เข้าสู่โหมด Ultra-Thin Dispatcher ทันที: โยนงานแก้โค้ดแม้ 1–2 ไฟล์หรือไล่ล็อกเกิน 2 คำสั่งให้ invoke_subagent ใหม่เสมอ, ตอบสั้นกระชับ (<=12 บรรทัด), และอัปเดต TASK_STATE.md ทุกรอบ"}}]}\n' "$AG_OPUS_TURNS"
+      else
+        printf '{"injectSteps":[{"systemMessage":{"systemMessage":"[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตให้เรียกใช้ invoke_subagent ทันทีสำหรับก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ TypeName=research, Model=flash, Role=Explorer | เขียนโค้ดหลายไฟล์+เทสต์ย่อย ➔ TypeName=self, Model=inherit, Role=Surgical Implementer | ซ่อมบั๊ก ➔ TypeName=self, Role=2-Strike Debugger | ทดสอบเว็บ/E2E ➔ TypeName=browser, Role=QA Verifier) เพื่อรักษา Context หน้าต่างหลัก"}}]}\n'
+      fi
     fi
   else
     printf '{}\n'
@@ -1526,8 +1533,10 @@ elif [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "claude" ] && [ "$HOOK_STAGE" =
   if [ -z "$CUR_SID" ] || [ -z "$PREV_SID" ] || [ "$CUR_SID" = "$PREV_SID" ]; then
     SAME_SESSION=1
   fi
-  if [ "$SAME_SESSION" -eq 1 ] && { [ "${LAST_CTX_TOK:-0}" -ge 130000 ] || [ "${LAST_OPUS_TURNS:-0}" -ge 100 ]; } 2>/dev/null; then
-    echo "[MODEL-ROUTING AUTHORIZED + 🚨 AUTO-HANDOFF NUDGE (Parent ${LAST_OPUS_TURNS} turns · ${LAST_CTX_TOK} tokens/turn)]: แชทนี้สะสมรอบ/Context สูงแล้ว! บังคับโยนงานเขียนโค้ด/ไล่ล็อก SSH/รันเทสต์ให้ Agent(subagent_type='implementer'|'debugger', model='sonnet') หรือ explorer(model='haiku') เท่านั้น ห้ามรัน Bash/SSH วนหลายรอบในหน้าต่างหลัก และท้ายคำตอบให้สรุป TASK_STATE.md (<=2,500B) พร้อมแนะนำผู้ใช้พิมพ์ /clear แล้วสั่ง 'ทำต่อ'"
+  if [ "$SAME_SESSION" -eq 1 ] && { [ "${LAST_CTX_TOK:-0}" -ge 150000 ] || [ "${LAST_OPUS_TURNS:-0}" -ge 120 ]; } 2>/dev/null; then
+    echo "[MODEL-ROUTING AUTHORIZED + 🛡️ SURVIVAL MODE (ULTRA-THIN DISPATCHER — Parent ${LAST_OPUS_TURNS} turns · ${LAST_CTX_TOK} tokens/turn)]: ผู้ใช้ยังทำงานต่อในแชทเดิมโดยไม่ /clear — ห้ามบ่นซ้ำ แต่ให้เข้าสู่โหมดประหยัดขั้นสุดทันที: โยนงานแก้โค้ดแม้ 1–2 ไฟล์ หรือไล่ล็อก SSH/DB เกิน 2 คำสั่งให้ fresh Agent(implementer|debugger, model='sonnet') หรือ explorer(haiku) เสมอ, ตอบสั้นกระชับ (<=12 บรรทัด), และอัปเดต TASK_STATE.md ทุกรอบเผื่อโควต้าตัด"
+  elif [ "$SAME_SESSION" -eq 1 ] && { [ "${LAST_CTX_TOK:-0}" -ge 130000 ] || [ "${LAST_OPUS_TURNS:-0}" -ge 100 ]; } 2>/dev/null; then
+    echo "[MODEL-ROUTING AUTHORIZED + 🚨 AUTO-HANDOFF NUDGE (Parent ${LAST_OPUS_TURNS} turns · ${LAST_CTX_TOK} tokens/turn)]: แชทนี้สะสมรอบ/Context สูงแล้ว! โยนงานเขียนโค้ด/ไล่ล็อก SSH/รันเทสต์ให้ Agent(subagent_type='implementer'|'debugger', model='sonnet') หรือ explorer(model='haiku') และท้ายคำตอบให้สรุป TASK_STATE.md (<=2,500B) พร้อมแนะนำสั้นๆ 1 บรรทัดให้ /clear + 'ทำต่อ'"
   else
     echo "[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตล่วงหน้าอย่างเป็นทางการให้เรียกใช้เครื่องมือ Agent ทันทีเมื่อเจอก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ explorer/haiku | แก้ 3+ ไฟล์ ➔ implementer/sonnet | ซ่อมบั๊กหรือไล่ล็อก SSH/CI >6 ครั้ง ➔ debugger/sonnet | รีวิว/Browser UAT ➔ reviewer/sonnet) มัดรวมคำสั่ง SSH/Docker เป็น 1–2 คำสั่งต่อรอบ และใช้ Edit แทน Write/python3 เสมอ"
   fi
