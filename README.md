@@ -75,7 +75,7 @@ chmod +x .claude/hooks/*.sh
   ```bash
   bash .claude/hooks/release-summary.sh
   ```
-- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite — 23 เคส):**
+- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite — 29 เคส):**
   ```bash
   bash tests/test-hooks.sh
   ```
@@ -96,6 +96,7 @@ project-root/
 │   ├── hooks.json                              # ผูก Lifecycle Hooks ไปรันสคริปต์ใน .claude/hooks/
 │   ├── skills.json                             # ชี้โฟลเดอร์ Skills ไปที่ {"entries": [{"path": ".claude/skills"}]}
 │   └── rules/                                  # ตัวชี้กฎพร้อม Frontmatter มาตรฐาน Antigravity (trigger: always_on / glob)
+│       ├── guard-core.md                       # @[guard-core](../../.claude/rules/guard-core.md) — กฎแกนกลางทำงานอัตโนมัติแม้ CLAUDE.md เป็นไฟล์เฉพาะโปรเจกต์
 │       ├── model-routing.md                    # @[model-routing](../../.claude/rules/model-routing.md)
 │       ├── execution-discipline.md             # @[execution-discipline](../../.claude/rules/execution-discipline.md)
 │       ├── project-pitfalls.md                 # @[project-pitfalls](../../.claude/rules/project-pitfalls.md)
@@ -110,8 +111,9 @@ project-root/
     │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (เน้น Edit แทน Write ทับไฟล์) + รันเทสต์ Tier 1–2 เอง (sonnet / inherit, maxTurns: 40)
     │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, 8-Turn Target / maxTurns: 12)
     │   └── reviewer.md                         # ตรวจเฉพาะ Blocker และรัน E2E/Playwright MCP แบบ Batch (sonnet / browser flash, maxTurns: 35)
-    ├── rules/                                  # กฎต้นฉบับ 6 ไฟล์
-    │   ├── model-routing.md                    # Pipeline Opus Architect ➔ Sonnet Builder (3+ ไฟล์), เพดานดีบัก 6 รอบ, Edit-over-Write & ห้ามรัน Browser ในหน้าต่างหลัก
+    ├── rules/                                  # กฎต้นฉบับ 7 ไฟล์
+    │   ├── guard-core.md                       # กฎแกนกลาง Universal (โหลดอัตโนมัติทุกโปรเจกต์แม้มี CLAUDE.md Custom: Opus->Sonnet, SSH/Ops Ceiling, Byte Budget, Auto-Handoff 100t)
+    │   ├── model-routing.md                    # Pipeline Opus Architect ➔ Sonnet Builder (3+ ไฟล์), เพดานดีบัก/SSH 6 รอบ, Edit-over-Write/Bash & ห้ามรัน Browser ในหน้าต่างหลัก
     │   ├── execution-discipline.md             # ส่งต่องาน State-Delta (<=8 บรรทัด), Grep ก่อนอ่านเฉพาะบรรทัด (>200 บรรทัด) & ห้าม git reset/restore
     │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ตามหลัก The Ratchet Pattern (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
     │   ├── code-simplicity.md                  # กฎ Karpathy: คิดก่อนทำ, เรียบง่ายที่สุด, แก้เฉพาะจุด, ไม่สร้างไฟล์ขยะ
@@ -147,7 +149,7 @@ project-root/
 
 ### 1. การคัดแยกงานและแตก Subagent อัตโนมัติ (`Zero-Command Auto-Routing`)
 คุณสามารถพิมพ์สั่งงานด้วยภาษาไทยตามปกติ ระบบใน [`CLAUDE.md`](CLAUDE.md) จะประเมินขนาดงานให้อัตโนมัติ:
-* **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`, `<= 6 รอบ`):** หน้าต่างหลักลงมือแก้แบบ Surgical `Edit` และรันเทสต์เฉพาะไฟล์ทันที (**ไม่แตก Subagent ให้เสียเวลา Cold-Start ฟรี** ตามกฎ `No Ceremony Overhead`) แต่มี **เพดานดีบักหน้าต่างหลัก (`6-Turn Investigation / Debug Ceiling`)** — หากงาน `1–2 ไฟล์` ต้องอ่าน/ไล่ล็อก/ดีบักเกิน `6 รอบ` แล้วยังไม่เจอทางแก้ที่ยืนยันได้ ให้หยุดในหน้าต่างหลักและโยนให้ `debugger` (`sonnet`) หรือ `explorer` (`haiku`) ทันที เพื่อไม่ให้ตัวแม่ `Opus` เผาโควต้า 20–100 รอบ
+* **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`, `<= 6 รอบ`):** หน้าต่างหลักลงมือแก้แบบ Surgical `Edit` และรันเทสต์เฉพาะไฟล์ทันที พร้อมมัดรวมคำสั่ง `ssh`/`docker logs`/`psql`/`gh run view` เป็น `1–2` คำสั่งต่อรอบ โดยมี **เพดานดีบัก & SSH/Ops (`6-Turn Investigation, Debug & SSH/Ops Ceiling`)** — หากอ่าน/ดีบัก/ไล่ล็อกเซิร์ฟเวอร์เกิน `6 ครั้ง` แล้วยังไม่จบ ให้หยุดในหน้าต่างหลักและโยนให้ `debugger` (`sonnet`) หรือ `explorer` (`haiku`) ทันที เพื่อไม่ให้ตัวแม่ `Opus` เผาโควต้า 20–100+ รอบ
 * **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาพิกัดไฟล์+เลขบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด
 * **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`3+ ไฟล์` — Pipeline `Opus Architect ➔ Sonnet Builder ➔ Opus Gatekeeper`):** แม้โจทย์จะระบุไฟล์ครบแล้ว ตัวแม่ `Opus` **ห้าม** เขียน/แก้โค้ดเองทั้งหมดในหน้าต่างหลัก ให้ทำตาม 3 ขั้น: **(1) Architect (`2–4 รอบ`):** อ่านไฟล์อ้างอิง 1–2 ไฟล์ (หรือให้ `explorer` หาพิกัดก่อน — **ห้าม Spawn `implementer` แบบตาบอดโดยไม่มีชื่อไฟล์+เลขบรรทัด**); **(2) Builder (`implementer` บน `sonnet` / `self`):** เปิดหน้าต่างสะอาด (**Fresh Context — ห้าม Fork ประวัติแชทหลัก**) รับ `State-Delta Brief (<=8 บรรทัด)` พร้อมเพดาน **อ่านไม่เกิน 10 รอบก่อนเริ่มแก้**, บังคับใช้ **`Edit` แทน `Write` ทับไฟล์เดิม** (กัน Claude Code Auto Mode บล็อก), และ **รันเทสต์ Tier 1 + Tier 2 (`analyze` + `test`) ให้จบในตัว** (หากแก้ต่อในฟีเจอร์เดิมและยังไม่เกิน `40 รอบ` ให้ `send_message` ใช้ตัวเดิมต่อ); **(3) Gatekeeper (`2–3 รอบ`):** ตรวจ `git diff --stat`, อัปเดต `TASK_STATE.md` / `project-pitfalls.md`, และรัน `audit-session-proof.sh --brief`
 * **กฎประหยัด Token ตอนอ่านไฟล์ใหญ่ (`Grep First, Read Line-Range Second`):** สำหรับไฟล์ที่ยาวเกิน `200 บรรทัด` บังคับใช้ `Grep`/`grep_search` หาเลขบรรทัดก่อน แล้วอ่านเฉพาะช่วงบรรทัด (`StartLine`–`EndLine` หรือ `offset`–`limit` ±40 บรรทัด) แทนการดึงไฟล์เต็มเข้า Context ซ้ำๆ (ประหยัด Input Tokens 70–80%)
@@ -198,7 +200,7 @@ AI จะสกัดบทเรียนสั้นๆ บรรทัดเ�
 
 ### 6. ส่งต่องานข้ามค่ายเมื่อโควต้าตัดกลางอากาศ & กันความจำเสื่อมตอนย่อแชทอัตโนมัติ (`Zero-Prompt Resume + PreCompact Continuity Ledger`)
 คุณสามารถสลับไปมาระหว่าง **Claude Code ⇄ Antigravity IDE** ได้ทันทีแม้ในจังหวะที่โควต้า 5 ชั่วโมงตัดกลางอากาศ (`You've hit your 5-hour limit`) โดย**แค่เปิดแชทใหม่แล้วพิมพ์สั้นๆ ว่า `"ทำต่อ"` หรือ `"ลุยต่อ"` คำเดียว**:
-* **ชั้นที่ 1 (สรุปงานอัตโนมัติโดย AI):** ทุกครั้งที่แก้โค้ดหรือปิดงานย่อยเสร็จ AI จะอัปเดตสรุปสถานะปัจจุบันและงานถัดไปไว้ด้านบนของ `TASK_STATE.md` (ไม่เกิน 20 บรรทัด)
+* **ชั้นที่ 1 (สรุปงานอัตโนมัติ + 0-Token Auto-Trim & Archive):** AI อัปเดตสถานะปัจจุบันไว้ด้านบนของ `TASK_STATE.md` (`<= 20 บรรทัด` และ `<= 2,500 bytes`) หากไฟล์เกิน `2,800 bytes` สคริปต์ `audit-session-proof.sh` จะเก็บเฉพาะสถานะล่าสุดและย้ายประวัติ deploy เก่าลง `.claude/.task-state-archive.md` อัตโนมัติแบบ `0-Token` เพื่อไม่ให้กิน Input Tokens ฟรีทุกเทิร์น (และเมื่อหน้าต่างหลักสะสมถึง `>= 100 รอบ` หรือ `>= 130k tokens` ในแชทเดิม `telemetry-tracker.sh` จะยิง **Auto-Handoff Nudge** แนะนำให้ `/clear` แล้วพิมพ์ `"ทำต่อ"` อัตโนมัติ)
 * **ชั้นที่ 2 (แกะรอยงานที่โดนตัดกลางคันแบบ `0-Token` ใน `auto-resume.sh` & `audit-session-proof.sh`):** ทันทีที่คุณเปิดแชทใหม่ (`SessionStart`) สคริปต์จะไปอ่านท้ายไฟล์ `.jsonl` ของแชทล่าสุดที่เพิ่งดับไป ดึง **`Last User Prompt`** (โจทย์ที่คุณสั่งไว้), **`Last Agent Summary`** (สิ่งที่ตัวแม่ทำเสร็จไปแล้วก่อนดับ), และ **`Last Dispatched Subagent Task`** (คำสั่งที่ส่งให้ลูกน้องทำค้างไว้ก่อนโควต้าตัด) มาเขียนต่อท้าย `TASK_STATE.md` พร้อมกิ่งและ 5 คอมมิตล่าสุดให้อัตโนมัติ!
 * **ชั้นที่ 3 (`PreCompact` Continuity Hook):** ก่อนที่ระบบจะสั่งย่อหน้าต่างความจำอัตโนมัติ (`/compact` หรือ Auto-Compaction) `auto-resume.sh --pre-compact` จะบังคับซิงก์ `TASK_STATE.md` ล่าสุดและฉีดเตือนให้ AI ยึด `TASK_STATE.md` + `project-pitfalls.md` เป็นหลักหลังย่อความจำ ป้องกันอาการความจำเสื่อมกลางแชท (`Post-Compaction Amnesia`)
 

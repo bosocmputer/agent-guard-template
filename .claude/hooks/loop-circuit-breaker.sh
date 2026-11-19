@@ -31,14 +31,45 @@ ACTOR_KEY=$(echo "$INPUT" | grep -oE '"(agent_id|session_id|conversation_id)"[[:
 ACTOR_KEY="${ACTOR_KEY:-default}"
 READ_STREAK_FILE="/tmp/claude_read_streak_${PWD_HASH}_${ACTOR_KEY}.cnt"
 
-# ตรวจจับการเขียน/แก้ไขไฟล์ผ่านสคริปต์ใน Bash (เช่น open(...,'w'), p='...'; open(p,'w'), cat > path <<'EOF', sed -i)
+# ตรวจจับการเขียน/แก้ไขไฟล์ผ่านสคริปต์ใน Bash (เช่น open(...,'w'), write_text(, cat > path <<'EOF', sed -i)
 WRITE_TARGET=""
-if echo "$COMMAND" | grep -qE "(open\([^)]*,[[:space:]]*['\"]w|cat[[:space:]]*>+[[:space:]]*[^[:space:]<]+|cat[[:space:]]+<<[^>]*>[[:space:]]*[^[:space:]]+|sed[[:space:]]+-i)"; then
-  rm -f "/tmp/claude_cmd_history_${PWD_HASH}.log" "$READ_STREAK_FILE" 2>/dev/null || true
-  WRITE_TARGET=$(echo "$COMMAND" | grep -oE "[A-Za-z0-9_./-]+\.(dart|sql|ts|tsx|js|jsx|py|go|rs|sh|md|json|yaml|yml)" | head -1)
+if echo "$COMMAND" | grep -qE "(open\([^)]*,[[:space:]]*['\"]w|write_text\(|cat[[:space:]]*>+[[:space:]]*[^[:space:]<]+|cat[[:space:]]+<<[^>]*>[[:space:]]*[^[:space:]]+|sed[[:space:]]+-i)"; then
+  WRITE_TARGET=$(echo "$COMMAND" | grep -oE "[A-Za-z0-9_./-]+\.(dart|sql|ts|tsx|js|jsx|mjs|cjs|py|go|rs|sh|md|json|yaml|yml)" | head -1)
   if [ -z "$WRITE_TARGET" ]; then
     WRITE_TARGET="source-file"
   fi
+  # Stage 4 Anti-Test-Tampering ผ่าน Bash/Python: หากอยู่ในโหมดซ่อมบั๊ก (strikeCount >= 1 หรือ activeNode == debugger) ห้ามแอบเขียนทับไฟล์เทสต์เดิมผ่าน python3/cat/sed
+  GUARD_MODE="${AGENT_GUARD_MODE:-strict}"
+  if [ -f "$PROJECT_ROOT/.agent-guard-mode" ]; then
+    GUARD_MODE="$(head -n 1 "$PROJECT_ROOT/.agent-guard-mode" | tr -d '[:space:]')"
+  fi
+  if [ "$GUARD_MODE" != "relaxed" ] && [ "${ALLOW_TEST_EDIT:-0}" != "1" ] && echo "$COMMAND" | grep -qE '(\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)|_test\.(go|dart|py|rs)|(^|[[:space:]'"'"'"/])test_[^/'"'"'"[:space:]]+\.py)'; then
+    TELEMETRY_FILE="$PROJECT_ROOT/.claude/.telemetry.json"
+    if [ -f "$TELEMETRY_FILE" ]; then
+      IS_DEBUG_FIX=$(python3 - "$TELEMETRY_FILE" <<'PYEOF' 2>/dev/null || echo "0"
+import sys, json
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+    strike = int(d.get("strikeCount", 0) or 0)
+    node = str(d.get("activeNode", ""))
+    print("1" if (strike >= 1 or node == "debugger") else "0")
+except Exception:
+    print("0")
+PYEOF
+)
+      if [ "$IS_DEBUG_FIX" = "1" ]; then
+        bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "debugger" --status "blocked" --detail "🛡️ Anti-Test-Tampering (Bash): บล็อกการแอบแก้ไฟล์เทสต์เดิม ($WRITE_TARGET) ผ่าน Bash/Python ระหว่างซ่อมบั๊ก" --hook ".claude/hooks/loop-circuit-breaker.sh" --rule ".claude/rules/testing-and-api.md" >/dev/null 2>&1 || true
+        if [ "$MODE" = "antigravity" ]; then
+          printf '{"decision":"deny","reason":"ห้ามแอบแก้ไขไฟล์เทสต์เดิม (%s) ผ่าน Bash/Python ระหว่างซ่อมบั๊ก ให้แก้ที่โค้ดต้นเหตุด้วย Edit เท่านั้น (Stage 4 Anti-Test-Tampering)"}\n' "$WRITE_TARGET"
+          exit 0
+        else
+          echo "❌ [Hook Blocked - loop-circuit-breaker.sh]: ห้ามแอบแก้ไขไฟล์เทสต์เดิม ($WRITE_TARGET) ผ่าน Bash/Python ระหว่างซ่อมบั๊ก ให้แก้ที่โค้ดต้นเหตุด้วย Edit เท่านั้น (Stage 4 Anti-Test-Tampering)" >&2
+          exit 2
+        fi
+      fi
+    fi
+  fi
+  rm -f "/tmp/claude_cmd_history_${PWD_HASH}.log" "$READ_STREAK_FILE" 2>/dev/null || true
   ACTION_LBL="${DESC:-แก้ไขไฟล์จริง}"
   bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" --engine "$MODE" --node "implementer" --status "working" --file "$WRITE_TARGET" --detail "✍️ $ACTION_LBL ($WRITE_TARGET)" --hook ".claude/hooks/post-edit-format.sh" >/dev/null 2>&1 || true
 fi

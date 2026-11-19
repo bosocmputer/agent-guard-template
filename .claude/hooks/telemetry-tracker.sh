@@ -1425,7 +1425,9 @@ else:
     if hook_arg:
         push_used_item("HOOK", os.path.basename(hook_arg), hook_arg.split(" ")[0], node, clean_detail or "")
 
-state["sessionProof"] = extract_session_proof_metrics(project_root, state)
+new_session_proof = extract_session_proof_metrics(project_root, state)
+if new_session_proof.get("sessionId") not in (None, "", "none") or not state.get("sessionProof"):
+    state["sessionProof"] = new_session_proof
 if state["sessionProof"].get("subagentCalls", 0) > int(stats.get("subagentSpawns", 0)):
     stats["subagentSpawns"] = state["sessionProof"]["subagentCalls"]
 state["stats"] = stats
@@ -1516,11 +1518,18 @@ if [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "antigravity" ]; then
     printf '{}\n'
   fi
 elif [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "claude" ] && [ "$HOOK_STAGE" = "prompt" ]; then
+  CUR_SID=$(echo "$RAW_STDIN" | grep -oE '"session_id"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/^"session_id"[[:space:]]*:[[:space:]]*"//;s/"$//' | cut -c1-8)
+  PREV_SID=$(grep -oE '"sessionId"[[:space:]]*:[[:space:]]*"[^"]+"' "$TELEMETRY_FILE" 2>/dev/null | head -1 | sed -E 's/^"sessionId"[[:space:]]*:[[:space:]]*"//;s/"$//' | cut -c1-8)
   LAST_CTX_TOK=$(grep -oE '"lastCacheTokens"[[:space:]]*:[[:space:]]*[0-9]+' "$TELEMETRY_FILE" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
-  if [ "${LAST_CTX_TOK:-0}" -ge 150000 ] 2>/dev/null; then
-    echo "[MODEL-ROUTING AUTHORIZED + 🚨 CONTEXT BLOAT WARNING (${LAST_CTX_TOK} tokens/turn)]: แชทนี้สะสม Context เกิน 150,000 tokens แล้ว! บังคับโยนงานเขียนโค้ด/รันเทสต์ให้ Agent(subagent_type='implementer', model='sonnet') หรือ Agent(subagent_type='explorer', model='haiku') เท่านั้น ห้ามรัน Bash/Edit หลายรอบในหน้าต่างหลัก และให้แจ้งเตือนผู้ใช้ท้ายคำตอบให้พิมพ์ /clear เพื่อเริ่มแชทใหม่หลังจบขั้นนี้"
+  LAST_OPUS_TURNS=$(grep -oE '"opusTurns"[[:space:]]*:[[:space:]]*[0-9]+' "$TELEMETRY_FILE" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+  SAME_SESSION=0
+  if [ -z "$CUR_SID" ] || [ -z "$PREV_SID" ] || [ "$CUR_SID" = "$PREV_SID" ]; then
+    SAME_SESSION=1
+  fi
+  if [ "$SAME_SESSION" -eq 1 ] && { [ "${LAST_CTX_TOK:-0}" -ge 130000 ] || [ "${LAST_OPUS_TURNS:-0}" -ge 100 ]; } 2>/dev/null; then
+    echo "[MODEL-ROUTING AUTHORIZED + 🚨 AUTO-HANDOFF NUDGE (Parent ${LAST_OPUS_TURNS} turns · ${LAST_CTX_TOK} tokens/turn)]: แชทนี้สะสมรอบ/Context สูงแล้ว! บังคับโยนงานเขียนโค้ด/ไล่ล็อก SSH/รันเทสต์ให้ Agent(subagent_type='implementer'|'debugger', model='sonnet') หรือ explorer(model='haiku') เท่านั้น ห้ามรัน Bash/SSH วนหลายรอบในหน้าต่างหลัก และท้ายคำตอบให้สรุป TASK_STATE.md (<=2,500B) พร้อมแนะนำผู้ใช้พิมพ์ /clear แล้วสั่ง 'ทำต่อ'"
   else
-    echo "[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตล่วงหน้าอย่างเป็นทางการให้เรียกใช้เครื่องมือ Agent ทันทีเมื่อเจอก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ Agent(subagent_type='explorer', model='haiku') | แก้โค้ดหลายไฟล์+รันเทสต์ย่อย ➔ Agent(subagent_type='implementer', model='sonnet') | ซ่อมบั๊ก ➔ Agent(subagent_type='debugger', model='sonnet') | รีวิว/รัน E2E ➔ Agent(subagent_type='reviewer', model='sonnet')) เพื่อประหยัดโควต้าหน้าต่างหลัก"
+    echo "[MODEL-ROUTING AUTHORIZED]: ผู้ใช้สั่งอนุญาตล่วงหน้าอย่างเป็นทางการให้เรียกใช้เครื่องมือ Agent ทันทีเมื่อเจอก้อนงานหลายขั้นตอน (สำรวจ >3 ไฟล์ ➔ explorer/haiku | แก้ 3+ ไฟล์ ➔ implementer/sonnet | ซ่อมบั๊กหรือไล่ล็อก SSH/CI >6 ครั้ง ➔ debugger/sonnet | รีวิว/Browser UAT ➔ reviewer/sonnet) มัดรวมคำสั่ง SSH/Docker เป็น 1–2 คำสั่งต่อรอบ และใช้ Edit แทน Write/python3 เสมอ"
   fi
 fi
 exit 0

@@ -690,13 +690,19 @@ all_sessions.sort(key=lambda x: x.get("epoch") or 0)
 def scan_pitfalls(r_dir):
     pf_path = os.path.join(r_dir, ".claude", "rules", "project-pitfalls.md")
     rules = []
+    pf_bytes = 0
+    long_rules = 0
     if os.path.isfile(pf_path):
         try:
+            pf_bytes = os.path.getsize(pf_path)
             with open(pf_path, "r", encoding="utf-8", errors="ignore") as fp:
                 for ln in fp:
                     s = ln.strip()
                     if s.startswith("- **["):
-                        rules.append(s[2:].strip())
+                        r_body = s[2:].strip()
+                        rules.append(r_body)
+                        if len(r_body) > 180:
+                            long_rules += 1
         except Exception:
             pass
     added_recent = []
@@ -717,6 +723,8 @@ def scan_pitfalls(r_dir):
         return r_txt if len(r_txt) <= 115 else r_txt[:112] + "..."
     return {
         "count": len(rules),
+        "bytes": pf_bytes,
+        "long_rules": long_rules,
         "all": rules,
         "added_recent": [short_rule(x) for x in added_recent],
         "latest": short_rule(rules[-1]) if rules else "",
@@ -862,12 +870,51 @@ def sync_task_state(r_dir):
             base_content = ""
     if not base_content:
         base_content = "# Active Task Handoff State\n- **Objective:** Resume from the latest Git state and checkpoints below."
+    # 0-Token Auto-Trim & Archive: keep top section compact (<= 2,800 bytes) so every new session/subagent does not waste tokens loading old deploy logs
+    trimmed_archived = False
+    if len(base_content.encode("utf-8")) > 2800:
+        try:
+            raw_lines = [ln for ln in base_content.splitlines() if ln.strip()]
+            header_lines = [raw_lines[0]] if raw_lines and raw_lines[0].lstrip().startswith("#") else ["# Active Task Handoff State"]
+            body_lines = raw_lines[1:] if (raw_lines and raw_lines[0].lstrip().startswith("#")) else raw_lines
+            date_pat = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
+            all_dates = [m for ln in body_lines for m in date_pat.findall(ln)]
+            latest_date = max(all_dates) if all_dates else ""
+            candidates = [(i, ln) for i, ln in enumerate(body_lines) if (latest_date and latest_date in ln)] if latest_date else list(enumerate(body_lines))
+            if not candidates:
+                candidates = list(enumerate(body_lines))
+            kept_idx = set()
+            kept_rev = []
+            budget = 2400 - len("\n".join(header_lines).encode("utf-8"))
+            for i, ln in reversed(candidates):
+                ln_b = len(ln.encode("utf-8")) + 1
+                if kept_rev and ln_b > budget:
+                    break
+                kept_rev.append((i, ln))
+                kept_idx.add(i)
+                budget -= ln_b
+                if len(kept_rev) >= 6:
+                    break
+            kept_lines = [ln for _, ln in sorted(kept_rev, key=lambda x: x[0])]
+            archived_lines = [ln for i, ln in enumerate(body_lines) if i not in kept_idx]
+            if archived_lines:
+                arch_dir = os.path.join(r_dir, ".claude")
+                os.makedirs(arch_dir, exist_ok=True)
+                arch_path = os.path.join(arch_dir, ".task-state-archive.md")
+                with open(arch_path, "a", encoding="utf-8") as af:
+                    af.write(f"\n## Archived {now_str}\n" + "\n".join(archived_lines) + "\n")
+                trimmed_archived = True
+            note_line = f"- *(Older history auto-archived to `.claude/.task-state-archive.md` — keeping latest context compact)*"
+            base_content = "\n".join(header_lines + [""] + kept_lines + ([note_line] if trimmed_archived else []))
+        except Exception:
+            pass
     try:
         with open(ts_path, "w", encoding="utf-8") as f:
             f.write(base_content + "\n\n" + auto_block)
     except Exception:
         pass
-    return f"`{branch}@{head_sha}`" if head_sha else "`synced`"
+    suffix = " trimmed" if trimmed_archived else ""
+    return f"`{branch}@{head_sha}{suffix}`" if head_sha else "`synced`"
 
 ts_badge = sync_task_state(root_dir)
 pf_info = scan_pitfalls(root_dir)
@@ -1095,8 +1142,8 @@ if brief_mode:
         tripwires.append(f"⚠️ `CONTEXT_WINDOW_BLOAT` (หน้าต่างหลักสะสม {acc['opus']} รอบ — แนะนำพิมพ์ `/clear` หรือเปิดแชทใหม่เมื่อจบขั้นนี้)")
     if d_blocks > 0:
         tripwires.append(f"⚠️ `PERMISSION_GATE_TRIGGERED` (บล็อกคำสั่งผิดกฎ {d_blocks} ครั้งในรอบนี้)")
-    if pf_info["count"] >= 25:
-        tripwires.append(f"⚠️ `PITFALL_MEMORY_NEAR_FULL` (Pitfalls {pf_info['count']}/30 ข้อ — แนะนำยุบรวมกฎที่ซ้ำหมวดกันเพื่อกัน Rule Conflict)")
+    if pf_info["count"] >= 25 or pf_info.get("bytes", 0) > 4500:
+        tripwires.append(f"⚠️ `PITFALL_MEMORY_BLOAT` (Pitfalls {pf_info['count']}/30 ข้อ, {pf_info.get('bytes', 0):,}B/4,500B — แนะนำบีบแต่ละข้อ <=180 ตัวอักษรและยุบข้อซ้ำ)")
 
     burn_note = ""
     if burn_5hr_parent > 0 or burn_5hr_sub > 0:

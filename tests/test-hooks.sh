@@ -97,7 +97,66 @@ bash "$ROOT_DIR/.claude/hooks/post-edit-format.sh" <<< '{"file_path":"README.md"
 assert_exit "Real file edit via post-edit-format.sh resets Read-Loop block for actorA" 0 "$(run_loop_hook "grep -n after_edit README.md" "actorA")"
 rm -f "/tmp/claude_read_streak_${TEST_PWD_HASH}_actorA.cnt" "/tmp/claude_read_streak_${TEST_PWD_HASH}_actorB.cnt" 2>/dev/null || true
 
-# 6. Audit & Release Summary scripts must execute cleanly (exit 0)
+# 6. Stage 4 Anti-Test-Tampering via Bash/Python writes (when strikeCount >= 1)
+TMP_STAGE4_DIR="$(mktemp -d /tmp/agt-stage4-XXXXXX)"
+mkdir -p "$TMP_STAGE4_DIR/.claude/hooks"
+cp "$ROOT_DIR/.claude/hooks/loop-circuit-breaker.sh" "$TMP_STAGE4_DIR/.claude/hooks/"
+cp "$ROOT_DIR/.claude/hooks/telemetry-tracker.sh" "$TMP_STAGE4_DIR/.claude/hooks/"
+printf '{"strikeCount":1,"activeNode":"debugger"}\n' > "$TMP_STAGE4_DIR/.claude/.telemetry.json"
+set +e
+bash "$TMP_STAGE4_DIR/.claude/hooks/loop-circuit-breaker.sh" <<< "{\"command\":\"python3 -c \\\"open('src/app.test.ts','w').write('ok')\\\"\",\"agent_id\":\"s4test\"}" >/dev/null 2>&1
+RC_S4_BLOCK=$?
+bash "$TMP_STAGE4_DIR/.claude/hooks/loop-circuit-breaker.sh" <<< "{\"command\":\"python3 -c \\\"open('src/app.ts','w').write('ok')\\\"\",\"agent_id\":\"s4test\"}" >/dev/null 2>&1
+RC_S4_ALLOW=$?
+set -e
+assert_exit "Block Bash python write to test file during debug (Stage 4)" 2 "$RC_S4_BLOCK"
+assert_exit "Allow Bash python write to normal source file during debug" 0 "$RC_S4_ALLOW"
+rm -rf "$TMP_STAGE4_DIR"
+
+# 7. Auto-Trim & Archive oversized TASK_STATE.md (> 2,800 bytes) in isolated temp repo
+TMP_TRIM_DIR="$(mktemp -d /tmp/agt-trim-XXXXXX)"
+mkdir -p "$TMP_TRIM_DIR/.claude/hooks" "$TMP_TRIM_DIR/.claude/rules"
+cp "$ROOT_DIR/.claude/hooks/audit-session-proof.sh" "$TMP_TRIM_DIR/.claude/hooks/"
+python3 - "$TMP_TRIM_DIR/TASK_STATE.md" <<'PYEOF'
+import sys
+lines = ["# 📌 TASK_STATE.md — Test"]
+for i in range(1, 12):
+    lines.append(f"- **2026-11-18 old deploy #{i}:** " + ("x" * 280))
+lines.append("- **2026-11-19 latest active state:** keep this line intact")
+open(sys.argv[1], "w", encoding="utf-8").write("\n".join(lines) + "\n")
+PYEOF
+set +e
+bash "$TMP_TRIM_DIR/.claude/hooks/audit-session-proof.sh" --brief "$TMP_TRIM_DIR" >/dev/null 2>&1
+RC_TRIM_RUN=$?
+set -e
+assert_exit "Run audit-session-proof.sh --brief with auto-trim on oversized TASK_STATE.md" 0 "$RC_TRIM_RUN"
+TRIM_OK=$(python3 - "$TMP_TRIM_DIR" <<'PYEOF'
+import os, sys
+d = sys.argv[1]
+ts = open(os.path.join(d, "TASK_STATE.md"), encoding="utf-8").read()
+top = ts.split("## 🔄 Auto-Synced Git & Session State")[0]
+arch = os.path.join(d, ".claude", ".task-state-archive.md")
+ok = (len(top.encode("utf-8")) <= 2800) and ("2026-11-19 latest active state" in top) and os.path.isfile(arch) and ("2026-11-18 old deploy #1" in open(arch, encoding="utf-8").read())
+print("0" if ok else "1")
+PYEOF
+)
+assert_exit "Oversized TASK_STATE.md trimmed <= 2800B and older entries archived" 0 "$TRIM_OK"
+rm -rf "$TMP_TRIM_DIR"
+
+# 8. Same-session Auto-Handoff Nudge (>= 100 opusTurns) vs fresh session isolation
+TMP_NUDGE_DIR="$(mktemp -d /tmp/agt-nudge-XXXXXX)"
+mkdir -p "$TMP_NUDGE_DIR/.claude/hooks"
+cp "$ROOT_DIR/.claude/hooks/telemetry-tracker.sh" "$TMP_NUDGE_DIR/.claude/hooks/"
+printf '{"sessionProof":{"sessionId":"abcd1234","opusTurns":105,"lastCacheTokens":90000},"events":[]}\n' > "$TMP_NUDGE_DIR/.claude/.telemetry.json"
+NUDGE_SAME=$(bash "$TMP_NUDGE_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin prompt <<< '{"session_id":"abcd1234-full","prompt":"ทำต่อ"}' 2>/dev/null || true)
+NUDGE_FRESH=$(bash "$TMP_NUDGE_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin prompt <<< '{"session_id":"ffff9999-new","prompt":"ทำต่อ"}' 2>/dev/null || true)
+echo "$NUDGE_SAME" | grep -q "AUTO-HANDOFF NUDGE" && RC_NUDGE_SAME=0 || RC_NUDGE_SAME=1
+echo "$NUDGE_FRESH" | grep -q "AUTO-HANDOFF NUDGE" && RC_NUDGE_FRESH=1 || RC_NUDGE_FRESH=0
+assert_exit "Emit AUTO-HANDOFF NUDGE when same session has >=100 opusTurns" 0 "$RC_NUDGE_SAME"
+assert_exit "Do NOT emit stale AUTO-HANDOFF NUDGE on fresh /clear session" 0 "$RC_NUDGE_FRESH"
+rm -rf "$TMP_NUDGE_DIR"
+
+# 9. Audit & Release Summary scripts must execute cleanly (exit 0)
 set +e
 bash "$ROOT_DIR/.claude/hooks/audit-session-proof.sh" --brief "$ROOT_DIR" >/dev/null 2>&1
 assert_exit "Run audit-session-proof.sh --brief" 0 "$?"

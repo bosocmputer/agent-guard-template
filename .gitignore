@@ -5,6 +5,7 @@ TASK_STATE.md
 .agent-last-state.log
 .claude/.telemetry.json*
 .claude/.quota_cache.json*
+.claude/.task-state-archive.md
 node_modules/
 .env
 .env.*
