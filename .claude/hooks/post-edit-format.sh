@@ -13,8 +13,11 @@ else
 fi
 
 if [ -n "$FILE_PATH" ]; then
-  # ล้างประวัติการรันคำสั่งซ้ำและตัวนับการอ่านไฟล์ติดต่อกันเมื่อมีการแก้ไขไฟล์โค้ดจริง
-  rm -f "/tmp/claude_cmd_history_$(pwd | cksum | cut -d' ' -f1).log" "/tmp/claude_read_streak_$(pwd | cksum | cut -d' ' -f1).cnt" 2>/dev/null || true
+  # ล้างประวัติการรันคำสั่งซ้ำและตัวนับการอ่านไฟล์ติดต่อกัน (เฉพาะ actor/session นี้) เมื่อมีการแก้ไขไฟล์โค้ดจริง
+  PWD_HASH="$(pwd | cksum | cut -d' ' -f1)"
+  ACTOR_KEY=$(echo "$INPUT" | grep -oE '"(agent_id|session_id|conversation_id)"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/^"[^"]+"[[:space:]]*:[[:space:]]*"//;s/"$//' | tr -cd 'A-Za-z0-9_-' | cut -c1-32)
+  ACTOR_KEY="${ACTOR_KEY:-default}"
+  rm -f "/tmp/claude_cmd_history_${PWD_HASH}.log" "/tmp/claude_read_streak_${PWD_HASH}_${ACTOR_KEY}.cnt" "/tmp/claude_read_streak_${PWD_HASH}.cnt" 2>/dev/null || true
   DIFF_STAT=""
   if command -v git >/dev/null 2>&1; then
     DIFF_STAT=$(git --no-optional-locks diff --numstat -- "$FILE_PATH" 2>/dev/null | awk '{printf "+%s/-%s บรรทัด", $1, $2}')

@@ -74,7 +74,30 @@ assert_exit "Block editing server.pem" 2 "$(run_file_hook "certs/server.pem")"
 assert_exit "Block editing ~/.ssh/config" 2 "$(run_file_hook "/Users/test/.ssh/config")"
 assert_exit "Allow editing normal source file" 0 "$(run_file_hook "src/index.ts")"
 
-# 5. Audit & Release Summary scripts must execute cleanly (exit 0)
+# 5. Sticky Read-Loop Circuit Breaker: per-actor isolation, sticky block on >=15 reads, reset on real edit
+run_loop_hook() {
+  local cmd_str="$1"
+  local actor_id="$2"
+  set +e
+  bash "$ROOT_DIR/.claude/hooks/loop-circuit-breaker.sh" <<< "{\"command\":\"$cmd_str\",\"agent_id\":\"$actor_id\"}" >/dev/null 2>&1
+  local rc=$?
+  set -e
+  echo "$rc"
+}
+
+TEST_PWD_HASH="$(cd "$ROOT_DIR" && pwd | cksum | cut -d' ' -f1)"
+rm -f "/tmp/claude_read_streak_${TEST_PWD_HASH}_actorA.cnt" "/tmp/claude_read_streak_${TEST_PWD_HASH}_actorB.cnt" 2>/dev/null || true
+for i in $(seq 1 14); do
+  run_loop_hook "grep -n foo README.md" "actorA" >/dev/null
+done
+assert_exit "Read-Loop Circuit Breaker blocks actorA on 15th consecutive read" 2 "$(run_loop_hook "grep -n bar README.md" "actorA")"
+assert_exit "Read-Loop Circuit Breaker stays sticky-blocked on 16th read for actorA" 2 "$(run_loop_hook "grep -n baz README.md" "actorA")"
+assert_exit "Read-Loop Circuit Breaker isolates concurrent actorB (1st read allowed)" 0 "$(run_loop_hook "grep -n foo README.md" "actorB")"
+bash "$ROOT_DIR/.claude/hooks/post-edit-format.sh" <<< '{"file_path":"README.md","agent_id":"actorA"}' >/dev/null 2>&1
+assert_exit "Real file edit via post-edit-format.sh resets Read-Loop block for actorA" 0 "$(run_loop_hook "grep -n after_edit README.md" "actorA")"
+rm -f "/tmp/claude_read_streak_${TEST_PWD_HASH}_actorA.cnt" "/tmp/claude_read_streak_${TEST_PWD_HASH}_actorB.cnt" 2>/dev/null || true
+
+# 6. Audit & Release Summary scripts must execute cleanly (exit 0)
 set +e
 bash "$ROOT_DIR/.claude/hooks/audit-session-proof.sh" --brief "$ROOT_DIR" >/dev/null 2>&1
 assert_exit "Run audit-session-proof.sh --brief" 0 "$?"
