@@ -7,8 +7,8 @@
 
 > **🇬🇧 English Summary (For Global Developers):**
 > **Agent Guard Template** is a battle-tested, 6-layer **AI Coding Agent Harness & Governance Framework** for **Claude Code** and **Antigravity IDE** (built on a Single Source of Truth in `.claude/`).
-> - **Save 70–83% of Main-Window Quota:** Automatically offloads codebase exploration (`haiku`/`flash`, capped at 10 turns), multi-file implementation (`sonnet`, capped at 40 turns), and batched Playwright MCP QA (`sonnet`, capped at 22 turns) out of your expensive `Opus`/`Fable` orchestrator window.
-> - **0-Token OS & Git Safety Shields:** Deterministic Bash/Python hooks block `git reset --hard`, `git checkout .`, `.env`/credential dumps, unapproved dependencies, and test-tampering during bug fixes (`exit 2`).
+> - **Save 70–83% of Main-Window Quota:** Enforces the **`Opus Architect ➔ Sonnet Builder (3+ files) ➔ Opus Gatekeeper`** pipeline plus a **6-turn Investigation/Debug Ceiling** on 1–2 file fixes — automatically offloading codebase exploration (`haiku`/`flash`, capped at 10 turns), multi-file implementation (`sonnet`, capped at 40 turns with `Edit`-over-`Write` safety), and batched Playwright MCP QA (`sonnet`, capped at 35 turns) out of your expensive `Opus`/`Fable` orchestrator window.
+> - **0-Token OS, Git & Anti-Loop Safety Shields:** Deterministic Bash/Python hooks block `git reset --hard`, `git checkout .`, `.env`/credential dumps, unapproved dependencies, test-tampering during bug fixes, and stuck read/search loops via a **Sticky Per-Actor Read-Loop Circuit Breaker** (`> 14` consecutive reads without editing, `exit 2`).
 > - **Zero-Prompt Cross-Agent Handoff & 5-Hour Quota Radar:** Auto-syncs git/session state into `TASK_STATE.md` before context compaction or 5-hour quota cutoffs, tracks rolling 5-hour token burn across all local projects, and distills project-specific lessons into `.claude/rules/project-pitfalls.md`.
 
 **🇹🇭 ระบบควบคุมวินัย AI Coding Agent แบบ Dual-Engine (`Claude Code` & `Antigravity IDE`) — เน้นแก้โค้ดเฉพาะจุด ประหยัดโควต้าหน้าต่างหลัก 70–83% ด้วย Subagents อัตโนมัติ พร้อมระบบป้องกันคำสั่งอันตราย 0-Token, ตัววัดอัตราเผาโควต้า 5 ชั่วโมงข้ามโปรเจกต์ และความจำระยะยาวเฉพาะโปรเจกต์**
@@ -34,7 +34,7 @@
 | ปัญหาที่พบบ่อยเมื่อใช้ AI เขียนโค้ดแบบเปล่าๆ | กลไกของ `agent-guard-template` |
 | :--- | :--- |
 | 💸 **หน้าแชทหลักตันไว & เปลืองโควต้า `Opus`:** สั่งงานใหญ่ทีไร AI กวาดอ่านไฟล์และรันเทสต์วนลูปในหน้าต่างหลักจนโควต้าหมดกลางคัน | 🤖 **Auto-Subagent Offload (ลดภาระหน้าต่างหลัก 50–70%):** บังคับแยกงานสำรวจ (`explorer` / `flash`) และงานเขียนโค้ด+รันเทสต์ (`implementer` / `reviewer`) ออกไปทำใน Subagent อัตโนมัติ เก็บหน้าต่างหลักไว้สั่งการได้ยาวหลายชั่วโมง |
-| 🔄 **ต้องคอยแก้ไฟล์กฎ 2 ที่ (`.claude/` กับ `.agents/`):** เวลาปรับกฎหรือจดบทเรียนต้องตามแก้ทั้งสองค่ายจนข้อมูลไม่ตรงกัน | 🔗 **Single Source of Truth (`.claude/` Master):** เก็บกฎและทักษะต้นฉบับไว้ที่ `CLAUDE.md` และ `.claude/` จุดเดียว ส่วนฝั่ง Antigravity (`AGENTS.md`, `GEMINI.md`, `.agents/`) ใช้ตัวชี้ `@[...]` และ `.agents/skills.json` ดึงไปใช้อัตโนมัติ |
+| 🔄 **ต้องคอยแก้ไฟล์กฎ 2 ที่ (`.claude/` กับ `.agents/`):** เวลาปรับกฎหรือจดบทเรียนต้องตามแก้ทั้งสองค่ายจนข้อมูลไม่ตรงกัน | 🔗 **Single Source of Truth (`.claude/` Master):** เก็บกฎย่อยและทักษะต้นฉบับไว้ที่ `.claude/` จุดเดียว ส่วน `.agents/` ใช้ตัวชี้ `@[...]` และ `.agents/skills.json` ดึงไปใช้อัตโนมัติ (โดยมี `AGENTS.md` / `GEMINI.md` ที่ root เป็น Mirror ของ `CLAUDE.md` เพื่อให้ทุก IDE อ่านครบ) |
 | 🔁 **เดาแก้บั๊กมั่ว & แอบแก้เทสต์หนีบั๊ก:** ลองแก้สุ่มวนไป 10 รอบ หรือแอบลบ `expect` ในไฟล์เทสต์เพื่อให้เทสต์ผ่านหลอกๆ | 🛑 **2-Strike Circuit Breaker & Stage 4 Test Lock:** หากแก้บั๊กครบ 2 ครั้งแล้วยังไม่ผ่านจะบังคับหยุดและย้อนโค้ดกลับด้วย `Edit` ทันที และระหว่างซ่อมบั๊ก สคริปต์ยามจะบล็อกไม่ให้ AI แอบแก้ไฟล์เทสต์เดิม (`exit 2`) |
 | 🧠 **ลืมข้อตกลงเดิมเมื่อเปิดแชทใหม่:** พอขึ้นแชทใหม่ AI ก็ทำผิดจุดเดิมซ้ำ (เช่น หน่วยเงินสตางค์, สิทธิ์ RLS, หรือวิธีรันเทสต์) | 📝 **Self-Learning Pitfall Memory (`project-pitfalls.md`):** สกัดบทเรียนจาก `[BLOCKER]` และคำสั่งสอนของคุณเก็บเป็นกฎบรรทัดเดียวใน `.claude/rules/project-pitfalls.md` อัตโนมัติ และไม่ถูกเขียนทับเวลาอัปเดต Template |
 | 🐘 **โค้ดบวม & คำอ้างเกินจริง:** แก้ปุ่มเดียวแต่รื้อไฟล์ข้างเคียงมาเพียบ หรืออ้างว่า *"เสร็จสมบูรณ์ 100%"* ทั้งที่ไม่ได้รันเทสต์ | ✂️ **Surgical Diffs + No Over-Claiming & Next Steps:** แก้เฉพาะบรรทัดที่สั่ง รายงานผลพร้อมคำสั่งเทสต์จริง สรุป `### ⏭️ ขั้นตอนถัดไป` (1–3 ข้อ) และแสดงตารางพิสูจน์ผล `### 📊 ผลชี้วัด Agent Guard Template` ท้ายงาน |
@@ -75,7 +75,7 @@ chmod +x .claude/hooks/*.sh
   ```bash
   bash .claude/hooks/release-summary.sh
   ```
-- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite):**
+- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite — 23 เคส):**
   ```bash
   bash tests/test-hooks.sh
   ```
@@ -87,8 +87,8 @@ chmod +x .claude/hooks/*.sh
 ```text
 project-root/
 ├── CLAUDE.md                                   # 🧠 กฎหลักต้นฉบับ (Single Source of Truth สำหรับทั้ง Claude Code & Antigravity)
-├── AGENTS.md                                   # 🔗 ตัวชี้เบา (@[CLAUDE.md](./CLAUDE.md)) สำหรับ Antigravity / VS Code / Cursor
-├── GEMINI.md                                   # 🔗 ตัวชี้เบา (@[CLAUDE.md](./CLAUDE.md)) ป้องกันการโหลดกฎซ้ำ
+├── AGENTS.md                                   # 🪞 Full Mirror ของ CLAUDE.md สำหรับ Antigravity / VS Code / Codex / Cursor
+├── GEMINI.md                                   # 🪞 Full Mirror ของ CLAUDE.md เพื่อให้เครื่องมือที่ไม่อ่าน @[...] โหลดกฎครบถ้วน
 ├── .mcp.json                                   # ตั้งค่า MCP (เริ่มต้นเป็นค่าว่างเพื่อประหยัด Context)
 ├── .gitignore                                  # ป้องกันไฟล์ความลับและไฟล์สถานะชั่วคราวขึ้น Git
 │
@@ -107,11 +107,11 @@ project-root/
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks สำหรับ Claude Code
     ├── agents/                                 # ลูกมือ Subagents 4 ตำแหน่ง (พร้อม Capability Budgets ตาม Harness Engineering Layer 3)
     │   ├── explorer.md                         # สำรวจโค้ด & ค้นคว้าเว็บ WebSearch/WebFetch (haiku / flash, maxTurns: 10 + Zero-Citation Stop)
-    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + รันเทสต์ Tier 1–2 เองในตัว (sonnet / inherit, 20-Turn Target / maxTurns: 40)
+    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (เน้น Edit แทน Write ทับไฟล์) + รันเทสต์ Tier 1–2 เอง (sonnet / inherit, maxTurns: 40)
     │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, 8-Turn Target / maxTurns: 12)
-    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker หลัง Computational Sensors ผ่าน (research/flash, maxTurns: 35)
+    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker และรัน E2E/Playwright MCP แบบ Batch (sonnet / browser flash, maxTurns: 35)
     ├── rules/                                  # กฎต้นฉบับ 6 ไฟล์
-    │   ├── model-routing.md                    # เกณฑ์แยกงานให้ Subagents, กฎ 1 Slice ต่อคำสั่ง & ห้ามรัน Browser/WebFetch ในหน้าต่างหลัก
+    │   ├── model-routing.md                    # Pipeline Opus Architect ➔ Sonnet Builder (3+ ไฟล์), เพดานดีบัก 6 รอบ, Edit-over-Write & ห้ามรัน Browser ในหน้าต่างหลัก
     │   ├── execution-discipline.md             # ส่งต่องาน State-Delta (<=8 บรรทัด), Grep ก่อนอ่านเฉพาะบรรทัด (>200 บรรทัด) & ห้าม git reset/restore
     │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ตามหลัก The Ratchet Pattern (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
     │   ├── code-simplicity.md                  # กฎ Karpathy: คิดก่อนทำ, เรียบง่ายที่สุด, แก้เฉพาะจุด, ไม่สร้างไฟล์ขยะ
@@ -132,10 +132,11 @@ project-root/
         ├── auto-resume.sh                      # ฉีดสถานะงานค้างตอนเปิดแชทใหม่ (SessionStart) และบันทึกความจำก่อนย่อแชท (PreCompact)
         ├── validate-bash.sh                    # บล็อก rm -rf, git restore/reset ทับโค้ด, ลง pkg มั่ว & กั้น Deploy Production
         ├── protect-sensitive-files.sh          # บล็อกการอ่าน/แก้ .env/.key, lockfiles & บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก
-        ├── loop-circuit-breaker.sh             # ตัดวงจรเมื่อรันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน 3 ครั้งโดยไม่แก้โค้ด
-        ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึก Checkpoint + ล้างตัวนับลูปเมื่อแก้โค้ดจริง
+        ├── loop-circuit-breaker.sh             # ตัดวงจรเมื่อรันคำสั่งเทสต์/บิลด์ซ้ำเกิน 3 ครั้ง หรืออ่าน/ค้นโค้ดวนเกิน 14 ครั้งโดยไม่แก้ไฟล์ (Sticky + แยกตาม Actor)
+        ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึก Checkpoint + ล้างตัวนับลูปเฉพาะ Actor เมื่อแก้โค้ดจริง
         ├── telemetry-tracker.sh                # บันทึกสถานะการทำงานสดและแคชสถิติ Subagents ลง .claude/.telemetry.json
         ├── audit-session-proof.sh              # สแกนไฟล์ .jsonl สรุปผลการใช้โมเดล, Subagent tokens, Hooks และบทเรียนที่สกัดได้
+        ├── release-summary.sh                  # สร้างโพยสรุปงาน / PR Changelog อัตโนมัติแบบ 0-Token จาก git log
         ├── install-skill.sh                    # ดึง Skill เสริมเฉพาะทางลง .claude/skills/ แบบ Sparse Checkout
         └── open-hud.sh                         # เปิดหน้าจอมอนิเตอร์ 3D Voxel Studio (อุปกรณ์เสริม)
 ```
@@ -146,11 +147,11 @@ project-root/
 
 ### 1. การคัดแยกงานและแตก Subagent อัตโนมัติ (`Zero-Command Auto-Routing`)
 คุณสามารถพิมพ์สั่งงานด้วยภาษาไทยตามปกติ ระบบใน [`CLAUDE.md`](CLAUDE.md) จะประเมินขนาดงานให้อัตโนมัติ:
-* **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`):** หน้าต่างหลักลงมือแก้แบบ Surgical Edit และรันเทสต์เฉพาะไฟล์ทันที (**ไม่แตก Subagent ให้เสียเวลา Cold-Start ฟรี** ตามกฎ `No Ceremony Overhead`)
-* **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด
-* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`2–5 ไฟล์`):** แตก `implementer` (`sonnet` / `self`) ด้วยหน้าต่างสะอาด (**Fresh Context — ห้าม Fork ประวัติแชทหลัก**) พร้อมส่งเฉพาะ `State-Delta Brief (<=8 บรรทัด)` ไปเขียนโค้ดและ **รันเทสต์ Tier 1 + Tier 2 (`analyze` + `test`) ให้จบในตัว** (ห้ามแตก `QA Verifier` ตัวใหม่ขึ้นมาเพื่อรัน CLI 1–3 คำสั่งซ้ำซ้อน) หากมีการปรับแก้ต่อในฟีเจอร์เดิมและยังไม่เกิน `40 รอบ` ให้ส่ง `send_message` ใช้ `implementer` ตัวเดิมต่อเพื่อประหยัด Cold-Start Tokens แต่ถ้าเปลี่ยนไปทำงานคนละเรื่องให้แตกตัวใหม่ทันที
+* **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`, `<= 6 รอบ`):** หน้าต่างหลักลงมือแก้แบบ Surgical `Edit` และรันเทสต์เฉพาะไฟล์ทันที (**ไม่แตก Subagent ให้เสียเวลา Cold-Start ฟรี** ตามกฎ `No Ceremony Overhead`) แต่มี **เพดานดีบักหน้าต่างหลัก (`6-Turn Investigation / Debug Ceiling`)** — หากงาน `1–2 ไฟล์` ต้องอ่าน/ไล่ล็อก/ดีบักเกิน `6 รอบ` แล้วยังไม่เจอทางแก้ที่ยืนยันได้ ให้หยุดในหน้าต่างหลักและโยนให้ `debugger` (`sonnet`) หรือ `explorer` (`haiku`) ทันที เพื่อไม่ให้ตัวแม่ `Opus` เผาโควต้า 20–100 รอบ
+* **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาพิกัดไฟล์+เลขบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด
+* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`3+ ไฟล์` — Pipeline `Opus Architect ➔ Sonnet Builder ➔ Opus Gatekeeper`):** แม้โจทย์จะระบุไฟล์ครบแล้ว ตัวแม่ `Opus` **ห้าม** เขียน/แก้โค้ดเองทั้งหมดในหน้าต่างหลัก ให้ทำตาม 3 ขั้น: **(1) Architect (`2–4 รอบ`):** อ่านไฟล์อ้างอิง 1–2 ไฟล์ (หรือให้ `explorer` หาพิกัดก่อน — **ห้าม Spawn `implementer` แบบตาบอดโดยไม่มีชื่อไฟล์+เลขบรรทัด**); **(2) Builder (`implementer` บน `sonnet` / `self`):** เปิดหน้าต่างสะอาด (**Fresh Context — ห้าม Fork ประวัติแชทหลัก**) รับ `State-Delta Brief (<=8 บรรทัด)` พร้อมเพดาน **อ่านไม่เกิน 10 รอบก่อนเริ่มแก้**, บังคับใช้ **`Edit` แทน `Write` ทับไฟล์เดิม** (กัน Claude Code Auto Mode บล็อก), และ **รันเทสต์ Tier 1 + Tier 2 (`analyze` + `test`) ให้จบในตัว** (หากแก้ต่อในฟีเจอร์เดิมและยังไม่เกิน `40 รอบ` ให้ `send_message` ใช้ตัวเดิมต่อ); **(3) Gatekeeper (`2–3 รอบ`):** ตรวจ `git diff --stat`, อัปเดต `TASK_STATE.md` / `project-pitfalls.md`, และรัน `audit-session-proof.sh --brief`
 * **กฎประหยัด Token ตอนอ่านไฟล์ใหญ่ (`Grep First, Read Line-Range Second`):** สำหรับไฟล์ที่ยาวเกิน `200 บรรทัด` บังคับใช้ `Grep`/`grep_search` หาเลขบรรทัดก่อน แล้วอ่านเฉพาะช่วงบรรทัด (`StartLine`–`EndLine` หรือ `offset`–`limit` ±40 บรรทัด) แทนการดึงไฟล์เต็มเข้า Context ซ้ำๆ (ประหยัด Input Tokens 70–80%)
-* **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับโค้ด/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent (`Pragmatic Code Reviewer` ใช้ `research` + `flash` แบบ Read-Only / งานเปิดเว็บใช้ `browser` + `flash`) เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
+* **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับโค้ด/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent (`debugger`/`reviewer` ใช้ `sonnet` บน Claude หรือ `browser` `flash` สำหรับตรวจเว็บ / `self` สำหรับ E2E บน Antigravity) เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
 
 ### 2. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh`)
 ทำงานด้วยสคริปต์ Bash/Python ก่อนและหลังการเรียกเครื่องมือของ AI โดยไม่เสีย Token (พร้อมการันตี Fail-Open สำหรับส่วน Telemetry):
@@ -163,8 +164,10 @@ project-root/
 2. **`protect-sensitive-files.sh` & `telemetry-tracker.sh` (Secrets, Host Credentials & Stage 4 Anti-Test-Tampering):**
    * ห้ามอ่านหรือแก้ไขไฟล์ `.env*`, `*.key`, `*.pem`, `*.sqlite`, `*.db`, โฟลเดอร์ Credential ของโฮสต์ (`~/.ssh/*`, `~/.aws/*`, `~/.kube/*`, `~/.netrc`, `~/.npmrc`), Shell Profile (`~/.zshrc`, `~/.bashrc`), ไฟล์ `.git/config` / `.git/hooks/*` และไฟล์ Lockfile
    * ขณะอยู่ในโหมดซ่อมบั๊ก (`strikeCount >= 1`) จะบล็อกไม่ให้ AI แอบแก้ไขไฟล์เทสต์เดิม (`*.test.*`, `*.spec.*`, `*_test.*`) บังคับให้แก้ที่โค้ดต้นเหตุเท่านั้น
-3. **`post-edit-format.sh` & `loop-circuit-breaker.sh`:**
-   * จัด Format โค้ดอัตโนมัติหลังแก้ไฟล์ บันทึกจุดค้างงานลง `.agent-last-state.log` และล้างตัวนับลูปคำสั่งเมื่อมีการแก้โค้ดจริง (ทำให้รันเทสต์ตรวจหลังแก้ไฟล์ได้ต่อเนื่องโดยไม่โดนบล็อกผิดพลาด)
+3. **`post-edit-format.sh` & `loop-circuit-breaker.sh` (Command Repeat & Sticky Per-Actor Read-Loop Breaker):**
+   * **Command Repeat Breaker:** ตัดวงจร (`exit 2`) เมื่อรันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน `3 ครั้ง` ในหน้าต่าง 6 คำสั่งล่าสุดโดยไม่แก้โค้ด
+   * **Sticky Per-Actor Read-Loop Circuit Breaker:** นับคำสั่งอ่าน/ค้นไฟล์ต่อเนื่องแยกตาม `agent_id`/`session_id` + `pwd` (ไม่ชนกันเมื่อรัน Subagent ขนาน) หากเกิน `14 ครั้ง` โดยยังไม่เริ่มแก้ไฟล์จะบล็อกแบบ **Sticky** (คงตัวนับที่ `14` กันการยิง `grep`/`sed` ซ้ำทันที) จนกว่าจะมีการแก้ไฟล์จริง
+   * **`post-edit-format.sh`:** จัด Format โค้ดอัตโนมัติหลังแก้ไฟล์ บันทึกจุดค้างงานลง `.agent-last-state.log` และล้างตัวนับลูปเฉพาะ Actor นั้นเมื่อแก้โค้ดจริง (ทำให้รันเทสต์ตรวจหลังแก้ไฟล์ได้ต่อเนื่องโดยไม่โดนบล็อกผิดพลาด)
 
 ### 3. ความจำระยะยาวเฉพาะโปรเจกต์ (`.claude/rules/project-pitfalls.md`)
 AI จะสกัดบทเรียนสั้นๆ บรรทัดเดียว (`- **[หมวดหมู่]:** <สิ่งที่ต้องทำ/ห้ามทำ + เหตุผลสั้นๆ>`, สูงสุด 30 ข้อ) ลงใน `.claude/rules/project-pitfalls.md` อัตโนมัติใน 3 จังหวะ:
