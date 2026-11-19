@@ -156,13 +156,16 @@ assert_exit "Emit AUTO-HANDOFF NUDGE when same session has >=100 opusTurns" 0 "$
 assert_exit "Do NOT emit stale AUTO-HANDOFF NUDGE on fresh /clear session" 0 "$RC_NUDGE_FRESH"
 rm -rf "$TMP_NUDGE_DIR"
 
-# 9. Audit & Release Summary scripts must execute cleanly (exit 0)
+# 9. Audit & Release Summary scripts must execute cleanly (exit 0) without leaving scratch TASK_STATE.md in template root
+HAD_ROOT_TS=0
+[ -f "$ROOT_DIR/TASK_STATE.md" ] && HAD_ROOT_TS=1
 set +e
 bash "$ROOT_DIR/.claude/hooks/audit-session-proof.sh" --brief "$ROOT_DIR" >/dev/null 2>&1
 assert_exit "Run audit-session-proof.sh --brief" 0 "$?"
 bash "$ROOT_DIR/.claude/hooks/release-summary.sh" 5 >/dev/null 2>&1
 assert_exit "Run release-summary.sh" 0 "$?"
 set -e
+[ "$HAD_ROOT_TS" -eq 0 ] && rm -f "$ROOT_DIR/TASK_STATE.md" "$ROOT_DIR/.agent-last-state.log" 2>/dev/null || true
 
 echo "=== Summary: $PASS_COUNT passed, $FAIL_COUNT failed ==="
 [ "$FAIL_COUNT" -eq 0 ]

@@ -60,7 +60,7 @@ chmod +x .claude/hooks/*.sh
 ```bash
 rm -rf /tmp/agt-update
 git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update
-rsync -av --exclude='.git' --exclude='README.md' --exclude='LICENSE' --exclude='tests' --exclude='.github' --exclude='docs' --exclude='.mcp.json' --exclude='.gitignore' --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='/.claude/rules/project-pitfalls.md' /tmp/agt-update/ ./
+rsync -av --exclude='.git' --exclude='README.md' --exclude='LICENSE' --exclude='tests' --exclude='.github' --exclude='docs' --exclude='.mcp.json' --exclude='.gitignore' --exclude='TASK_STATE.md' --exclude='.agent-last-state.log' --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='.task-state-archive.md' --exclude='/.claude/rules/project-pitfalls.md' /tmp/agt-update/ ./
 [ -f .claude/rules/project-pitfalls.md ] || cp /tmp/agt-update/.claude/rules/project-pitfalls.md .claude/rules/project-pitfalls.md
 mkdir -p ~/.claude/agents && cp .claude/agents/*.md ~/.claude/agents/
 rm -rf /tmp/agt-update .agents/skills
