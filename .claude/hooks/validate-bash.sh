@@ -44,6 +44,14 @@ if echo "$COMMAND" | grep -qE '((cat|less|more|head|tail|grep|awk|sed)[[:space:]
   block_action "ไม่อนุญาตให้อ่านไฟล์ความลับ (.env/key) หรือเข้าถึงโฟลเดอร์ Credential และ Shell Profile ของเครื่องโฮสต์ (~/.ssh, ~/.aws, ~/.kube, ~/.zshrc, crontab)"
 fi
 
+# 1.2 ดักจับ Token Leak บน CLI Arguments / Stdout (docker login -p/--password และ echo/ssh positional arg ของ gh auth token)
+if echo "$COMMAND" | grep -qE 'docker([[:space:]]+--config[[:space:]]+[^[:space:];&|]+)?[[:space:]]+login([[:space:]]+[^;&|]*)?[[:space:]]+(-p([[:space:]]|$|=)|--password([[:space:]]|=))'; then
+  block_action "ห้ามส่งรหัสผ่าน/Token ผ่าน docker login -p หรือ --password บน CLI (ป้องกันรั่วลง ps/history/terminal) — ต้องใช้ --password-stdin ผ่าน pipe เท่านั้น"
+fi
+if echo "$COMMAND" | grep -qE '((echo|printf)[[:space:]][^;&|]*(\$\([[:space:]]*gh[[:space:]]+auth[[:space:]]+token|`[[:space:]]*gh[[:space:]]+auth[[:space:]]+token)|ssh[[:space:]][^|;]*(\$\([[:space:]]*gh[[:space:]]+auth[[:space:]]+token|`[[:space:]]*gh[[:space:]]+auth[[:space:]]+token))'; then
+  block_action "ห้ามพิมพ์หรือส่ง \$(gh auth token) เป็น argument ของ echo/printf/ssh (เสี่ยง Token รั่วลง terminal output เมื่อคำสั่งล้มเหลว) — ให้ส่งผ่าน pipe stdin (เช่น gh auth token | ssh ... 'docker login --password-stdin')"
+fi
+
 # 2. ดักจับคำสั่งทำลายข้อมูล ทับโค้ดที่ยังไม่ Commit หรือบังคับ Push ทับกิ่งหลัก (รวมถึง git push +main และ git switch -f โดยไม่กวาดข้าม && หรือ ; ไปโดนคำสั่งอื่น)
 if echo "$COMMAND" | grep -qE '(rm -rf /|rm -rf ~|rm -rf \$HOME|rm -rf \*|DROP DATABASE|TRUNCATE TABLE|git[[:space:]]+push([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+(--force|--force-with-lease|-f)([[:space:]]|$|;|"|\|)|git[[:space:]]+push[[:space:]]+[^;&|[:space:]]+[[:space:]]+\+[a-zA-Z0-9_/.-]+|git reset --hard|git checkout[[:space:]]+(\.|--|HEAD|-f|--force)|git[[:space:]]+switch([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+(-f|--force|--discard-changes)([[:space:]]|$|;|"|\|)|git restore |git clean -[fd]|git branch -D|chmod 777)'; then
   block_action "คำสั่งถูกระงับเพื่อป้องกันข้อมูลสูญหายหรือทับโค้ดที่ยังไม่ได้ Commit"
@@ -85,45 +93,67 @@ fi
 
 # 6. Migration-Before-Main Push Gate: ป้องกันการ push คอมมิตที่มีไฟล์ SQL migration ใหม่ขึ้น main/master (Production) ก่อนรัน SQL บน Production DB
 if [ "$GUARD_MODE" != "relaxed" ] && [ "${RELEASE_APPROVED:-0}" != "1" ] && [ "${MIGRATION_PROD_VERIFIED:-0}" != "1" ] && ! echo "$COMMAND" | grep -qE '(RELEASE_APPROVED=1|MIGRATION_PROD_VERIFIED=1)'; then
-  if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]"'"'"'])git[[:space:]]+push([[:space:]"'"'"']|$)'; then
+  if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]"'"'"'])git([[:space:]]+-C[[:space:]]+[^;&|[:space:]]+)?[[:space:]]+push([[:space:]"'"'"']|$)'; then
     PUSH_CMD=$(echo "$COMMAND" | sed -E 's/^.*"command"[[:space:]]*:[[:space:]]*"//;s/^.*"CommandLine"[[:space:]]*:[[:space:]]*"//;s/"$//')
-    PUSH_TARGETS_MAIN=$(python3 - "$PUSH_CMD" "$PROJECT_ROOT" <<'PYEOF' 2>/dev/null || echo "0"
-import re, shlex, subprocess, sys
+    PUSH_CHECK=$(python3 - "$PUSH_CMD" "$PROJECT_ROOT" <<'PYEOF' 2>/dev/null || echo "0|"
+import os, re, shlex, subprocess, sys
 cmd, root = sys.argv[1], sys.argv[2]
 for seg in re.split(r'[;&|]+', cmd):
     try:
         toks = shlex.split(seg)
     except Exception:
         toks = seg.split()
-    for i in range(len(toks) - 1):
-        if toks[i] == "git" and toks[i+1] == "push":
-            args = [t for t in toks[i+2:] if not t.startswith("-")]
-            # args[0] = remote (if any), args[1:] = refspecs
-            refspecs = args[1:] if len(args) >= 2 else []
-            if not refspecs:
-                br = subprocess.check_output(["git", "--no-optional-locks", "-C", root, "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
-                if br in ("main", "master"):
-                    print("1"); sys.exit(0)
-            for ref in refspecs:
-                dst = ref.split(":", 1)[1] if ":" in ref else ref
-                dst = dst.lstrip("+").replace("refs/heads/", "")
-                if dst in ("main", "master"):
-                    print("1"); sys.exit(0)
-print("0")
+    i = 0
+    while i < len(toks):
+        if toks[i] == "git":
+            repo = root
+            j = i + 1
+            while j < len(toks) and toks[j].startswith("-"):
+                if toks[j] == "-C" and j + 1 < len(toks):
+                    cand = toks[j + 1]
+                    repo = cand if os.path.isabs(cand) else os.path.abspath(os.path.join(root, cand))
+                    j += 2
+                elif toks[j].startswith("-C") and len(toks[j]) > 2:
+                    cand = toks[j][2:]
+                    repo = cand if os.path.isabs(cand) else os.path.abspath(os.path.join(root, cand))
+                    j += 1
+                else:
+                    j += 1
+            if j < len(toks) and toks[j] == "push":
+                args = [t for t in toks[j+1:] if not t.startswith("-")]
+                refspecs = args[1:] if len(args) >= 2 else []
+                if not refspecs:
+                    try:
+                        br = subprocess.check_output(["git", "--no-optional-locks", "-C", repo, "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
+                    except Exception:
+                        br = ""
+                    if br in ("main", "master"):
+                        print(f"1|{repo}"); sys.exit(0)
+                for ref in refspecs:
+                    dst = ref.split(":", 1)[1] if ":" in ref else ref
+                    dst = dst.lstrip("+").replace("refs/heads/", "")
+                    if dst in ("main", "master"):
+                        print(f"1|{repo}"); sys.exit(0)
+            i = j
+        i += 1
+print("0|")
 PYEOF
 )
-    if [ "$PUSH_TARGETS_MAIN" -eq 1 ]; then
-      # หา ref ปลายทางของ origin/main หรือ origin/master
+    PUSH_TARGETS_MAIN="${PUSH_CHECK%%|*}"
+    PUSH_REPO="${PUSH_CHECK#*|}"
+    [ -z "$PUSH_REPO" ] && PUSH_REPO="$PROJECT_ROOT"
+    if [ "$PUSH_TARGETS_MAIN" = "1" ]; then
+      # หา ref ปลายทางของ origin/main หรือ origin/master ใน repo/worktree เป้าหมายจริง
       BASE_REF=""
-      if git --no-optional-locks -C "$PROJECT_ROOT" rev-parse --verify origin/main >/dev/null 2>&1; then
+      if git --no-optional-locks -C "$PUSH_REPO" rev-parse --verify origin/main >/dev/null 2>&1; then
         BASE_REF="origin/main"
-      elif git --no-optional-locks -C "$PROJECT_ROOT" rev-parse --verify origin/master >/dev/null 2>&1; then
+      elif git --no-optional-locks -C "$PUSH_REPO" rev-parse --verify origin/master >/dev/null 2>&1; then
         BASE_REF="origin/master"
       fi
       if [ -n "$BASE_REF" ]; then
-        NEW_MIGS=$(git --no-optional-locks -C "$PROJECT_ROOT" diff --name-only --diff-filter=A "${BASE_REF}...HEAD" 2>/dev/null | grep -E '(^|/)migrations/.*\.sql$' | head -n 3 | tr '\n' ',' | sed 's/,$//')
+        NEW_MIGS=$(git --no-optional-locks -C "$PUSH_REPO" diff --name-only --diff-filter=A "${BASE_REF}...HEAD" 2>/dev/null | grep -E '(^|/)migrations/.*\.sql$' | head -n 3 | tr '\n' ',' | sed 's/,$//')
         if [ -n "$NEW_MIGS" ]; then
-          block_action "พบไฟล์ SQL Migration ใหม่ (${NEW_MIGS}) ที่กำลังจะ push ขึ้น main (Production)! กรุณารัน migration บน Production DB ก่อน (หรือ push เฉพาะกิ่ง uat/preview ก่อน) — ถ้ารันบน Prod แล้วให้ใส่ MIGRATION_PROD_VERIFIED=1 นำหน้าคำสั่ง"
+          block_action "พบไฟล์ SQL Migration ใหม่ (${NEW_MIGS}) ที่กำลังจะ push ขึ้น main (Production)! กรุณารัน migration บน Production DB ก่อน (หรือ push เฉพาะกิ่ง uat/preview ก่อน) — หากรันบน Prod แล้วหรือโปรเจกต์รัน migration อัตโนมัติตอน deploy ให้ใส่ MIGRATION_PROD_VERIFIED=1 นำหน้าคำสั่ง"
         fi
       fi
     fi

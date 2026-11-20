@@ -26,6 +26,7 @@ paths:
 - **Verify RED ➔ GREEN (For Bug Fixes):** Reproduce the exact failure with a test first (`Verify RED`), then apply the minimal code fix (`Verify GREEN`).
 - **Required Edge Coverage:** Cover happy path, boundary/edge cases (`0`, negative, empty, `null`, duplicate), and explicit error cases.
 - **Zero Test Tampering:** Never weaken assertions, delete failing tests, or add `.skip` / `.only` to pass a suite.
+- **Real-DB Proof for Complex SQL:** For queries combining `GROUP BY` with subqueries, `LATERAL`, or JSONB operators, never rely solely on `sqlmock`/unit mocks—verify against a real database or CI Postgres integration test.
 
 ## 2. API Boundary & OWASP Security Invariants
 - **Validate at Boundary:** Validate request inputs (`body`, `query`, `params`) at the route/RPC boundary before invoking business logic.

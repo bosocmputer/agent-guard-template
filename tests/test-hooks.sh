@@ -183,7 +183,37 @@ set -e
 assert_exit "Block git push origin main when new SQL migration is unverified" 2 "$RC_MIG_MAIN"
 assert_exit "Allow git push origin main:uat even with new SQL migration" 0 "$RC_MIG_UAT"
 assert_exit "Allow MIGRATION_PROD_VERIFIED=1 git push origin main" 0 "$RC_MIG_OK"
-rm -rf "$TMP_MIG_DIR"
+
+# 9.1 Migration-Before-Main Gate with `git -C <external-worktree> push origin main`
+TMP_CLEAN_ROOT="$(mktemp -d /tmp/agt-clean-XXXXXX)"
+mkdir -p "$TMP_CLEAN_ROOT/.claude/hooks"
+cp "$ROOT_DIR/.claude/hooks/validate-bash.sh" "$TMP_CLEAN_ROOT/.claude/hooks/"
+cp "$ROOT_DIR/.claude/hooks/telemetry-tracker.sh" "$TMP_CLEAN_ROOT/.claude/hooks/"
+set +e
+bash "$TMP_CLEAN_ROOT/.claude/hooks/validate-bash.sh" <<< "{\"command\":\"git -C $TMP_MIG_DIR push origin main\"}" >/dev/null 2>&1
+RC_MIG_EXT=$?
+set -e
+assert_exit "Block git -C <worktree> push origin main when worktree has new SQL migration" 2 "$RC_MIG_EXT"
+rm -rf "$TMP_MIG_DIR" "$TMP_CLEAN_ROOT"
+
+# 9.2 Token Leak Guard: block docker login -p/--password and echo/ssh $(gh auth token); allow --password-stdin pipe
+set +e
+bash "$ROOT_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"docker login ghcr.io -u user -p secret123"}' >/dev/null 2>&1
+RC_TOK_DOCKER_P=$?
+bash "$ROOT_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"docker login ghcr.io -u user --password=secret123"}' >/dev/null 2>&1
+RC_TOK_DOCKER_PW=$?
+bash "$ROOT_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"gh auth token | docker login ghcr.io -u user --password-stdin"}' >/dev/null 2>&1
+RC_TOK_STDIN=$?
+bash "$ROOT_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"echo $(gh auth token)"}' >/dev/null 2>&1
+RC_TOK_ECHO=$?
+bash "$ROOT_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"ssh ubuntu@10.0.0.1 bash -s $(gh auth token)"}' >/dev/null 2>&1
+RC_TOK_SSH=$?
+set -e
+assert_exit "Block docker login -p <token> CLI arg" 2 "$RC_TOK_DOCKER_P"
+assert_exit "Block docker login --password=<token> CLI arg" 2 "$RC_TOK_DOCKER_PW"
+assert_exit "Allow gh auth token piped to docker login --password-stdin" 0 "$RC_TOK_STDIN"
+assert_exit "Block echo \$(gh auth token)" 2 "$RC_TOK_ECHO"
+assert_exit "Block ssh host bash -s \$(gh auth token)" 2 "$RC_TOK_SSH"
 
 # 10. Audit & Release Summary scripts must execute cleanly (exit 0) without leaving scratch TASK_STATE.md in template root
 HAD_ROOT_TS=0

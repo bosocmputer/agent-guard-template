@@ -1071,7 +1071,8 @@ if brief_mode:
         sess_tok_note = f" — รวม {sub_toks:,} tokens" if sub_toks > 0 else ""
         print(f"- **Subagents ที่เรียกในคำสั่งนี้:** `0` ตัว *(สะสมทั้งแชท: {sub_tot} ตัว{sess_tok_note})*")
 
-    print(f"- **Hooks ที่ทำงานในคำสั่งนี้:** สแกนไฟล์ `{d_reads}` ครั้ง | แก้ไฟล์+Checkpoint `{d_edits}` ครั้ง | รันเทสต์ `{d_tests}` ครั้ง | บล็อกผิดกฎ `{d_blocks}` ครั้ง | 2-Strike: `{strike_str}` *(สะสมทั้งโปรเจกต์: สแกน {tot_reads}, แก้ {tot_edits}, เทสต์ {tot_tests})*")
+    worktree_hook_note = " *(รันใน Subagent/Worktree)*" if (cmd_sub_tot > 0 and (d_reads + d_edits + d_tests) == 0) else ""
+    print(f"- **Hooks ที่ทำงานในคำสั่งนี้:** สแกนไฟล์ `{d_reads}` ครั้ง | แก้ไฟล์+Checkpoint `{d_edits}` ครั้ง | รันเทสต์ `{d_tests}` ครั้ง | บล็อกผิดกฎ `{d_blocks}` ครั้ง | 2-Strike: `{strike_str}`{worktree_hook_note} *(สะสมทั้งโปรเจกต์: สแกน {tot_reads}, แก้ {tot_edits}, เทสต์ {tot_tests})*")
     print(pf_cmd_line)
 
     # คำนวณอัตราเผาโควต้า 5 ชั่วโมงล่าสุดข้ามทุกโปรเจกต์ในเครื่อง (Cross-Project 5-Hour Rolling Window)
@@ -1127,18 +1128,26 @@ if brief_mode:
     cur_strikes = int(td.get("strikeCount", 0)) if isinstance(td, dict) else 0
     if cur_strikes >= 2:
         tripwires.append(f"⚠️ `LOOP_STRIKE_HIGH` ({strike_str} — หยุดเดาและถามผู้ใช้)")
-    if cmd_opus > 20:
-        tripwires.append(f"⚠️ `TURN_BUDGET_EXCEEDED` (หน้าต่างหลักรัน {cmd_opus} รอบ > เพดาน 20 รอบ/คำสั่ง)")
+    turn_ceiling = 30 if cmd_sub_tot > 0 else 20
+    if cmd_opus > turn_ceiling:
+        tripwires.append(f"⚠️ `TURN_BUDGET_EXCEEDED` (หน้าต่างหลักรัน {cmd_opus} รอบ > เพดาน {turn_ceiling} รอบ/คำสั่ง)")
     if int(acc.get("prompt_sub_opus") or 0) > 0:
         tripwires.append(f"🔥 `OPUS_SUBAGENT_LEAK` (พบ Subagent รันด้วย Opus {acc.get('prompt_sub_opus')} รอบ — บังคับใช้ Sonnet/Haiku เท่านั้น)")
     if cmd_sub_toks >= 6000000 or burn_5hr_parent >= 300:
-        tripwires.append(f"🔥 `TOKEN_BURST_WARNING` (5 ชม. ล่าสุดรันหน้าต่างหลักรวม {burn_5hr_parent} รอบ / Subagent รอบนี้ {cmd_sub_toks:,} tokens)")
+        burst_parts = []
+        if burn_5hr_parent >= 300:
+            burst_parts.append(f"5 ชม. ล่าสุดรันหน้าต่างหลักรวม {burn_5hr_parent} รอบ")
+        if cmd_sub_toks >= 6000000:
+            burst_parts.append(f"Subagent รอบนี้ {cmd_sub_toks:,} tokens")
+        tripwires.append(f"🔥 `TOKEN_BURST_WARNING` ({' / '.join(burst_parts)})")
     cmd_sub_total = cmd_sonnet + cmd_haiku
     if acc["opus"] >= 40 and off_p < 25.0 and not (cmd_opus <= 15 and cmd_sub_total == 0):
         tripwires.append(f"⚠️ `LOW_SUBAGENT_OFFLOAD` (Offload สะสม {off_p}% < 25% — ควรโยนงานหลายไฟล์ให้ Subagent)")
     last_cache_tok = int(acc.get("last_cache_tokens") or 0)
     if last_cache_tok >= 150000:
-        tripwires.append(f"🚨 `CONTEXT_TOKEN_BLOAT` (Context สะสม {last_cache_tok:,} tokens/รอบ > 150k — พิมพ์ `/clear` ทันทีเมื่อจบขั้นนี้เพื่อประหยัดโควต้า 64%)")
+        tripwires.append(f"🚨 `CONTEXT_TOKEN_BLOAT` (Context สะสม {last_cache_tok:,} tokens/รอบ > 150k — โหมด Survival Mode หรือพิมพ์ `/clear`)")
+    elif acc["opus"] >= 120:
+        tripwires.append(f"🛡️ `SURVIVAL_MODE_ACTIVE` (หน้าต่างหลักสะสม {acc['opus']} รอบ >= 120 — ใช้โหมด Ultra-Thin Dispatcher โยนงานให้ Subagent สด หรือ `/clear`)")
     elif acc["opus"] >= 80:
         tripwires.append(f"⚠️ `CONTEXT_WINDOW_BLOAT` (หน้าต่างหลักสะสม {acc['opus']} รอบ — แนะนำพิมพ์ `/clear` หรือเปิดแชทใหม่เมื่อจบขั้นนี้)")
     if d_blocks > 0:
@@ -1155,7 +1164,7 @@ if brief_mode:
         print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** {' | '.join(tripwires)}{burn_note}")
     else:
         ctx_note = f" · Context `{last_cache_tok:,}/150,000 tokens`" if last_cache_tok > 0 else ""
-        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** ✅ `ปกติ (No Behavioral Drift)` — รอบคำสั่ง `{cmd_opus}/20` · สะสมหน้าต่างหลัก `{acc['opus']}/80`{ctx_note}{burn_note}")
+        print(f"- **⚡ Harness Tripwires (Layer 6 SLA):** ✅ `ปกติ (No Behavioral Drift)` — รอบคำสั่ง `{cmd_opus}/{turn_ceiling}` · สะสมหน้าต่างหลัก `{acc['opus']}/80`{ctx_note}{burn_note}")
     sys.exit(0)
 
 print("================================================================================")

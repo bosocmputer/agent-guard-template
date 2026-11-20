@@ -1425,60 +1425,64 @@ else:
     if hook_arg:
         push_used_item("HOOK", os.path.basename(hook_arg), hook_arg.split(" ")[0], node, clean_detail or "")
 
-new_session_proof = extract_session_proof_metrics(project_root, state)
-if new_session_proof.get("sessionId") not in (None, "", "none") or not state.get("sessionProof"):
-    state["sessionProof"] = new_session_proof
-if state["sessionProof"].get("subagentCalls", 0) > int(stats.get("subagentSpawns", 0)):
-    stats["subagentSpawns"] = state["sessionProof"]["subagentCalls"]
 state["stats"] = stats
-state["workspaceCatalog"] = scan_workspace_catalog(project_root)
 
-# สกัดความคิดสด (Thinking & Assistant Replies) จาก Session .jsonl ของโปรเจกต์ (รองรับทั้ง Claude Code และ Antigravity)
-agent_thoughts, desk_thoughts = extract_live_session_thoughts(
-    project_root,
-    state.get("lastConversationId", ""),
-    state.get("activeEngine", "claude"),
-    state.get("lastTranscriptPath", ""),
-)
-if agent_thoughts:
-    state["agentThoughts"] = agent_thoughts
-    state["deskThoughts"] = desk_thoughts
-    latest_th = agent_thoughts[0]
-    state["liveThought"] = latest_th["text"]
-    state["liveThoughtDesk"] = latest_th["desk"]
-    if stage == "stop" or state.get("systemStatus") == "ready":
-        state["activeNode"] = latest_th["desk"]
-        if any(k in latest_th["text"] for k in ("ตั้งงานเบื้องหลัง", "ตั้งงานรอบใหม่ไว้เบื้องหลัง", "รันอยู่เบื้องหลัง")):
-            state["currentAction"] = f"⏳ รันงานเบื้องหลังรอผล: {latest_th['text'][:75]}..."
-    # หากกำลังทำงานปกติ (ไม่ได้ติดบล็อกและไม่ใช่จังหวะเพิ่งแตก Subagent) ให้แสดงความคิดของโต๊ะที่กำลังแอคทีฟบนลูกโป่งคำพูด!
-    if state.get("systemStatus") != "blocked" and int(state.get("strikeCount") or 0) < 2 and stage != "agent":
-        active_d = state.get("activeNode", "core")
-        chosen_th = desk_thoughts.get(active_d) or latest_th
-        th_for_desk = chosen_th.get("text", "")
-        th_icon = "💬" if chosen_th.get("kind") == "REPLY" else "💭"
-        if th_for_desk:
-            state["liveSpeech"] = f"{th_icon} {th_for_desk}"
+# Hot-path optimization: on high-frequency read hooks, skip heavy HUD catalog/transcript scans unless HUD is explicitly enabled
+if stage != "read" or os.environ.get("AGENT_GUARD_HUD") == "1":
+    new_session_proof = extract_session_proof_metrics(project_root, state)
+    if new_session_proof.get("sessionId") not in (None, "", "none") or not state.get("sessionProof"):
+        state["sessionProof"] = new_session_proof
+    if state["sessionProof"].get("subagentCalls", 0) > int(stats.get("subagentSpawns", 0)):
+        stats["subagentSpawns"] = state["sessionProof"]["subagentCalls"]
+    state["stats"] = stats
+    state["workspaceCatalog"] = scan_workspace_catalog(project_root)
 
-# กรองเฉพาะไฟล์ที่มีอยู่จริงบนดิสก์เท่านั้น (ป้องกันไฟล์จำลองค้างเก่า)
-valid_touched = [
-    f for f in (state.get("touchedFiles") or [])
-    if os.path.isfile(os.path.join(project_root, f))
-]
-if not valid_touched:
-    try:
-        git_files = subprocess.check_output(
-            ["git", "--no-optional-locks", "diff", "--name-only", "HEAD~1", "HEAD"],
-            cwd=project_root,
-            stderr=subprocess.DEVNULL,
-            timeout=1.5,
-        ).decode("utf-8", errors="ignore").splitlines()
-        for gf in git_files:
-            gf = gf.strip()
-            if gf and os.path.isfile(os.path.join(project_root, gf)) and gf not in valid_touched:
-                valid_touched.append(gf)
-    except Exception:
-        pass
-state["touchedFiles"] = valid_touched[:8]
+    # สกัดความคิดสด (Thinking & Assistant Replies) จาก Session .jsonl ของโปรเจกต์ (รองรับทั้ง Claude Code และ Antigravity)
+    agent_thoughts, desk_thoughts = extract_live_session_thoughts(
+        project_root,
+        state.get("lastConversationId", ""),
+        state.get("activeEngine", "claude"),
+        state.get("lastTranscriptPath", ""),
+    )
+    if agent_thoughts:
+        state["agentThoughts"] = agent_thoughts
+        state["deskThoughts"] = desk_thoughts
+        latest_th = agent_thoughts[0]
+        state["liveThought"] = latest_th["text"]
+        state["liveThoughtDesk"] = latest_th["desk"]
+        if stage == "stop" or state.get("systemStatus") == "ready":
+            state["activeNode"] = latest_th["desk"]
+            if any(k in latest_th["text"] for k in ("ตั้งงานเบื้องหลัง", "ตั้งงานรอบใหม่ไว้เบื้องหลัง", "รันอยู่เบื้องหลัง")):
+                state["currentAction"] = f"⏳ รันงานเบื้องหลังรอผล: {latest_th['text'][:75]}..."
+        # หากกำลังทำงานปกติ (ไม่ได้ติดบล็อกและไม่ใช่จังหวะเพิ่งแตก Subagent) ให้แสดงความคิดของโต๊ะที่กำลังแอคทีฟบนลูกโป่งคำพูด!
+        if state.get("systemStatus") != "blocked" and int(state.get("strikeCount") or 0) < 2 and stage != "agent":
+            active_d = state.get("activeNode", "core")
+            chosen_th = desk_thoughts.get(active_d) or latest_th
+            th_for_desk = chosen_th.get("text", "")
+            th_icon = "💬" if chosen_th.get("kind") == "REPLY" else "💭"
+            if th_for_desk:
+                state["liveSpeech"] = f"{th_icon} {th_for_desk}"
+
+    # กรองเฉพาะไฟล์ที่มีอยู่จริงบนดิสก์เท่านั้น (ป้องกันไฟล์จำลองค้างเก่า)
+    valid_touched = [
+        f for f in (state.get("touchedFiles") or [])
+        if os.path.isfile(os.path.join(project_root, f))
+    ]
+    if not valid_touched:
+        try:
+            git_files = subprocess.check_output(
+                ["git", "--no-optional-locks", "diff", "--name-only", "HEAD~1", "HEAD"],
+                cwd=project_root,
+                stderr=subprocess.DEVNULL,
+                timeout=1.5,
+            ).decode("utf-8", errors="ignore").splitlines()
+            for gf in git_files:
+                gf = gf.strip()
+                if gf and os.path.isfile(os.path.join(project_root, gf)) and gf not in valid_touched:
+                    valid_touched.append(gf)
+        except Exception:
+            pass
+    state["touchedFiles"] = valid_touched[:8]
 
 events = state.get("events") or []
 events.insert(0, {
