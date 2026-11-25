@@ -32,6 +32,15 @@ if [ "${1:-}" = "--hook-stdin" ]; then
         exit 2
       fi
     fi
+    # Zero-Python Fast-Path (~10ms instead of ~210ms) for normal source reads/greps:
+    # Only boot Python when reading .claude/ or .agents/ skill/rule/agent files for HUD tracking.
+    if [ -z "$READ_PATH" ] || ! echo "$READ_PATH" | grep -qE '(^|/)(\.claude|\.agents)/(skills|commands|agents|rules)/'; then
+      printf '1' >> "$PROJECT_ROOT/.claude/.read_buf.cnt" 2>/dev/null || true
+      if [ "$ENGINE" = "antigravity" ]; then
+        printf '{"decision":"allow"}\n'
+      fi
+      exit 0
+    fi
   fi
 else
   ENGINE="claude"
@@ -300,6 +309,25 @@ if os.path.exists(t_file):
 
 now_local = datetime.now().strftime("%H:%M:%S")
 stats = state["stats"]
+
+# Flush buffered fast-path read count (.claude/.read_buf.cnt) atomically
+_read_buf = os.path.join(project_root, ".claude", ".read_buf.cnt")
+if os.path.isfile(_read_buf):
+    _tmp_buf = f"{_read_buf}.flushing.{os.getpid()}"
+    try:
+        os.replace(_read_buf, _tmp_buf)
+        with open(_tmp_buf, "rb") as _bf:
+            _buffered_reads = len(_bf.read())
+        if _buffered_reads > 0:
+            stats["explorerReads"] = int(stats.get("explorerReads", 0)) + _buffered_reads
+    except Exception:
+        pass
+    finally:
+        try:
+            if os.path.exists(_tmp_buf):
+                os.remove(_tmp_buf)
+        except Exception:
+            pass
 
 def clean_prompt_text(raw_p):
     if not raw_p:

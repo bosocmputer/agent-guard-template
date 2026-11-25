@@ -4,9 +4,12 @@ CLAUDE.local.md
 TASK_STATE.md
 .agent-last-state.log
 .claude/.telemetry.json*
+.claude/.read_buf.cnt*
 .claude/.quota_cache.json*
 .claude/.task-state-archive.md
 node_modules/
+__pycache__/
+*.pyc
 .env
 .env.*
 !.env.example

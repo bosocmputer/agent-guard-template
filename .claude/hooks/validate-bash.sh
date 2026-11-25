@@ -160,4 +160,19 @@ PYEOF
   fi
 fi
 
+# 7. Template Local-State Commit Guard: ป้องกันการเผลอ stage/commit ไฟล์เทมเพลตเฉพาะเครื่อง (AGENTS.md, CLAUDE.md, GEMINI.md, TASK_STATE.md) ในโปรเจกต์ปลายทาง
+if [ "$GUARD_MODE" != "relaxed" ] && [ "${ALLOW_TEMPLATE_COMMIT:-0}" != "1" ] && ! echo "$COMMAND" | grep -q 'ALLOW_TEMPLATE_COMMIT=1'; then
+  if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]"'"'"'])git([[:space:]]+-C[[:space:]]+[^;&|[:space:]]+)?[[:space:]]+(add|stage)([[:space:]"'"'"']|$)'; then
+    HELPER_PY="$PROJECT_ROOT/.claude/hooks/lib/guard_helpers.py"
+    if [ -f "$HELPER_PY" ] && command -v python3 >/dev/null 2>&1; then
+      STAGE_CMD=$(echo "$COMMAND" | sed -E 's/^.*"command"[[:space:]]*:[[:space:]]*"//;s/^.*"CommandLine"[[:space:]]*:[[:space:]]*"//;s/"$//')
+      STAGE_RES=$(python3 "$HELPER_PY" check-template-stage "$STAGE_CMD" "$PROJECT_ROOT" 2>/dev/null || echo "")
+      if echo "$STAGE_RES" | grep -q '"blocked":[[:space:]]*true'; then
+        STAGE_REASON=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("reason",""))' "$STAGE_RES" 2>/dev/null || echo "ห้าม stage ไฟล์เทมเพลตเข้าโปรเจกต์")
+        block_action "$STAGE_REASON"
+      fi
+    fi
+  fi
+fi
+
 allow_action

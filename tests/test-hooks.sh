@@ -215,10 +215,56 @@ assert_exit "Allow gh auth token piped to docker login --password-stdin" 0 "$RC_
 assert_exit "Block echo \$(gh auth token)" 2 "$RC_TOK_ECHO"
 assert_exit "Block ssh host bash -s \$(gh auth token)" 2 "$RC_TOK_SSH"
 
-# 10. Audit & Release Summary scripts must execute cleanly (exit 0) without leaving scratch TASK_STATE.md in template root
+# 9.3 Template Local-State Commit Guard: block staging AGENTS.md / blanket `git add .` in consumer repo; allow normal files & ALLOW_TEMPLATE_COMMIT=1
+TMP_TPL_DIR="$(mktemp -d /tmp/agt-tpl-XXXXXX)"
+git -C "$TMP_TPL_DIR" init -b main >/dev/null 2>&1
+git -C "$TMP_TPL_DIR" config user.email "test@example.com" && git -C "$TMP_TPL_DIR" config user.name "Test"
+mkdir -p "$TMP_TPL_DIR/.claude/hooks/lib"
+cp "$ROOT_DIR/.claude/hooks/validate-bash.sh" "$TMP_TPL_DIR/.claude/hooks/"
+cp "$ROOT_DIR/.claude/hooks/telemetry-tracker.sh" "$TMP_TPL_DIR/.claude/hooks/"
+cp "$ROOT_DIR/.claude/hooks/lib/guard_helpers.py" "$TMP_TPL_DIR/.claude/hooks/lib/"
+echo "template" > "$TMP_TPL_DIR/AGENTS.md"
+echo "export const ok = true;" > "$TMP_TPL_DIR/app.ts"
+set +e
+bash "$TMP_TPL_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"git add AGENTS.md"}' >/dev/null 2>&1
+RC_TPL_EXP=$?
+bash "$TMP_TPL_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"git add ."}' >/dev/null 2>&1
+RC_TPL_DOT=$?
+bash "$TMP_TPL_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"git add app.ts"}' >/dev/null 2>&1
+RC_TPL_APP=$?
+bash "$TMP_TPL_DIR/.claude/hooks/validate-bash.sh" <<< '{"command":"ALLOW_TEMPLATE_COMMIT=1 git add AGENTS.md"}' >/dev/null 2>&1
+RC_TPL_OVR=$?
+set -e
+assert_exit "Block git add AGENTS.md in consumer repo" 2 "$RC_TPL_EXP"
+assert_exit "Block blanket git add . when AGENTS.md is dirty in consumer repo" 2 "$RC_TPL_DOT"
+assert_exit "Allow git add app.ts in consumer repo" 0 "$RC_TPL_APP"
+assert_exit "Allow ALLOW_TEMPLATE_COMMIT=1 git add AGENTS.md" 0 "$RC_TPL_OVR"
+rm -rf "$TMP_TPL_DIR"
+
+# 9.4 Read Hook Fast-Path & Nested .env Guard
+TMP_READ_DIR="$(mktemp -d /tmp/agt-read-XXXXXX)"
+mkdir -p "$TMP_READ_DIR/.claude/hooks"
+cp "$ROOT_DIR/.claude/hooks/telemetry-tracker.sh" "$TMP_READ_DIR/.claude/hooks/"
+set +e
+bash "$TMP_READ_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin read <<< '{"tool_name":"Read","tool_input":{"file_path":"backend/.env.local"}}' >/dev/null 2>&1
+RC_READ_ENV=$?
+bash "$TMP_READ_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin read <<< '{"tool_name":"Read","tool_input":{"file_path":"src/index.ts"}}' >/dev/null 2>&1
+RC_READ_SRC=$?
+set -e
+assert_exit "Read hook blocks nested backend/.env.local" 2 "$RC_READ_ENV"
+assert_exit "Read hook fast-path allows src/index.ts" 0 "$RC_READ_SRC"
+[ -f "$TMP_READ_DIR/.claude/.read_buf.cnt" ] && RC_BUF=0 || RC_BUF=1
+assert_exit "Read hook fast-path buffers read count without Python boot" 0 "$RC_BUF"
+grep -q '"Read(./\*\*/\.env\.\*)"' "$ROOT_DIR/.claude/settings.json" && RC_DENY_ENV=0 || RC_DENY_ENV=1
+assert_exit "settings.json denies nested ./\*\*/.env.* reads" 0 "$RC_DENY_ENV"
+rm -rf "$TMP_READ_DIR"
+
+# 10. Python Helper Unit Tests + Audit & Release Summary scripts must execute cleanly (exit 0)
 HAD_ROOT_TS=0
 [ -f "$ROOT_DIR/TASK_STATE.md" ] && HAD_ROOT_TS=1
 set +e
+python3 -m unittest discover -s "$ROOT_DIR/tests" -p "test_*.py" >/dev/null 2>&1
+assert_exit "Run Python unit tests (tests/test_guard_helpers.py)" 0 "$?"
 bash "$ROOT_DIR/.claude/hooks/audit-session-proof.sh" --brief "$ROOT_DIR" >/dev/null 2>&1
 assert_exit "Run audit-session-proof.sh --brief" 0 "$?"
 bash "$ROOT_DIR/.claude/hooks/release-summary.sh" 5 >/dev/null 2>&1

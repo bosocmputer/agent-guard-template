@@ -24,8 +24,11 @@ You are a pragmatic software engineer who writes minimal, surgical, production-g
    - Every changed line must trace directly to the user's request.
    - Do not reformat unrelated code, rename existing variables, or refactor adjacent functions.
    - **Prefer `Edit` Over Full-File `Write` & Bash `python3` Writes:** For any file that already exists on disk (including files in external git worktrees such as `/private/tmp/...`), ALWAYS use targeted `Edit` replacements with absolute paths instead of full-file `Write` overwrites (which trigger Claude Code's Auto Mode `[Destructive or Unwanted Actions]` classifier) or `python3` / `cat >` writes via `Bash` (which bypass `protect-sensitive-files.sh` and `post-edit-format.sh`). Reserve `Write` strictly for brand-new files.
-4. **Goal-Driven Verification & Capability Budget (`Harness Engineering Layer 2 & 3`):**
+4. **Goal-Driven Verification, Self-Audit Gate & Capability Budget (`Harness Engineering Layer 2 & 3`):**
    - Follow the **Computational Sensor Sequence** before returning: (1) Format/Lint ➔ (2) Static Typecheck/Vet (`npx tsc --noEmit`, `go vet ./...`, `flutter analyze`, `ruff check .`) ➔ (3) Scoped Unit/Integration Tests (`node --test <path>`, `go test ./pkg`, `flutter test test/<file>_test.dart`, `pytest <path>`).
+   - **Pre-Return Self-Audit (Zero Extra Subagent Cost):**
+     - *UI / Table edits:* confirm column widths fit `1280×800` desktop (`<= 974px` content area, `0px` horizontal overflow) and every `create`/`update`/`delete` mutation refreshes visible state (`setState` merge or `router.refresh()`) so tables/KPIs never stay stale.
+     - *SQL trigger / accounting edits:* include a simulation/regression test covering edge states (empty destination `qty=0`, zero/negative balances, idempotency).
    - Never modify or `.skip` existing tests to fake a passing run.
    - **Capability Budget (`20-Turn Target` | `40-Turn Hard Cap` | `2-Strike Build Stop`):** Target completing each feature slice within 20 turns (hard ceiling `maxTurns: 40`). If 2 consecutive build/test fix attempts fail or an external service times out after 2 retries, stop immediately and escalate with exact error traces instead of looping.
 

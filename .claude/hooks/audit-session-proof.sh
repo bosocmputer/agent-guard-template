@@ -858,18 +858,32 @@ def sync_task_state(r_dir):
             auto_lines.append(f"  - `{c}`")
     auto_block = "\n".join(auto_lines) + "\n"
     base_content = ""
+    prev_head_sha = ""
     if os.path.isfile(ts_path):
         try:
             with open(ts_path, "r", encoding="utf-8", errors="ignore") as f:
                 raw = f.read()
             if marker in raw:
-                base_content = raw.split(marker)[0].rstrip()
+                parts_ts = raw.split(marker, 1)
+                base_content = parts_ts[0].rstrip()
+                m_prev_h = re.search(r"\*\*Branch & HEAD:\*\*\s+`[^`]+`\s+\(`([0-9a-f]{6,40})`\)", parts_ts[1])
+                if m_prev_h:
+                    prev_head_sha = m_prev_h.group(1)
             else:
                 base_content = raw.rstrip()
         except Exception:
             base_content = ""
     if not base_content:
         base_content = "# Active Task Handoff State\n- **Objective:** Resume from the latest Git state and checkpoints below."
+    elif prev_head_sha and head_sha and prev_head_sha != head_sha:
+        try:
+            _lib_dir = os.path.join(r_dir, ".claude", "hooks", "lib")
+            if os.path.isdir(_lib_dir) and _lib_dir not in sys.path:
+                sys.path.insert(0, _lib_dir)
+            import guard_helpers as _gh
+            base_content = _gh.mark_stale_objective_if_head_moved(base_content, prev_head_sha, head_sha)
+        except Exception:
+            pass
     # 0-Token Auto-Trim & Archive: keep top section compact (<= 2,800 bytes) so every new session/subagent does not waste tokens loading old deploy logs
     trimmed_archived = False
     if len(base_content.encode("utf-8")) > 2800:
@@ -1003,6 +1017,15 @@ if brief_mode:
         cmd_sub_toks = sub_toks
 
     cmd_tot = cmd_opus + cmd_sonnet + cmd_haiku
+    try:
+        _lib_dir = os.path.join(repo_dir, ".claude", "hooks", "lib")
+        if os.path.isdir(_lib_dir) and _lib_dir not in sys.path:
+            sys.path.insert(0, _lib_dir)
+        import guard_helpers as _gh
+        cmd_sub_tot, sub_tot = _gh.reconcile_subagent_counts(cmd_sub_tot, sub_tot, cr, r)
+    except Exception:
+        cmd_sub_tot = max(0, cmd_sub_tot, sum(cr.values()))
+        sub_tot = max(0, sub_tot, sum(r.values()), cmd_sub_tot)
     cmd_op_p = round(cmd_opus * 100.0 / cmd_tot, 1) if cmd_tot else 0.0
     cmd_so_p = round(cmd_sonnet * 100.0 / cmd_tot, 1) if cmd_tot else 0.0
     cmd_ha_p = round(cmd_haiku * 100.0 / cmd_tot, 1) if cmd_tot else 0.0
@@ -1120,6 +1143,18 @@ if brief_mode:
                                             seen_s_ids.add(m_id_sb.group(1))
                                             burn_5hr_sub += 1
                                             burn_5hr_projs.add(short_p)
+        # Also include Antigravity transcripts in the 5-hour rolling window
+        try:
+            _lib_dir = os.path.join(repo_dir, ".claude", "hooks", "lib")
+            if os.path.isdir(_lib_dir) and _lib_dir not in sys.path:
+                sys.path.insert(0, _lib_dir)
+            import guard_helpers as _gh
+            ag_p, ag_s, ag_projs = _gh.scan_5hr_antigravity_burn(cutoff_5hr)
+            burn_5hr_parent += ag_p
+            burn_5hr_sub += ag_s
+            burn_5hr_projs.update(ag_projs)
+        except Exception:
+            pass
     except Exception:
         pass
 

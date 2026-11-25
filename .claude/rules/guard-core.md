@@ -7,7 +7,7 @@ These non-negotiable operational guardrails apply to **every repository** (inclu
 
 1. **Opus Architect ➔ Sonnet Builder (3+ Files) ➔ Opus Gatekeeper:**
    - Never pass `model="opus"` to any subagent (`explorer` = `haiku`, `implementer`/`debugger`/`reviewer` = `sonnet`).
-   - Any feature/fix creating or editing **`>= 3` files** MUST be delegated to `implementer (sonnet)` with exact file paths + line numbers (never spawn `implementer` blind; max 10 reads before first edit).
+   - Any feature/fix creating or editing **`>= 3` files** MUST be delegated to `implementer (sonnet)` with exact file paths + line numbers (never spawn `implementer` blind; max 10 reads before first edit). When the prompt already names exact target files, **skip `explorer` subagents** and stay within **`<= 4` subagents/prompt**.
 2. **6-Turn Investigation, Debug & SSH/Ops Ceiling (Zero-Command Protection):**
    - Batch remote checks (`ssh`, `docker logs`, `docker ps`, `psql`, `gh run view`) into **1–2 compound commands per step** instead of sequential single-command SSH loops.
    - If debugging a `1–2` file issue OR tracing server/CI/DB logs exceeds **6 read/inspect/SSH calls** in the main window without a verified fix, STOP in Parent `Opus` and delegate root-cause tracing to `debugger (sonnet)` or `explorer (haiku)`.
@@ -20,6 +20,7 @@ These non-negotiable operational guardrails apply to **every repository** (inclu
    - Run `bash .claude/hooks/audit-session-proof.sh --brief` after **multi-file features (`>= 3` files), deploys, or UAT milestones** (skip on trivial 1–2 line fixes/merges to avoid ceremony overhead).
    - At **`100–119` parent turns**: update `TASK_STATE.md` concisely and add a brief 1-line note suggesting `/clear` + `"ทำต่อ"` before the next multi-file slice.
    - At **`>= 120` parent turns (or `>= 150k` tokens) if the user keeps working without `/clear`**: do NOT nag repeatedly; enter **Ultra-Thin Dispatcher Survival Mode** — delegate even `1–2` file edits or `> 2` log/SSH commands to fresh `sonnet`/`haiku` subagents so the heavy main window stays at `1–2` orchestration turns per prompt and keeps `TASK_STATE.md` synced every turn.
-6. **Migration-Before-Main & Token-Leak Safety Gates:**
+6. **Migration-Before-Main, Template-Commit & Token-Leak Safety Gates:**
    - Never `git push` commits containing new SQL migrations (`migrations/*.sql`) to `main`/`master` (Production) until confirmed applied on Production DB (`validate-bash.sh` blocks unless `MIGRATION_PROD_VERIFIED=1` or `RELEASE_APPROVED=1`; pushing to `uat`/`preview`/feature branches is unaffected).
+   - Never stage/commit local template files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `TASK_STATE.md`, `.claude/.telemetry.json`) into consumer repos (`validate-bash.sh` blocks unless `ALLOW_TEMPLATE_COMMIT=1`).
    - Never pass tokens/passwords via `docker login -p/--password`, `echo $(gh auth token)`, or `ssh` positional args — always pipe through `--password-stdin`.
