@@ -21,11 +21,13 @@
 
 ตัวเลขจริงจากการวัดผลด้วย `audit-session-proof.sh` บนระบบ ERP/OMS ระดับ Production (`Go + React 19 + PostgreSQL RLS`):
 
-| ตัวชี้วัด (Metric) | ก่อนใช้ / แชทสะสมแบบไม่แยก Subagent | หลังใช้ `agent-guard-template` (v2) | ผลลัพธ์ที่ได้ |
+| ตัวชี้วัด (Metric) | ก่อนใช้ / เวอร์ชันเดิม | หลังใช้ `agent-guard-template` (ล่าสุด) | ผลลัพธ์ที่ได้ |
 | :--- | :---: | :---: | :---: |
 | **จำนวนรอบรวมต่อ 1 ฟีเจอร์ใหญ่ (Full-Stack + CI + QA)** | `392 รอบ` | **`66 รอบ`** (`Parent 12` + `Sonnet 54`) | ⚡ **ลดลง 83.2%** |
 | **การตรวจหน้าเว็บจริงด้วย Playwright MCP (`reviewer`)** | `120 รอบ` (`8.67M tokens`) | **`11 รอบ`** (Batching + Turn Reserve) | 🎯 **ลดลง 90.8%** |
 | **ขนาด Context ต่อรอบในหน้าต่างหลัก (`Opus`/`Fable`)** | `234,820 tokens/turn` | **`83,109 – 94,653 tokens/turn`** | 💰 **ประหยัดโควต้า 60–65%** |
+| **ความหน่วงของ Read Hook (`PreToolUse:Read`) ต่อครั้ง** | `0.211s` (`211ms` บูต Python ทุกครั้ง) | **`0.029s`** (`29ms` Zero-Python Fast-Path) | 🚀 **เร็วขึ้น 7.3× (-86%)** |
+| **ชุดทดสอบอัตโนมัติ (`tests/test-hooks.sh` + Python `unittest`)** | `33 เคส` | **`48 / 48 ผ่าน (0 failed)`** *(รวม 5 unit tests ของ `guard_helpers.py`)* | ✅ **ผ่านครบ 100%** |
 
 ---
 
@@ -60,7 +62,7 @@ chmod +x .claude/hooks/*.sh
 ```bash
 rm -rf /tmp/agt-update
 git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update
-rsync -av --exclude='.git' --exclude='README.md' --exclude='LICENSE' --exclude='tests' --exclude='.github' --exclude='docs' --exclude='.mcp.json' --exclude='.gitignore' --exclude='TASK_STATE.md' --exclude='.agent-last-state.log' --exclude='.telemetry.json*' --exclude='.quota_cache.json*' --exclude='.task-state-archive.md' --exclude='/.claude/rules/project-pitfalls.md' /tmp/agt-update/ ./
+rsync -av --exclude='.git' --exclude='README.md' --exclude='LICENSE' --exclude='tests' --exclude='.github' --exclude='docs' --exclude='.mcp.json' --exclude='.gitignore' --exclude='TASK_STATE.md' --exclude='.agent-last-state.log' --exclude='.telemetry.json*' --exclude='.read_buf.cnt*' --exclude='__pycache__' --exclude='.quota_cache.json*' --exclude='.task-state-archive.md' --exclude='/.claude/rules/project-pitfalls.md' /tmp/agt-update/ ./
 [ -f .claude/rules/project-pitfalls.md ] || cp /tmp/agt-update/.claude/rules/project-pitfalls.md .claude/rules/project-pitfalls.md
 mkdir -p ~/.claude/agents && cp .claude/agents/*.md ~/.claude/agents/
 rm -rf /tmp/agt-update .agents/skills
@@ -75,7 +77,7 @@ chmod +x .claude/hooks/*.sh
   ```bash
   bash .claude/hooks/release-summary.sh
   ```
-- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite — 33 เคส):**
+- **รันชุดทดสอบสคริปต์ยาม (Hook Regression Test Suite — 48 เคส รวม 5 Python Unit Tests):**
   ```bash
   bash tests/test-hooks.sh
   ```
@@ -105,15 +107,15 @@ project-root/
 │       └── ui-anti-slop.md                     # @[ui-anti-slop](../../.claude/rules/ui-anti-slop.md)
 │
 └── .claude/                                    # 🤖 แหล่งข้อมูลต้นฉบับ (Master Single Source of Truth)
-    ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + ผูกสคริปต์ Hooks สำหรับ Claude Code
+    ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + deny .env ทั้ง root และ subfolder (./**/.env*) + ผูก Hooks
     ├── agents/                                 # ลูกมือ Subagents 4 ตำแหน่ง (พร้อม Capability Budgets ตาม Harness Engineering Layer 3)
     │   ├── explorer.md                         # สำรวจโค้ด & ค้นคว้าเว็บ WebSearch/WebFetch (haiku / flash, maxTurns: 10 + Zero-Citation Stop)
-    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit (เน้น Edit แทน Write ทับไฟล์) + รันเทสต์ Tier 1–2 เอง (sonnet / inherit, maxTurns: 40)
+    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + Pre-Return Self-Audit Gate (UI width/stale state & SQL edge cases) + รันเทสต์เอง (sonnet / inherit, maxTurns: 40)
     │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, 8-Turn Target / maxTurns: 12)
     │   └── reviewer.md                         # ตรวจเฉพาะ Blocker และรัน E2E/Playwright MCP แบบ Batch (sonnet / browser flash, maxTurns: 35)
     ├── rules/                                  # กฎต้นฉบับ 7 ไฟล์
-    │   ├── guard-core.md                       # กฎแกนกลาง Universal (โหลดอัตโนมัติทุกโปรเจกต์แม้มี CLAUDE.md Custom: Opus->Sonnet, SSH/Ops Ceiling, Byte Budget, Auto-Handoff 100t)
-    │   ├── model-routing.md                    # Pipeline Opus Architect ➔ Sonnet Builder (3+ ไฟล์), เพดานดีบัก/SSH 6 รอบ, Edit-over-Write/Bash & ห้ามรัน Browser ในหน้าต่างหลัก
+    │   ├── guard-core.md                       # กฎแกนกลาง Universal (Opus->Sonnet, Pre-Mapped Fast Path <=4 subagents, SSH/Ops Ceiling, Migration & Template-Commit Gates, Auto-Handoff 100t)
+    │   ├── model-routing.md                    # Pipeline Opus Architect ➔ Sonnet Builder (3+ ไฟล์), Pre-Mapped Fast Path (ข้าม explorer เมื่อรู้ไฟล์ชัด), เพดาน <=4 subagents/คำสั่ง & Edit-over-Write
     │   ├── execution-discipline.md             # ส่งต่องาน State-Delta (<=8 บรรทัด), Grep ก่อนอ่านเฉพาะบรรทัด (>200 บรรทัด) & ห้าม git reset/restore
     │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ตามหลัก The Ratchet Pattern (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
     │   ├── code-simplicity.md                  # กฎ Karpathy: คิดก่อนทำ, เรียบง่ายที่สุด, แก้เฉพาะจุด, ไม่สร้างไฟล์ขยะ
@@ -131,16 +133,22 @@ project-root/
     │   └── verification-before-completion/     # กฎเหล็กห้ามส่งงานโดยไม่รันเทสต์สด & ดักจับ 0 tests ran
     ├── commands/                               # คำสั่งลัด (/plan, /common-ground, /fix, /review, /security-audit, /verify, /learn, /handoff)
     └── hooks/                                  # 🛡️ สคริปต์ยามรักษาความปลอดภัย 0-Token (ทำงานทั้ง Claude Code & Antigravity)
+        ├── lib/
+        │   └── guard_helpers.py                # โมดูล Python กลางที่เขียน Unit Test ได้ (Template-Commit Guard, Subagent Counter Reconciliation, Antigravity 5hr Burn, Stale Objective)
         ├── auto-resume.sh                      # ฉีดสถานะงานค้างตอนเปิดแชทใหม่ (SessionStart) และบันทึกความจำก่อนย่อแชท (PreCompact)
-        ├── validate-bash.sh                    # บล็อก rm -rf, git restore/reset ทับโค้ด, ลง pkg มั่ว & กั้น Deploy Production
-        ├── protect-sensitive-files.sh          # บล็อกการอ่าน/แก้ .env/.key, lockfiles & บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก
+        ├── validate-bash.sh                    # บล็อก rm -rf, git restore/reset, CLI token leak, ลง pkg มั่ว, Migration-Before-Main และ Template-Commit Guard
+        ├── protect-sensitive-files.sh          # บล็อกการแก้ .env/.key, lockfiles & บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก
         ├── loop-circuit-breaker.sh             # ตัดวงจรเมื่อรันคำสั่งเทสต์/บิลด์ซ้ำเกิน 3 ครั้ง หรืออ่าน/ค้นโค้ดวนเกิน 14 ครั้งโดยไม่แก้ไฟล์ (Sticky + แยกตาม Actor)
         ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึก Checkpoint + ล้างตัวนับลูปเฉพาะ Actor เมื่อแก้โค้ดจริง
-        ├── telemetry-tracker.sh                # บันทึกสถานะการทำงานสดและแคชสถิติ Subagents ลง .claude/.telemetry.json
-        ├── audit-session-proof.sh              # สแกนไฟล์ .jsonl สรุปผลการใช้โมเดล, Subagent tokens, Hooks และบทเรียนที่สกัดได้
+        ├── telemetry-tracker.sh                # Zero-Python Read Fast-Path (~29ms) + บันทึกสถานะการทำงานสดลง .claude/.telemetry.json
+        ├── audit-session-proof.sh              # สแกนไฟล์ .jsonl สรุปผลโมเดล, 5hr Burn (Claude + Antigravity), Hooks, Stale Objective และบทเรียนที่สกัดได้
         ├── release-summary.sh                  # สร้างโพยสรุปงาน / PR Changelog อัตโนมัติแบบ 0-Token จาก git log
         ├── install-skill.sh                    # ดึง Skill เสริมเฉพาะทางลง .claude/skills/ แบบ Sparse Checkout
         └── open-hud.sh                         # เปิดหน้าจอมอนิเตอร์ 3D Voxel Studio (อุปกรณ์เสริม)
+
+tests/
+├── test-hooks.sh                               # ชุดทดสอบ Regression 48 เคส (Bash Hooks + Security + Migration + Template-Commit + Read Fast-Path)
+└── test_guard_helpers.py                       # Python unittest 5 เคสสำหรับ .claude/hooks/lib/guard_helpers.py
 ```
 
 ---
@@ -150,7 +158,7 @@ project-root/
 ### 1. การคัดแยกงานและแตก Subagent อัตโนมัติ (`Zero-Command Auto-Routing`)
 คุณสามารถพิมพ์สั่งงานด้วยภาษาไทยตามปกติ ระบบใน [`CLAUDE.md`](CLAUDE.md) จะประเมินขนาดงานให้อัตโนมัติ:
 * **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`, `<= 6 รอบ`):** หน้าต่างหลักลงมือแก้แบบ Surgical `Edit` และรันเทสต์เฉพาะไฟล์ทันที พร้อมมัดรวมคำสั่ง `ssh`/`docker logs`/`psql`/`gh run view` เป็น `1–2` คำสั่งต่อรอบ โดยมี **เพดานดีบัก & SSH/Ops (`6-Turn Investigation, Debug & SSH/Ops Ceiling`)** — หากอ่าน/ดีบัก/ไล่ล็อกเซิร์ฟเวอร์เกิน `6 ครั้ง` แล้วยังไม่จบ ให้หยุดในหน้าต่างหลักและโยนให้ `debugger` (`sonnet`) หรือ `explorer` (`haiku`) ทันที เพื่อไม่ให้ตัวแม่ `Opus` เผาโควต้า 20–100+ รอบ
-* **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาพิกัดไฟล์+เลขบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด
+* **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาพิกัดไฟล์+เลขบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด *(**Pre-Mapped Fast Path:** หาก Prompt ระบุไฟล์/บรรทัดเป้าหมายชัดเจนอยู่แล้ว ให้ข้าม `explorer` แล้วส่งให้ `implementer` ทำตรงๆ พร้อมจำกัดเพดาน **`<= 4` Subagents/คำสั่ง** เพื่อป้องกัน `TOKEN_BURST_WARNING`)*
 * **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`3+ ไฟล์` — Pipeline `Opus Architect ➔ Sonnet Builder ➔ Opus Gatekeeper`):** แม้โจทย์จะระบุไฟล์ครบแล้ว ตัวแม่ `Opus` **ห้าม** เขียน/แก้โค้ดเองทั้งหมดในหน้าต่างหลัก ให้ทำตาม 3 ขั้น: **(1) Architect (`2–4 รอบ`):** อ่านไฟล์อ้างอิง 1–2 ไฟล์ (หรือให้ `explorer` หาพิกัดก่อน — **ห้าม Spawn `implementer` แบบตาบอดโดยไม่มีชื่อไฟล์+เลขบรรทัด**); **(2) Builder (`implementer` บน `sonnet` / `self`):** เปิดหน้าต่างสะอาด (**Fresh Context — ห้าม Fork ประวัติแชทหลัก**) รับ `State-Delta Brief (<=8 บรรทัด)` พร้อมเพดาน **อ่านไม่เกิน 10 รอบก่อนเริ่มแก้**, บังคับใช้ **`Edit` แทน `Write` ทับไฟล์เดิม** (กัน Claude Code Auto Mode บล็อก), และ **รันเทสต์ Tier 1 + Tier 2 (`analyze` + `test`) ให้จบในตัว** (หากแก้ต่อในฟีเจอร์เดิมและยังไม่เกิน `40 รอบ` ให้ `send_message` ใช้ตัวเดิมต่อ); **(3) Gatekeeper (`2–3 รอบ`):** ตรวจ `git diff --stat`, อัปเดต `TASK_STATE.md` / `project-pitfalls.md`, และรัน `audit-session-proof.sh --brief`
 * **กฎประหยัด Token ตอนอ่านไฟล์ใหญ่ (`Grep First, Read Line-Range Second`):** สำหรับไฟล์ที่ยาวเกิน `200 บรรทัด` บังคับใช้ `Grep`/`grep_search` หาเลขบรรทัดก่อน แล้วอ่านเฉพาะช่วงบรรทัด (`StartLine`–`EndLine` หรือ `offset`–`limit` ±40 บรรทัด) แทนการดึงไฟล์เต็มเข้า Context ซ้ำๆ (ประหยัด Input Tokens 70–80%)
 * **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับโค้ด/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent (`debugger`/`reviewer` ใช้ `sonnet` บน Claude หรือ `browser` `flash` สำหรับตรวจเว็บ / `self` สำหรับ E2E บน Antigravity) เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
@@ -162,9 +170,12 @@ project-root/
    * บล็อกการรันสคริปต์ภายนอกเข้าสู่ Shell โดยตรง (`curl/wget ... | sh/bash/python/node`), การพลางคำสั่ง (`base64 -d | sh`, `$IFS`), และการดึงค่า Environment Secrets ทั้งระบบด้วย `printenv` หรือ `env` เปล่าๆ
    * บล็อกการแอบอ่าน `.env*`/`*.key` ผ่านคำสั่ง Shell (`cat/grep/awk/sed`) และการแตะต้องโฟลเดอร์ Credential หรือ Shell Profile ของโฮสต์ (`~/.ssh`, `~/.aws`, `~/.kube`, `~/.zshrc`, `crontab`)
    * บล็อกการแอบติดตั้ง Package ใหม่ (`npm install`, `flutter pub add`, `go get`, `pip install`, `cargo add`) จนกว่าคุณจะอนุมัติ (`DEPS_APPROVED=1`)
-   * บล็อกการสั่ง Deploy ขึ้น Production หรือยิง Migration ขึ้นฐานข้อมูลจริง (`vercel --prod`, `supabase db push`, `prisma migrate deploy`) รวมถึงบล็อก **`git push origin main` เมื่อมีไฟล์ SQL migration ใหม่ที่ยังไม่ยืนยันบน Prod DB** (ปลดล็อกด้วย `MIGRATION_PROD_VERIFIED=1` หรือ `RELEASE_APPROVED=1` โดยยังอนุญาต `git push origin main:uat` / กิ่ง preview ตามปกติ) และอนุญาต `supabase db reset` บน Local Docker สำหรับรันเทสต์
-2. **`protect-sensitive-files.sh` & `telemetry-tracker.sh` (Secrets, Host Credentials & Stage 4 Anti-Test-Tampering):**
-   * ห้ามอ่านหรือแก้ไขไฟล์ `.env*`, `*.key`, `*.pem`, `*.sqlite`, `*.db`, โฟลเดอร์ Credential ของโฮสต์ (`~/.ssh/*`, `~/.aws/*`, `~/.kube/*`, `~/.netrc`, `~/.npmrc`), Shell Profile (`~/.zshrc`, `~/.bashrc`), ไฟล์ `.git/config` / `.git/hooks/*` และไฟล์ Lockfile
+   * บล็อกการส่งรหัสผ่าน/Token ผ่าน CLI args (`docker login -p/--password`, `echo/ssh $(gh auth token)`) โดยบังคับส่งผ่าน `--password-stdin`
+   * บล็อกการสั่ง Deploy ขึ้น Production หรือยิง Migration ขึ้นฐานข้อมูลจริง (`vercel --prod`, `supabase db push`, `prisma migrate deploy`) รวมถึงบล็อก **`git push origin main` เมื่อมีไฟล์ SQL migration ใหม่ที่ยังไม่ยืนยันบน Prod DB** (รองรับทั้ง repo หลักและ `git -C <worktree>`, ปลดล็อกด้วย `MIGRATION_PROD_VERIFIED=1` หรือ `RELEASE_APPROVED=1` โดยยังอนุญาต `git push origin main:uat` / กิ่ง preview ตามปกติ) และอนุญาต `supabase db reset` บน Local Docker สำหรับรันเทสต์
+   * **Template Local-State Commit Guard:** บล็อกการเผลอ `git add` ไฟล์เทมเพลตเฉพาะเครื่อง (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `TASK_STATE.md`) รวมถึง `git add .`/`-A` เมื่อไฟล์เหล่านั้นค้างแก้ในโปรเจกต์ปลายทาง (ปลดล็อกด้วย `ALLOW_TEMPLATE_COMMIT=1` และอนุญาตอัตโนมัติใน repo `agent-guard-template` เอง)
+2. **`protect-sensitive-files.sh` & `telemetry-tracker.sh` (Secrets, Nested `.env*`, Zero-Python Read Fast-Path & Stage 4 Anti-Test-Tampering):**
+   * ห้ามอ่านหรือแก้ไขไฟล์ `.env*` ทั้งที่ root และโฟลเดอร์ย่อย (`./**/.env*`), `*.key`, `*.pem`, `*.sqlite`, `*.db`, โฟลเดอร์ Credential ของโฮสต์ (`~/.ssh/*`, `~/.aws/*`, `~/.kube/*`, `~/.netrc`, `~/.npmrc`), Shell Profile (`~/.zshrc`, `~/.bashrc`), ไฟล์ `.git/config` / `.git/hooks/*` และไฟล์ Lockfile
+   * **Zero-Python Read Fast-Path (`~29ms`, เร็วขึ้น `7.3×`):** สำหรับการอ่านไฟล์ซอร์สโค้ดปกติ (`Read|Grep|Glob`) จะตรวจความปลอดภัยใน Bash ล้วนและเก็บตัวนับใน `.claude/.read_buf.cnt` โดยไม่บูต Python ทุกครั้ง แล้วค่อย flush ลง `.telemetry.json` อัตโนมัติในรอบถัดไป
    * ขณะอยู่ในโหมดซ่อมบั๊ก (`strikeCount >= 1`) จะบล็อกไม่ให้ AI แอบแก้ไขไฟล์เทสต์เดิม (`*.test.*`, `*.spec.*`, `*_test.*`) บังคับให้แก้ที่โค้ดต้นเหตุเท่านั้น
 3. **`post-edit-format.sh` & `loop-circuit-breaker.sh` (Command Repeat & Sticky Per-Actor Read-Loop Breaker):**
    * **Command Repeat Breaker:** ตัดวงจร (`exit 2`) เมื่อรันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน `3 ครั้ง` ในหน้าต่าง 6 คำสั่งล่าสุดโดยไม่แก้โค้ด
