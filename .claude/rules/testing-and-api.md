@@ -27,6 +27,7 @@ paths:
 - **Required Edge Coverage:** Cover happy path, boundary/edge cases (`0`, negative, empty, `null`, duplicate), and explicit error cases.
 - **Zero Test Tampering:** Never weaken assertions, delete failing tests, or add `.skip` / `.only` to pass a suite.
 - **Real-DB Proof for Complex SQL:** For queries combining `GROUP BY` with subqueries, `LATERAL`, or JSONB operators, never rely solely on `sqlmock`/unit mocks—verify against a real database or CI Postgres integration test.
+- **SQL Trigger / Accounting Edge-Case Simulation:** Whenever modifying SQL costing triggers, stock/wallet ledger math, or RPC invariants, add a simulation/regression test covering edge states (empty destination `qty=0`, zero/negative balances, and idempotent replays).
 
 ## 2. API Boundary & OWASP Security Invariants
 - **Validate at Boundary:** Validate request inputs (`body`, `query`, `params`) at the route/RPC boundary before invoking business logic.

@@ -50,6 +50,7 @@ Enforce all 11 production design dimensions on the first pass:
 ### 7. Interactive Details & States (Complete State Coverage)
 - Every data-driven screen or action must handle `Loading` (Skeleton/Spinner), `Empty State`, and `Error State`.
 - All interactive controls must have clear `focus-visible`, `hover`, and `disabled` states.
+- **Pre-Return UI Self-Audit (Desktop `1280×800` & Live State):** Ensure dense tables fit inside the `<= 974px` content width (`0px` horizontal overflow) without clipping key columns/actions, and verify every `create`/`update`/`delete` mutation immediately refreshes visible state (`setState` merge or `router.refresh()`) so tables and KPIs never stay stale.
 
 ### 8. Visuals & Media (Zero Layout Shift)
 - Always set explicit `aspect-ratio` and `object-cover` (`BoxFit.cover` in Flutter) on images to prevent layout shift.

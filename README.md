@@ -52,20 +52,18 @@
 ```bash
 git clone https://github.com/bosocmputer/agent-guard-template.git my-project
 cd my-project
-mkdir -p ~/.claude/agents && cp .claude/agents/*.md ~/.claude/agents/
 chmod +x .claude/hooks/*.sh
 ```
 
 ### วิธีที่ 2: นำไปติดตั้งหรืออัปเดตในโปรเจกต์ที่มีอยู่แล้ว (`rsync` One-Liner)
-รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์ เพื่อติดตั้งหรืออัปเดตไฟล์มาตรฐานของ Template (พร้อมซิงก์ Custom Subagents ลง `~/.claude/agents/` สำหรับ Claude Code Desktop รุ่นล่าสุด) โดย**เก็บรักษาบทเรียนเฉพาะโปรเจกต์ (`.claude/rules/project-pitfalls.md`) และสถิติ (`.telemetry.json`) เดิมไว้ครบถ้วน**:
+รันคำสั่งนี้ที่โฟลเดอร์นอกสุดของโปรเจกต์ เพื่อติดตั้งหรืออัปเดตไฟล์มาตรฐานของ Template โดย**เก็บรักษาบทเรียนเฉพาะโปรเจกต์ (`.claude/rules/project-pitfalls.md`) และสถิติ (`.telemetry.json`) เดิมไว้ครบถ้วน**:
 
 ```bash
 rm -rf /tmp/agt-update
 git clone --depth 1 https://github.com/bosocmputer/agent-guard-template.git /tmp/agt-update
 rsync -av --exclude='.git' --exclude='README.md' --exclude='LICENSE' --exclude='tests' --exclude='.github' --exclude='docs' --exclude='.mcp.json' --exclude='.gitignore' --exclude='TASK_STATE.md' --exclude='.agent-last-state.log' --exclude='.telemetry.json*' --exclude='.read_buf.cnt*' --exclude='__pycache__' --exclude='.quota_cache.json*' --exclude='.task-state-archive.md' --exclude='/.claude/rules/project-pitfalls.md' /tmp/agt-update/ ./
 [ -f .claude/rules/project-pitfalls.md ] || cp /tmp/agt-update/.claude/rules/project-pitfalls.md .claude/rules/project-pitfalls.md
-mkdir -p ~/.claude/agents && cp .claude/agents/*.md ~/.claude/agents/
-rm -rf /tmp/agt-update .agents/skills
+rm -rf /tmp/agt-update .agents/skills .claude/hud .claude/hooks/open-hud.sh .claude/agents .claude/rules/model-routing.md .agents/rules/model-routing.md
 chmod +x .claude/hooks/*.sh
 ```
 
@@ -99,28 +97,21 @@ project-root/
 │   ├── skills.json                             # ชี้โฟลเดอร์ Skills ไปที่ {"entries": [{"path": ".claude/skills"}]}
 │   └── rules/                                  # ตัวชี้กฎพร้อม Frontmatter มาตรฐาน Antigravity (trigger: always_on / glob)
 │       ├── guard-core.md                       # @[guard-core](../../.claude/rules/guard-core.md) — กฎแกนกลางทำงานอัตโนมัติแม้ CLAUDE.md เป็นไฟล์เฉพาะโปรเจกต์
-│       ├── model-routing.md                    # @[model-routing](../../.claude/rules/model-routing.md)
 │       ├── execution-discipline.md             # @[execution-discipline](../../.claude/rules/execution-discipline.md)
 │       ├── project-pitfalls.md                 # @[project-pitfalls](../../.claude/rules/project-pitfalls.md)
 │       ├── code-simplicity.md                  # @[code-simplicity](../../.claude/rules/code-simplicity.md)
 │       ├── testing-and-api.md                  # @[testing-and-api](../../.claude/rules/testing-and-api.md)
 │       └── ui-anti-slop.md                     # @[ui-anti-slop](../../.claude/rules/ui-anti-slop.md)
 │
-└── .claude/                                    # 🤖 แหล่งข้อมูลต้นฉบับ (Master Single Source of Truth)
+└── .claude/                                    # 🤖 แหล่งข้อมูลต้นฉบับ (v3 Slim Safety & Memory Harness)
     ├── settings.json                           # สิทธิ์คำสั่งปลอดภัย + deny .env ทั้ง root และ subfolder (./**/.env*) + ผูก Hooks
-    ├── agents/                                 # ลูกมือ Subagents 4 ตำแหน่ง (พร้อม Capability Budgets ตาม Harness Engineering Layer 3)
-    │   ├── explorer.md                         # สำรวจโค้ด & ค้นคว้าเว็บ WebSearch/WebFetch (haiku / flash, maxTurns: 10 + Zero-Citation Stop)
-    │   ├── implementer.md                      # แก้โค้ดแบบ Surgical Edit + Pre-Return Self-Audit Gate (UI width/stale state & SQL edge cases) + รันเทสต์เอง (sonnet / inherit, maxTurns: 40)
-    │   ├── debugger.md                         # วิเคราะห์ต้นตอและตัดลูป 2-Strike (sonnet / inherit, 8-Turn Target / maxTurns: 12)
-    │   └── reviewer.md                         # ตรวจเฉพาะ Blocker และรัน E2E/Playwright MCP แบบ Batch (sonnet / browser flash, maxTurns: 35)
-    ├── rules/                                  # กฎต้นฉบับ 7 ไฟล์
-    │   ├── guard-core.md                       # กฎแกนกลาง Universal (Opus->Sonnet, Pre-Mapped Fast Path <=4 subagents, SSH/Ops Ceiling, Migration & Template-Commit Gates, Auto-Handoff 100t)
-    │   ├── model-routing.md                    # Pipeline Opus Architect ➔ Sonnet Builder (3+ ไฟล์), Pre-Mapped Fast Path (ข้าม explorer เมื่อรู้ไฟล์ชัด), เพดาน <=4 subagents/คำสั่ง & Edit-over-Write
+    ├── rules/                                  # กฎต้นฉบับ 6 ไฟล์ (ใช้ Native Subagents ของแต่ละค่ายโดยไม่ต้องเขียน custom agent ซ้ำ)
+    │   ├── guard-core.md                       # กฎแกนกลาง Universal (Native Subagent Budget <=4, Pre-Mapped Fast Path, SSH/Ops Ceiling, Migration & Template-Commit Gates, Auto-Handoff)
     │   ├── execution-discipline.md             # ส่งต่องาน State-Delta (<=8 บรรทัด), Grep ก่อนอ่านเฉพาะบรรทัด (>200 บรรทัด) & ห้าม git reset/restore
     │   ├── project-pitfalls.md                 # ความจำระยะยาวเฉพาะโปรเจกต์ตามหลัก The Ratchet Pattern (สกัดอัตโนมัติ สูงสุด 30 ข้อ)
     │   ├── code-simplicity.md                  # กฎ Karpathy: คิดก่อนทำ, เรียบง่ายที่สุด, แก้เฉพาะจุด, ไม่สร้างไฟล์ขยะ
-    │   ├── testing-and-api.md                  # บังคับเทสต์โค้ดจริง (Verify RED ➔ GREEN) & ตรวจสิทธิ์ BOLA/IDOR
-    │   └── ui-anti-slop.md                     # มาตรฐานออกแบบ UI 9 ด้าน (ใช้ lucide, tabular-nums, ห้ามวาด SVG เอง)
+    │   ├── testing-and-api.md                  # บังคับเทสต์โค้ดจริง (Verify RED ➔ GREEN), SQL trigger edge-case simulation & ตรวจสิทธิ์ BOLA/IDOR
+    │   └── ui-anti-slop.md                     # มาตรฐานออกแบบ UI 10 ด้าน (lucide, tabular-nums, 1280×800 <=974px width & post-mutation refresh Self-Audit)
     ├── skills/                                 # ตำราเฉพาะทาง 9 ตัว (โหลดเฉพาะเมื่อตรงกับงาน — Progressive Disclosure)
     │   ├── auto-resume-handoff/SKILL.md        # กู้คืนงานค้างอัตโนมัติเมื่อสลับค่ายหลังโควต้าเต็ม
     │   ├── common-ground/SKILL.md              # สกัดสมมติฐาน 3–4 ข้อมาถามก่อนทำฟีเจอร์ที่คลุมเครือ
@@ -140,11 +131,10 @@ project-root/
         ├── protect-sensitive-files.sh          # บล็อกการแก้ .env/.key, lockfiles & บล็อกการแอบแก้ไฟล์เทสต์เดิมขณะซ่อมบั๊ก
         ├── loop-circuit-breaker.sh             # ตัดวงจรเมื่อรันคำสั่งเทสต์/บิลด์ซ้ำเกิน 3 ครั้ง หรืออ่าน/ค้นโค้ดวนเกิน 14 ครั้งโดยไม่แก้ไฟล์ (Sticky + แยกตาม Actor)
         ├── post-edit-format.sh                 # จัด Format อัตโนมัติ + บันทึก Checkpoint + ล้างตัวนับลูปเฉพาะ Actor เมื่อแก้โค้ดจริง
-        ├── telemetry-tracker.sh                # Zero-Python Read Fast-Path (~29ms) + บันทึกสถานะการทำงานสดลง .claude/.telemetry.json
+        ├── telemetry-tracker.sh                # Slim ~180 บรรทัด: Read Secret Guard + Zero-Python Fast-Path (~20ms) + state เบาๆ <1KB + 100t/120t Survival Mode
         ├── audit-session-proof.sh              # สแกนไฟล์ .jsonl สรุปผลโมเดล, 5hr Burn (Claude + Antigravity), Hooks, Stale Objective และบทเรียนที่สกัดได้
         ├── release-summary.sh                  # สร้างโพยสรุปงาน / PR Changelog อัตโนมัติแบบ 0-Token จาก git log
-        ├── install-skill.sh                    # ดึง Skill เสริมเฉพาะทางลง .claude/skills/ แบบ Sparse Checkout
-        └── open-hud.sh                         # เปิดหน้าจอมอนิเตอร์ 3D Voxel Studio (อุปกรณ์เสริม)
+        └── install-skill.sh                    # ดึง Skill เสริมเฉพาะทางลง .claude/skills/ แบบ Sparse Checkout
 
 tests/
 ├── test-hooks.sh                               # ชุดทดสอบ Regression 48 เคส (Bash Hooks + Security + Migration + Template-Commit + Read Fast-Path)
@@ -229,18 +219,6 @@ AI จะสกัดบทเรียนสั้นๆ บรรทัดเ�
 | **`/verify`** | ก่อนประกาศจบงานหรือปิด Milestone | รันเทสต์จริง + ตรวจ Type/Analyze + สรุป `Next Steps` และรัน `audit-session-proof.sh --brief` |
 | **`/learn <บทเรียน>`** | เมื่อต้องการสั่งให้จำข้อตกลงเฉพาะโปรเจกต์ | บันทึกกฎสั้นๆ 1 บรรทัดลง `.claude/rules/project-pitfalls.md` (ไม่เกิน 30 ข้อ) |
 | **`/handoff`** | ก่อนล้างแชท `/clear` หรือก่อนสลับค่าย AI | สรุปสถานะงานค้างลง `TASK_STATE.md`, สกัดบทเรียนของรอบนั้นลง `project-pitfalls.md`, และแสดงผลชี้วัดประจำแชท |
-
----
-
-## 🖥️ อุปกรณ์เสริม (Optional): หน้าจอมอนิเตอร์ 3D (`Agent Guard Voxel Studio`)
-
-หากต้องการเปิดหน้าจอจำลองการทำงานของทีม AI ทั้ง 5 แผนกแบบเรียลไทม์ สำรวจผังไฟล์จริง หรือดู % โควต้าคงเหลือ สามารถรันคำสั่งนี้ใน Terminal (เปิด `http://127.0.0.1:4317/` อัตโนมัติ):
-
-```bash
-bash .claude/hooks/open-hud.sh
-```
-
-![ภาพรวมศูนย์บัญชาการ 3D Voxel Studio](docs/screenshots/01-studio-overview.jpg)
 
 ---
 

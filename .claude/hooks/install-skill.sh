@@ -118,13 +118,4 @@ if [ "${#JEFFALLAN_SKILLS[@]}" -gt 0 ]; then
   done
 fi
 
-# อัปเดตผังไฟล์สดใน .claude/.telemetry.json เพื่อให้หน้าจอ 3D Voxel Studio เห็นการ์ดใบใหม่ทันที
-if [ -x "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" ]; then
-  bash "$PROJECT_ROOT/.claude/hooks/telemetry-tracker.sh" \
-    --engine "claude" \
-    --node "explorer" \
-    --status "working" \
-    --skill "tech-stack-skills" \
-    --hook ".claude/hooks/install-skill.sh" \
-    --detail "📦 ติดตั้ง Skill เสริม ($*) ลง .claude/skills/ (เชื่อม .agents/skills.json) สำเร็จ" >/dev/null 2>&1 || true
-fi
+echo "✅ Installed skills into .claude/skills/ ($*)"
