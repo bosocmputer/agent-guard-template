@@ -731,13 +731,14 @@ def scan_pitfalls(r_dir):
     }
 
 def extract_latest_session_tail(p_dir, all_sess):
-    info = {"engine": "", "sess_id": "", "user_prompt": "", "assistant_text": "", "subagent_task": "", "interrupted": False}
+    info = {"engine": "", "sess_id": "", "epoch": 0.0, "user_prompt": "", "assistant_text": "", "subagent_task": "", "interrupted": False}
     try:
         if not all_sess:
             return info
         latest = all_sess[-1]
         info["engine"] = latest.get("engine") or "claude"
         info["sess_id"] = str(latest.get("sess_id") or "")[:8]
+        info["epoch"] = float(latest.get("epoch") or 0.0)
         if info["engine"] == "claude":
             jf = os.path.join(p_dir, f"{latest.get('sess_id')}.jsonl")
             if os.path.isfile(jf):
@@ -812,11 +813,15 @@ def sync_task_state(r_dir):
     marker = "## 🔄 Auto-Synced Git & Session State"
     branch = "main"
     head_sha = ""
+    head_epoch = 0.0
     commits = []
     dirty = []
     try:
         branch = subprocess.check_output(["git", "--no-optional-locks", "rev-parse", "--abbrev-ref", "HEAD"], cwd=r_dir, stderr=subprocess.DEVNULL, timeout=1.5).decode("utf-8", errors="ignore").strip() or "main"
         head_sha = subprocess.check_output(["git", "--no-optional-locks", "rev-parse", "--short", "HEAD"], cwd=r_dir, stderr=subprocess.DEVNULL, timeout=1.5).decode("utf-8", errors="ignore").strip()
+        head_ct = subprocess.check_output(["git", "--no-optional-locks", "log", "-1", "--format=%ct"], cwd=r_dir, stderr=subprocess.DEVNULL, timeout=1.5).decode("utf-8", errors="ignore").strip()
+        if head_ct.isdigit():
+            head_epoch = float(head_ct)
         log_out = subprocess.check_output(["git", "--no-optional-locks", "log", "--oneline", "-n", "5"], cwd=r_dir, stderr=subprocess.DEVNULL, timeout=1.5).decode("utf-8", errors="ignore").strip()
         commits = [c.strip() for c in log_out.splitlines() if c.strip()]
         st_out = subprocess.check_output(["git", "--no-optional-locks", "status", "--short"], cwd=r_dir, stderr=subprocess.DEVNULL, timeout=1.5).decode("utf-8", errors="ignore").strip()
@@ -832,6 +837,8 @@ def sync_task_state(r_dir):
         except Exception:
             pass
     tail_info = extract_latest_session_tail(proj_dir, all_sessions)
+    tail_epoch = float(tail_info.get("epoch") or 0.0)
+    tail_is_fresh = bool(tail_info.get("interrupted")) or head_epoch == 0.0 or tail_epoch == 0.0 or (tail_epoch >= head_epoch - 120.0)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     auto_lines = [
         f"{marker} (Updated: {now_str})",
@@ -843,7 +850,7 @@ def sync_task_state(r_dir):
         auto_lines.append(f"- **Uncommitted Changes:** `{'; '.join(dirty)}`")
     else:
         auto_lines.append("- **Working Tree:** `clean`")
-    if tail_info.get("user_prompt") or tail_info.get("assistant_text") or tail_info.get("subagent_task"):
+    if tail_is_fresh and (tail_info.get("user_prompt") or tail_info.get("assistant_text") or tail_info.get("subagent_task")):
         status_tag = "⚠️ INTERRUPTED / QUOTA CUTOFF" if tail_info.get("interrupted") else "Latest Session Turn"
         auto_lines.append(f"- **Last Session Snapshot (`{tail_info['engine']}#{tail_info['sess_id']}` — {status_tag}):**")
         if tail_info.get("user_prompt"):
@@ -1018,7 +1025,7 @@ if brief_mode:
 
     cmd_tot = cmd_opus + cmd_sonnet + cmd_haiku
     try:
-        _lib_dir = os.path.join(repo_dir, ".claude", "hooks", "lib")
+        _lib_dir = os.path.join(root_dir, ".claude", "hooks", "lib")
         if os.path.isdir(_lib_dir) and _lib_dir not in sys.path:
             sys.path.insert(0, _lib_dir)
         import guard_helpers as _gh
@@ -1077,22 +1084,13 @@ if brief_mode:
             pass
 
     print(f"### 📊 ผลชี้วัด Agent Guard Template — เฉพาะคำสั่งนี้ ({eng_lbl}Session `#{acc['sess_id'][:8]}`)")
-    if acc.get("engine") == "antigravity":
-        if (cmd_sonnet + cmd_haiku) > 0:
-            print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** Parent (Orchestrator/Neon) `{cmd_op_p}%` ({cmd_opus} รอบ) | Subagents (Self) `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Subagents (Flash) `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
-        else:
-            st_note = f" ({cmd_steps} steps)" if cmd_steps > 0 else ""
-            print(f"- **รอบทำงานคำสั่งนี้:** Parent (Orchestrator/Neon) `{cmd_opus} รอบ`{st_note} ➔ **งานขนาดเล็กทำตรงในแชทหลัก (ไม่เปิด Subagent เกินจำเป็น)** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
+    cmd_sub_turns = cmd_sonnet + cmd_haiku
+    if cmd_sub_tot > 0 or cmd_sub_turns > 0:
+        cmd_tok_note = f", `{cmd_sub_toks:,} tokens`" if cmd_sub_toks > 0 else ""
+        print(f"- **รอบทำงานคำสั่งนี้:** หน้าต่างหลัก `{cmd_opus}` รอบ + Subagents `{cmd_sub_tot}` ตัว (`{cmd_sub_turns}` รอบ{cmd_tok_note}) *(สะสมทั้งแชท: หลัก {acc['opus']} รอบ · Subagents {sub_tot} ตัว)*")
     else:
-        p_lbl = acc.get("parent_model_label") or "Parent (Opus)"
-        print(f"- **สัดส่วนโมเดลคำสั่งนี้ ({cmd_tot} รอบ):** {p_lbl} `{cmd_op_p}%` ({cmd_opus} รอบ) | Subagents (Sonnet) `{cmd_so_p}%` ({cmd_sonnet} รอบ) | Subagents (Haiku) `{cmd_ha_p}%` ({cmd_haiku} รอบ) ➔ **Offload รอบนี้: `{cmd_off_p}%`** *(สะสมทั้งแชท: {tot} รอบ, Offload {off_p}%)*")
-
-    if cmd_sub_tot > 0:
-        cmd_tok_note = f" — รับภาระรอบนี้ `{cmd_sub_toks:,} tokens`" if cmd_sub_toks > 0 else ""
-        print(f"- **Subagents ที่เรียกในคำสั่งนี้:** `{cmd_sub_tot}` ตัว (`Explorer: {cr['explorer']}`, `Implementer: {cr['implementer']}`, `Debugger: {cr['debugger']}`, `Reviewer: {cr['reviewer']}`){cmd_tok_note} *(สะสมทั้งแชท: {sub_tot} ตัว)*")
-    else:
-        sess_tok_note = f" — รวม {sub_toks:,} tokens" if sub_toks > 0 else ""
-        print(f"- **Subagents ที่เรียกในคำสั่งนี้:** `0` ตัว *(สะสมทั้งแชท: {sub_tot} ตัว{sess_tok_note})*")
+        st_note = f" ({cmd_steps} steps)" if (acc.get("engine") == "antigravity" and cmd_steps > 0) else ""
+        print(f"- **รอบทำงานคำสั่งนี้:** หน้าต่างหลัก `{cmd_opus}` รอบ{st_note} (ทำตรงไม่แตก Subagent เกินจำเป็น) *(สะสมทั้งแชท: หลัก {acc['opus']} รอบ · Subagents {sub_tot} ตัว)*")
 
     worktree_hook_note = " *(รันใน Subagent/Worktree)*" if (cmd_sub_tot > 0 and (d_reads + d_edits + d_tests) == 0) else ""
     print(f"- **Hooks ที่ทำงานในคำสั่งนี้:** สแกนไฟล์ `{d_reads}` ครั้ง | แก้ไฟล์+Checkpoint `{d_edits}` ครั้ง | รันเทสต์ `{d_tests}` ครั้ง | บล็อกผิดกฎ `{d_blocks}` ครั้ง | 2-Strike: `{strike_str}`{worktree_hook_note} *(สะสมทั้งโปรเจกต์: สแกน {tot_reads}, แก้ {tot_edits}, เทสต์ {tot_tests})*")
@@ -1145,7 +1143,7 @@ if brief_mode:
                                             burn_5hr_projs.add(short_p)
         # Also include Antigravity transcripts in the 5-hour rolling window
         try:
-            _lib_dir = os.path.join(repo_dir, ".claude", "hooks", "lib")
+            _lib_dir = os.path.join(root_dir, ".claude", "hooks", "lib")
             if os.path.isdir(_lib_dir) and _lib_dir not in sys.path:
                 sys.path.insert(0, _lib_dir)
             import guard_helpers as _gh
@@ -1166,8 +1164,6 @@ if brief_mode:
     turn_ceiling = 30 if cmd_sub_tot > 0 else 20
     if cmd_opus > turn_ceiling:
         tripwires.append(f"⚠️ `TURN_BUDGET_EXCEEDED` (หน้าต่างหลักรัน {cmd_opus} รอบ > เพดาน {turn_ceiling} รอบ/คำสั่ง)")
-    if int(acc.get("prompt_sub_opus") or 0) > 0:
-        tripwires.append(f"🔥 `OPUS_SUBAGENT_LEAK` (พบ Subagent รันด้วย Opus {acc.get('prompt_sub_opus')} รอบ — บังคับใช้ Sonnet/Haiku เท่านั้น)")
     if cmd_sub_toks >= 6000000 or burn_5hr_parent >= 300:
         burst_parts = []
         if burn_5hr_parent >= 300:
@@ -1175,9 +1171,6 @@ if brief_mode:
         if cmd_sub_toks >= 6000000:
             burst_parts.append(f"Subagent รอบนี้ {cmd_sub_toks:,} tokens")
         tripwires.append(f"🔥 `TOKEN_BURST_WARNING` ({' / '.join(burst_parts)})")
-    cmd_sub_total = cmd_sonnet + cmd_haiku
-    if acc["opus"] >= 40 and off_p < 25.0 and not (cmd_opus <= 15 and cmd_sub_total == 0):
-        tripwires.append(f"⚠️ `LOW_SUBAGENT_OFFLOAD` (Offload สะสม {off_p}% < 25% — ควรโยนงานหลายไฟล์ให้ Subagent)")
     last_cache_tok = int(acc.get("last_cache_tokens") or 0)
     if last_cache_tok >= 150000:
         tripwires.append(f"🚨 `CONTEXT_TOKEN_BLOAT` (Context สะสม {last_cache_tok:,} tokens/รอบ > 150k — โหมด Survival Mode หรือพิมพ์ `/clear`)")
