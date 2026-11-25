@@ -6,28 +6,43 @@
 [![Zero-Dependency Hooks](https://img.shields.io/badge/Hooks-0--Token%20Bash%2FPython-f59e0b)](.claude/hooks/)
 
 > **🇬🇧 English Summary (For Global Developers):**
-> **Agent Guard Template** is a battle-tested, 6-layer **AI Coding Agent Harness & Governance Framework** for **Claude Code** and **Antigravity IDE** (built on a Single Source of Truth in `.claude/`).
-> - **Save 70–83% of Main-Window Quota:** Enforces the **`Opus Architect ➔ Sonnet Builder (3+ files) ➔ Opus Gatekeeper`** pipeline plus a **6-turn Investigation/Debug Ceiling** on 1–2 file fixes — automatically offloading codebase exploration (`haiku`/`flash`, capped at 10 turns), multi-file implementation (`sonnet`, capped at 40 turns with `Edit`-over-`Write` safety), and batched Playwright MCP QA (`sonnet`, capped at 35 turns) out of your expensive `Opus`/`Fable` orchestrator window.
-> - **0-Token OS, Git & Anti-Loop Safety Shields:** Deterministic Bash/Python hooks block `git reset --hard`, `git checkout .`, `.env`/credential dumps, unapproved dependencies, test-tampering during bug fixes, and stuck read/search loops via a **Sticky Per-Actor Read-Loop Circuit Breaker** (`> 14` consecutive reads without editing, `exit 2`).
-> - **Zero-Prompt Cross-Agent Handoff & 5-Hour Quota Radar:** Auto-syncs git/session state into `TASK_STATE.md` before context compaction or 5-hour quota cutoffs, tracks rolling 5-hour token burn across all local projects, and distills project-specific lessons into `.claude/rules/project-pitfalls.md`.
+> **Agent Guard Template (v3 — Slim Production Safety & Memory Harness)** is a lightweight, zero-dependency **Safety, Circuit-Breaker & Cross-Engine Memory Harness** for **Claude Code** and **Antigravity IDE** (Single Source of Truth in `.claude/`).
+> - **Built for Native Subagents (Zero Duplication):** Modern Claude Code & Antigravity IDEs already orchestrate native subagents natively. v3 removes redundant custom agent definitions and heavy 3D HUD/telemetry bloat (`-6,642 lines` / `-74%` `CLAUDE.md` size) and focuses purely on what IDEs still don't enforce for you.
+> - **0-Token OS, Git & Production Safety Shields:** Deterministic Bash/Python hooks (`24ms` Read Fast-Path) block nested `.env*`/credential reads, `git reset --hard`, `git push` of unapplied SQL migrations to `main`, accidental template-file commits, CLI token leaks, unapproved deps, test-tampering during bug fixes, and stuck read/test loops (`exit 2`).
+> - **Zero-Prompt Cross-Engine Handoff & Pitfall Memory:** Auto-syncs git/session state into `TASK_STATE.md` (with stale-Objective detection & 100t/120t Survival Mode), tracks 5-hour rolling burn across both Claude Code & Antigravity, and distills project-specific lessons into `.claude/rules/project-pitfalls.md`.
 
-**🇹🇭 ระบบควบคุมวินัย AI Coding Agent แบบ Dual-Engine (`Claude Code` & `Antigravity IDE`) — เน้นแก้โค้ดเฉพาะจุด ประหยัดโควต้าหน้าต่างหลัก 70–83% ด้วย Subagents อัตโนมัติ พร้อมระบบป้องกันคำสั่งอันตราย 0-Token, ตัววัดอัตราเผาโควต้า 5 ชั่วโมงข้ามโปรเจกต์ และความจำระยะยาวเฉพาะโปรเจกต์**
+**🇹🇭 ระบบเกราะป้องกันความปลอดภัยและหน่วยความจำข้ามค่ายสำหรับ AI Coding Agent (`v3 — Slim Safety & Memory Harness`) รองรับทั้ง `Claude Code` และ `Antigravity IDE` — ปล่อยให้แต่ละค่ายใช้ Native Subagents ได้เต็มที่ แล้วโฟกัสเฉพาะสิ่งที่ค่ายยังทำให้ไม่ได้: 0-Token Security/Production Gates, ตัวตัดลูปกันเผาโควต้า, ส่งต่องานข้ามค่าย (`TASK_STATE.md`) และความจำระยะยาวเฉพาะโปรเจกต์ (`project-pitfalls.md`)**
 
-ออกแบบตามหลัก **Single Source of Truth (แก้ที่ `CLAUDE.md` และ `.claude/` จุดเดียว)**, **No Over-Claiming (รายงานตามจริงพร้อมหลักฐานเทสต์)**, และ **No Ceremony Overhead (ไม่เพิ่มพิธีกรรมหรือไฟล์ขยะ)**
+ออกแบบตามหลัก **Single Source of Truth (`.claude/` จุดเดียว)**, **No Over-Claiming (รายงานตามจริงพร้อมหลักฐานเทสต์)**, และ **No Ceremony Overhead (ตัดไขมันและไฟล์ซ้ำซ้อนออกหมด)**
 
 ---
 
 ## 📈 ผลลัพธ์จากการใช้งานจริงบน Production (Verified Benchmarks)
 
-ตัวเลขจริงจากการวัดผลด้วย `audit-session-proof.sh` บนระบบ ERP/OMS ระดับ Production (`Go + React 19 + PostgreSQL RLS`):
+ตัวเลขจริงจากการวัดผลบนระบบ ERP/OMS ระดับ Production (`Next.js 16 + Supabase`, `Go + React 18 + PostgreSQL`):
 
-| ตัวชี้วัด (Metric) | ก่อนใช้ / เวอร์ชันเดิม | หลังใช้ `agent-guard-template` (ล่าสุด) | ผลลัพธ์ที่ได้ |
+| ตัวชี้วัด (Metric) | ก่อนใช้ / เวอร์ชัน v2 เดิม | หลังใช้ `agent-guard-template` (v3 Slim) | ผลลัพธ์ที่ได้ |
 | :--- | :---: | :---: | :---: |
-| **จำนวนรอบรวมต่อ 1 ฟีเจอร์ใหญ่ (Full-Stack + CI + QA)** | `392 รอบ` | **`66 รอบ`** (`Parent 12` + `Sonnet 54`) | ⚡ **ลดลง 83.2%** |
-| **การตรวจหน้าเว็บจริงด้วย Playwright MCP (`reviewer`)** | `120 รอบ` (`8.67M tokens`) | **`11 รอบ`** (Batching + Turn Reserve) | 🎯 **ลดลง 90.8%** |
-| **ขนาด Context ต่อรอบในหน้าต่างหลัก (`Opus`/`Fable`)** | `234,820 tokens/turn` | **`83,109 – 94,653 tokens/turn`** | 💰 **ประหยัดโควต้า 60–65%** |
-| **ความหน่วงของ Read Hook (`PreToolUse:Read`) ต่อครั้ง** | `0.211s` (`211ms` บูต Python ทุกครั้ง) | **`0.029s`** (`29ms` Zero-Python Fast-Path) | 🚀 **เร็วขึ้น 7.3× (-86%)** |
+| **จำนวนรอบรวมต่อ 1 ฟีเจอร์ใหญ่ (Full-Stack + CI + QA)** | `392 รอบ` | **`66 รอบ`** (`Parent 12` + `Subagents 54`) | ⚡ **ลดลง 83.2%** |
+| **การตรวจหน้าเว็บจริงด้วย Playwright MCP** | `120 รอบ` (`8.67M tokens`) | **`11 รอบ`** (Batching + Turn Reserve) | 🎯 **ลดลง 90.8%** |
+| **ขนาด Context ต่อรอบในหน้าต่างหลัก** | `234,820 tokens/turn` | **`83,109 – 94,653 tokens/turn`** | 💰 **ประหยัดโควต้า 60–65%** |
+| **ขนาดไฟล์กฎหลัก `CLAUDE.md` (โหลดทุกรอบ)** | `17.4 KB` (v2) | **`4.4 KB`** (v3 Slim) | 🪶 **เล็กลง 74%** |
+| **ขนาด `telemetry-tracker.sh` + `.telemetry.json`** | `88 KB` (`1,560` บรรทัด) / `325 KB` | **`10 KB`** (`184` บรรทัด) / **`< 1 KB`** | 🧹 **ตัดโค้ดส่วนเกิน 89%** |
+| **ความหน่วงของ Read Hook (`PreToolUse:Read`) ต่อครั้ง** | `0.211s` (`211ms` บูต Python ทุกครั้ง) | **`0.024s`** (`24ms` Zero-Python Fast-Path) | 🚀 **เร็วขึ้น 8.8× (-89%)** |
 | **ชุดทดสอบอัตโนมัติ (`tests/test-hooks.sh` + Python `unittest`)** | `33 เคส` | **`48 / 48 ผ่าน (0 failed)`** *(รวม 5 unit tests ของ `guard_helpers.py`)* | ✅ **ผ่านครบ 100%** |
+
+---
+
+## ✂️ ทำไม v3 ถึงตัดส่วนซ้ำซ้อนออก? (v3 Slim Architecture Rationale)
+
+เมื่อทั้ง **Claude Code** และ **Antigravity IDE** พัฒนาระบบ Native Subagents (`Agent` / `invoke_subagent` / worktree / `/teamwork`) และหน้าจอสถานะในตัวได้เก่งขึ้นแล้ว เราจึงทบทวนทุกไฟล์จากข้อมูลการใช้งานจริงและปรับลดโครงสร้างลง **`-6,642` บรรทัด (~2.1 MB)** ด้วยเหตุผลชัดเจน 4 ข้อ:
+
+| สิ่งที่เปลี่ยนใน v3 | เหตุผลจากการใช้งานจริง | ผลลัพธ์ที่ได้ |
+| :--- | :--- | :--- |
+| **1. ลบ `.claude/agents/*.md` และ `model-routing.md`** | ค่ายมี Native Subagent ในตัวอยู่แล้ว การเขียนกฎบังคับแตก `explorer`/`implementer` แบบแข็งตัวใน v2 ทำให้ AI แตก `Explorer` 3–4 ตัวซ้ำซ้อนจนเกิด `TOKEN_BURST_WARNING` (`7–13M tokens`) แม้ Prompt จะระบุไฟล์เป้าหมายชัดแล้ว | ปล่อยให้ค่ายใช้ Native Subagents ตามธรรมชาติ + คุมแค่ **Pre-Mapped Fast Path** (ข้ามสำรวจเมื่อรู้ไฟล์ชัด) และเพดาน **`<= 4` subagents/คำสั่ง** |
+| **2. ลบ 3D Voxel HUD (`open-hud.sh`, `.claude/hud/`, `docs/screenshots/`) และย่อ `telemetry-tracker.sh` (`88 KB → 10 KB`)** | IDE แสดงสถานะ Subagent ใน UI แล้ว การรันสคริปต์ `1,560` บรรทัดสแกนไฟล์ทุกครั้งที่อ่านโค้ดทำให้เสียดีเลย์สะสม (`211ms/read` ≈ `17.6 นาที` ต่อ 5,000 reads) และ `.telemetry.json` บวมถึง `325 KB` | Read Hook เหลือ **`24ms` (เร็วขึ้น 8.8×)**, `.telemetry.json` เล็กลงเหลือ **`< 1 KB`** (คงตัวบล็อก `.env`, `strikeCount`, และ Survival Mode ครบ 100%) |
+| **3. ย่อ `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` (`17.4 KB → 4.4 KB`)** | ลด Base Input Tokens ที่ถูกโหลดซ้ำทุก Turn และย้ายเช็กลิสต์ Self-Audit ของ UI (`<=974px`, post-mutation refresh) กับ SQL (`qty=0` edge simulation) ไปไว้ใน `ui-anti-slop.md` และ `testing-and-api.md` ที่โหลดเฉพาะตอนแตะไฟล์ตรงโดเมน | ประหยัด Context ทุกรอบทุกแชทโดยไม่สูญเสียมาตรฐานคุณภาพ |
+| **4. คงแก่นแท้ 4 ชั้นที่ IDE ยังทำแทนไม่ได้** | ต่อให้ Subagent ของค่ายเก่งแค่ไหน ก็ยัง **ไม่มี** (1) **0-Token OS/Git/Production Hooks** ที่บล็อกจริงแม้โมเดลเบลอ (บล็อกคำสั่งผิดกฎจริงไปแล้ว `100+` ครั้งในงาน Production), (2) **Cross-Engine Handoff** ข้ามค่าย (`Claude Code ⇄ Antigravity`), (3) **Sticky Read-Loop & 2-Strike Circuit Breakers**, และ (4) **Project Pitfalls Memory** ที่จำบทเรียนเฉพาะโปรเจกต์ข้ามแชท | ได้เกราะป้องกัน Production เต็ม 100% ด้วยน้ำหนักโค้ดที่เบาและดูแลรักษาง่ายกว่าเดิมมาก |
 
 ---
 
@@ -145,13 +160,12 @@ tests/
 
 ## 🧠 เจาะลึก 6 กลไกหลักของระบบ
 
-### 1. การคัดแยกงานและแตก Subagent อัตโนมัติ (`Zero-Command Auto-Routing`)
-คุณสามารถพิมพ์สั่งงานด้วยภาษาไทยตามปกติ ระบบใน [`CLAUDE.md`](CLAUDE.md) จะประเมินขนาดงานให้อัตโนมัติ:
-* **งานแก้จุดย่อยที่รู้พิกัดไฟล์อยู่แล้ว (`1–2 ไฟล์`, `<= 6 รอบ`):** หน้าต่างหลักลงมือแก้แบบ Surgical `Edit` และรันเทสต์เฉพาะไฟล์ทันที พร้อมมัดรวมคำสั่ง `ssh`/`docker logs`/`psql`/`gh run view` เป็น `1–2` คำสั่งต่อรอบ โดยมี **เพดานดีบัก & SSH/Ops (`6-Turn Investigation, Debug & SSH/Ops Ceiling`)** — หากอ่าน/ดีบัก/ไล่ล็อกเซิร์ฟเวอร์เกิน `6 ครั้ง` แล้วยังไม่จบ ให้หยุดในหน้าต่างหลักและโยนให้ `debugger` (`sonnet`) หรือ `explorer` (`haiku`) ทันที เพื่อไม่ให้ตัวแม่ `Opus` เผาโควต้า 20–100+ รอบ
-* **งานสำรวจโค้ดข้ามหลายโฟลเดอร์ (`>3 ไฟล์`) หรือค้นคว้าข้อมูลจากอินเทอร์เน็ต:** แตก `explorer` (`haiku` บน Claude พร้อม `WebSearch`/`WebFetch` / `research` `flash` บน Antigravity พร้อม `search_web`) ไปสแกนหาพิกัดไฟล์+เลขบรรทัดหรือค้นเอกสารเว็บ แล้วส่งกลับมาเฉพาะสรุปสั้นๆ ไม่เกิน 15 บรรทัด *(**Pre-Mapped Fast Path:** หาก Prompt ระบุไฟล์/บรรทัดเป้าหมายชัดเจนอยู่แล้ว ให้ข้าม `explorer` แล้วส่งให้ `implementer` ทำตรงๆ พร้อมจำกัดเพดาน **`<= 4` Subagents/คำสั่ง** เพื่อป้องกัน `TOKEN_BURST_WARNING`)*
-* **งานสร้างฟีเจอร์หรือแก้โค้ดหลายไฟล์ (`3+ ไฟล์` — Pipeline `Opus Architect ➔ Sonnet Builder ➔ Opus Gatekeeper`):** แม้โจทย์จะระบุไฟล์ครบแล้ว ตัวแม่ `Opus` **ห้าม** เขียน/แก้โค้ดเองทั้งหมดในหน้าต่างหลัก ให้ทำตาม 3 ขั้น: **(1) Architect (`2–4 รอบ`):** อ่านไฟล์อ้างอิง 1–2 ไฟล์ (หรือให้ `explorer` หาพิกัดก่อน — **ห้าม Spawn `implementer` แบบตาบอดโดยไม่มีชื่อไฟล์+เลขบรรทัด**); **(2) Builder (`implementer` บน `sonnet` / `self`):** เปิดหน้าต่างสะอาด (**Fresh Context — ห้าม Fork ประวัติแชทหลัก**) รับ `State-Delta Brief (<=8 บรรทัด)` พร้อมเพดาน **อ่านไม่เกิน 10 รอบก่อนเริ่มแก้**, บังคับใช้ **`Edit` แทน `Write` ทับไฟล์เดิม** (กัน Claude Code Auto Mode บล็อก), และ **รันเทสต์ Tier 1 + Tier 2 (`analyze` + `test`) ให้จบในตัว** (หากแก้ต่อในฟีเจอร์เดิมและยังไม่เกิน `40 รอบ` ให้ `send_message` ใช้ตัวเดิมต่อ); **(3) Gatekeeper (`2–3 รอบ`):** ตรวจ `git diff --stat`, อัปเดต `TASK_STATE.md` / `project-pitfalls.md`, และรัน `audit-session-proof.sh --brief`
-* **กฎประหยัด Token ตอนอ่านไฟล์ใหญ่ (`Grep First, Read Line-Range Second`):** สำหรับไฟล์ที่ยาวเกิน `200 บรรทัด` บังคับใช้ `Grep`/`grep_search` หาเลขบรรทัดก่อน แล้วอ่านเฉพาะช่วงบรรทัด (`StartLine`–`EndLine` หรือ `offset`–`limit` ±40 บรรทัด) แทนการดึงไฟล์เต็มเข้า Context ซ้ำๆ (ประหยัด Input Tokens 70–80%)
-* **งานซ่อมบั๊ก (`debugger`) และงานตรวจรับโค้ด/รัน E2E (`reviewer`):** แยกออกไปรันใน Subagent (`debugger`/`reviewer` ใช้ `sonnet` บน Claude หรือ `browser` `flash` สำหรับตรวจเว็บ / `self` สำหรับ E2E บน Antigravity) เพื่อไม่ให้ Log ของเทสต์และ Browser กินพื้นที่หน้าต่างแชทหลัก
+### 1. การใช้ Native Subagents อย่างมีวินัย & คุมเพดานโควต้า (`Native Subagent Discipline`)
+ใน v3 เราปล่อยให้ **Claude Code (`Agent`)** และ **Antigravity (`invoke_subagent`)** แตก Native Subagents ตามธรรมชาติ โดยคุมเฉพาะ 4 กฎที่ช่วยประหยัดโควต้าจริง:
+* **งานแก้จุดย่อยที่รู้พิกัดอยู่แล้ว (`1–2 ไฟล์`, `<= 6 รอบ`):** แก้ตรงๆ ด้วย `Edit` และมัดรวมคำสั่ง `ssh`/`docker`/`psql`/`gh` เป็น `1–2` คำสั่งต่อรอบ โดยมี **เพดานดีบัก & SSH/Ops 6 รอบ** — ถ้าไล่ล็อกหรือดีบักเกิน 6 ครั้งแล้วยังไม่จบ ให้โยนให้ Subagent สดช่วยวิเคราะห์ต่อทันที
+* **Pre-Mapped Fast Path & เพดาน `<= 4` Subagents/คำสั่ง:** หาก Prompt ระบุไฟล์และบรรทัดเป้าหมายชัดเจนอยู่แล้ว (หรือ ≤ 5 โมดูล) ให้ **ข้ามขั้นตอนแตก explorer** แล้วส่งให้ Subagent ลงมือแก้+รันเทสต์ตรงๆ พร้อมจำกัดไม่เกิน `4` Subagents/คำสั่ง เพื่อกัน `TOKEN_BURST_WARNING`
+* **งานหลายไฟล์ (`3+ ไฟล์`):** แตก Native Subagent พร้อมขอบเขตไฟล์ไม่ทับซ้อนกัน (ห้ามส่ง `model="opus"` ให้ Subagent), ใช้ `Edit` แทน `Write` ทับไฟล์เดิม, และทำ **Pre-Return Self-Audit** (UI ตาราง `<=974px` + post-mutation refresh, SQL trigger edge-case simulation) ก่อนส่งกลับ
+* **กฎประหยัด Token ตอนอ่านไฟล์ใหญ่ (`Grep First, Read Line-Range Second`):** สำหรับไฟล์ที่ยาวเกิน `200 บรรทัด` ให้ `Grep` หาเลขบรรทัดก่อนแล้วอ่านเฉพาะช่วงบรรทัดแทนการโหลดไฟล์เต็มซ้ำๆ
 
 ### 2. ยามรักษาความปลอดภัยเบื้องหลัง 0-Token (`.claude/hooks/*.sh`)
 ทำงานด้วยสคริปต์ Bash/Python ก่อนและหลังการเรียกเครื่องมือของ AI โดยไม่เสีย Token (พร้อมการันตี Fail-Open สำหรับส่วน Telemetry):
@@ -165,7 +179,7 @@ tests/
    * **Template Local-State Commit Guard:** บล็อกการเผลอ `git add` ไฟล์เทมเพลตเฉพาะเครื่อง (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `TASK_STATE.md`) รวมถึง `git add .`/`-A` เมื่อไฟล์เหล่านั้นค้างแก้ในโปรเจกต์ปลายทาง (ปลดล็อกด้วย `ALLOW_TEMPLATE_COMMIT=1` และอนุญาตอัตโนมัติใน repo `agent-guard-template` เอง)
 2. **`protect-sensitive-files.sh` & `telemetry-tracker.sh` (Secrets, Nested `.env*`, Zero-Python Read Fast-Path & Stage 4 Anti-Test-Tampering):**
    * ห้ามอ่านหรือแก้ไขไฟล์ `.env*` ทั้งที่ root และโฟลเดอร์ย่อย (`./**/.env*`), `*.key`, `*.pem`, `*.sqlite`, `*.db`, โฟลเดอร์ Credential ของโฮสต์ (`~/.ssh/*`, `~/.aws/*`, `~/.kube/*`, `~/.netrc`, `~/.npmrc`), Shell Profile (`~/.zshrc`, `~/.bashrc`), ไฟล์ `.git/config` / `.git/hooks/*` และไฟล์ Lockfile
-   * **Zero-Python Read Fast-Path (`~29ms`, เร็วขึ้น `7.3×`):** สำหรับการอ่านไฟล์ซอร์สโค้ดปกติ (`Read|Grep|Glob`) จะตรวจความปลอดภัยใน Bash ล้วนและเก็บตัวนับใน `.claude/.read_buf.cnt` โดยไม่บูต Python ทุกครั้ง แล้วค่อย flush ลง `.telemetry.json` อัตโนมัติในรอบถัดไป
+   * **Zero-Python Read Fast-Path (`~24ms`, เร็วขึ้น `8.8×`):** สำหรับการอ่านไฟล์ซอร์สโค้ดปกติ (`Read|Grep|Glob`) จะตรวจความปลอดภัยใน Bash ล้วนและเก็บตัวนับใน `.claude/.read_buf.cnt` โดยไม่บูต Python ทุกครั้ง แล้วค่อย flush ลง `.telemetry.json` (`< 1 KB`) อัตโนมัติในรอบถัดไป
    * ขณะอยู่ในโหมดซ่อมบั๊ก (`strikeCount >= 1`) จะบล็อกไม่ให้ AI แอบแก้ไขไฟล์เทสต์เดิม (`*.test.*`, `*.spec.*`, `*_test.*`) บังคับให้แก้ที่โค้ดต้นเหตุเท่านั้น
 3. **`post-edit-format.sh` & `loop-circuit-breaker.sh` (Command Repeat & Sticky Per-Actor Read-Loop Breaker):**
    * **Command Repeat Breaker:** ตัดวงจร (`exit 2`) เมื่อรันคำสั่งเทสต์/บิลด์เดิมซ้ำเกิน `3 ครั้ง` ในหน้าต่าง 6 คำสั่งล่าสุดโดยไม่แก้โค้ด
