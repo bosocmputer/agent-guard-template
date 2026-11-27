@@ -93,10 +93,17 @@ if os.path.exists(t_file):
             if isinstance(loaded.get("stats"), dict):
                 old_stats.update(loaded["stats"])
             # Preserve lightweight session/audit keys only (drop legacy HUD bloat)
+            # Keep top-level session metrics & sessionProof BEFORE agSessions so grep|head -1 never matches archived sessions
+            sp = loaded.get("sessionProof") if isinstance(loaded.get("sessionProof"), dict) else {}
+            for k in ("strikeCount", "activeNode", "sessionId", "opusTurns", "lastCacheTokens"):
+                if k in loaded:
+                    state[k] = loaded[k]
+                elif k in sp:
+                    state[k] = sp[k]
             for k in (
-                "strikeCount", "activeNode", "sessionProof", "sessionId", "opusTurns",
-                "lastCacheTokens", "lastIsSubagent", "lastConversationId",
-                "lastTranscriptPath", "lastAuditBaseline", "prevAuditBaseline", "promptBaseline",
+                "sessionProof", "lastIsSubagent", "lastConversationId",
+                "lastTranscriptPath", "agSessions", "lastAuditBaseline",
+                "prevAuditBaseline", "promptBaseline",
             ):
                 if k in loaded:
                     state[k] = loaded[k]
@@ -141,6 +148,13 @@ if mode_type == "stdin":
     cid = str(payload.get("conversationId") or payload.get("session_id") or "")
     if cid:
         state["lastConversationId"] = cid
+        tpath = str(payload.get("transcriptPath") or payload.get("transcript_path") or "")
+        if not tpath and engine == "antigravity" and len(cid) == 36 and "-" in cid:
+            cand = os.path.expanduser(f"~/.gemini/antigravity/brain/{cid}/.system_generated/logs/transcript.jsonl")
+            if os.path.isfile(cand):
+                tpath = cand
+        if tpath:
+            state["lastTranscriptPath"] = tpath
     if stage == "prompt":
         state["activeNode"] = "core"
         state["systemStatus"] = "working"
@@ -184,8 +198,11 @@ if [ "$MODE_TYPE" = "stdin" ] && [ "$ENGINE" = "antigravity" ]; then
       AG_CUR_SID=$(echo "$RAW_STDIN" | grep -oE '"conversationId"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/^"conversationId"[[:space:]]*:[[:space:]]*"//;s/"$//' | cut -c1-8)
       AG_PREV_SID=$(grep -oE '"sessionId"[[:space:]]*:[[:space:]]*"[^"]+"' "$TELEMETRY_FILE" 2>/dev/null | head -1 | sed -E 's/^"sessionId"[[:space:]]*:[[:space:]]*"//;s/"$//' | cut -c1-8)
       AG_OPUS_TURNS=$(grep -oE '"opusTurns"[[:space:]]*:[[:space:]]*[0-9]+' "$TELEMETRY_FILE" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
-      if [ -n "$AG_CUR_SID" ] && [ "$AG_CUR_SID" = "$AG_PREV_SID" ] && [ "${AG_OPUS_TURNS:-0}" -ge 120 ] 2>/dev/null; then
-        printf '{"injectSteps":[{"systemMessage":{"systemMessage":"[🛡️ SURVIVAL MODE — Parent %s turns]: แชทสะสมรอบสูงมากแล้ว ให้ delegate งานแก้โค้ด/ไล่ล็อกให้ subagent ใหม่ ตอบกระชับ และอัปเดต TASK_STATE.md ทุกรอบ"}}]}\n' "$AG_OPUS_TURNS"
+      AG_CTX_TOK=$(grep -oE '"lastCacheTokens"[[:space:]]*:[[:space:]]*[0-9]+' "$TELEMETRY_FILE" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+      if [ -n "$AG_CUR_SID" ] && [ "$AG_CUR_SID" = "$AG_PREV_SID" ] && { [ "${AG_OPUS_TURNS:-0}" -ge 120 ] || [ "${AG_CTX_TOK:-0}" -ge 150000 ]; } 2>/dev/null; then
+        printf '{"injectSteps":[{"systemMessage":{"systemMessage":"[🛡️ SURVIVAL MODE — Parent %s turns · %s tokens]: แชทสะสมรอบ/Context สูงแล้ว ให้ delegate งานแก้โค้ด/ไล่ล็อกให้ subagent ใหม่ ตอบกระชับ อัปเดต TASK_STATE.md และแนะนำพิมพ์ /compact หรือเปิดแชทใหม่"}}]}\n' "$AG_OPUS_TURNS" "$AG_CTX_TOK"
+      elif [ -n "$AG_CUR_SID" ] && [ "$AG_CUR_SID" = "$AG_PREV_SID" ] && { [ "${AG_OPUS_TURNS:-0}" -ge 100 ] || [ "${AG_CTX_TOK:-0}" -ge 130000 ]; } 2>/dev/null; then
+        printf '{"injectSteps":[{"systemMessage":{"systemMessage":"[🚨 AUTO-HANDOFF NUDGE — Parent %s turns · %s tokens]: แชทสะสมรอบสูงแล้ว ท้ายคำตอบให้สรุป TASK_STATE.md (<=2,500B) พร้อมแนะนำพิมพ์ /compact หรือเปิดแชทใหม่แล้วพิมพ์ ทำต่อ"}}]}\n' "$AG_OPUS_TURNS" "$AG_CTX_TOK"
       else
         printf '{}\n'
       fi

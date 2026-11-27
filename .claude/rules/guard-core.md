@@ -17,7 +17,7 @@ These non-negotiable guardrails apply to **every repository** (including repos w
    - **`TASK_STATE.md` (above `## 🔄 Auto-Synced Git & Session State`):** Replace current status in place; keep **`<= 20 lines` AND `<= 2,500 bytes`** (older entries auto-archive to `.claude/.task-state-archive.md`).
    - **`.claude/rules/project-pitfalls.md`:** Strictly **1 concise line (`<= 180 chars`) per rule**, max 30 rules and **`<= 4,500 bytes`** total.
 5. **Auto-Handoff Nudge (`100t`) & Survival Mode (`120t`):**
-   - At `100–119` parent turns: update `TASK_STATE.md` and suggest `/clear` + `"ทำต่อ"` in 1 line.
+   - At `100–119` parent turns: update `TASK_STATE.md` and suggest `/compact` (Antigravity) / `/clear` (Claude Code) or starting a new chat + `"ทำต่อ"` in 1 line.
    - At `>= 120` parent turns (or `>= 150k` tokens): switch to thin-dispatcher mode, delegating edits/log tracing to fresh subagents and syncing `TASK_STATE.md` every turn.
 6. **Zero-Token Production Safety Gates (`validate-bash.sh` & `protect-sensitive-files.sh`):**
    - Never read, print, edit, or commit `.env*` (root or subfolders), `*.key`, `*.pem`, `*.sqlite`, `*.db`, or host credentials (`~/.ssh`, `~/.aws`, `~/.kube`).

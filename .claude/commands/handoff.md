@@ -1,5 +1,5 @@
 ---
-description: Save compact task state to TASK_STATE.md before running /clear or switching between Claude Code and Antigravity (สั่งบันทึกจุดค้างงานลงไฟล์เพื่อสลับค่าย AI ทำต่อได้ทันที)
+description: Save compact task state to TASK_STATE.md before running /compact (Antigravity), /clear (Claude Code), or switching between agents (สั่งบันทึกจุดค้างงานลงไฟล์เพื่อสลับค่าย AI ทำต่อได้ทันที)
 argument-hint: [optional-notes]
 allowed-tools: Read, Write, Edit, Bash
 ---
@@ -21,4 +21,4 @@ $ARGUMENTS
 ```
 After writing `TASK_STATE.md`:
 1. **Distill Session Pitfalls (`Stage 3 Memory`):** If any new project-specific gotchas, resolved `[BLOCKER]` patterns, or user corrections occurred during this session/milestone, append them as concise 1-line rules (`- **[Category]:** <Rule>`, max 30 rules total) to `.claude/rules/project-pitfalls.md` (auto-imported by `.agents/rules/project-pitfalls.md`).
-2. **Session Proof Summary:** Run `bash .claude/hooks/audit-session-proof.sh --brief` to display the `### 📊 ผลชี้วัด Agent Guard Template` summary for this session, and inform the user they can now run `/clear` or switch to the other agent and type *"ทำต่อจากที่ค้างไว้"*.
+2. **Session Proof Summary:** Run `bash .claude/hooks/audit-session-proof.sh --brief` to display the `### 📊 ผลชี้วัด Agent Guard Template` summary for this session, and inform the user they can now run `/compact` (Antigravity) / `/clear` (Claude Code) or open a new chat / switch to the other agent and type *"ทำต่อจากที่ค้างไว้"*.

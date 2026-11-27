@@ -259,6 +259,40 @@ grep -q '"Read(./\*\*/\.env\.\*)"' "$ROOT_DIR/.claude/settings.json" && RC_DENY_
 assert_exit "settings.json denies nested ./\*\*/.env.* reads" 0 "$RC_DENY_ENV"
 rm -rf "$TMP_READ_DIR"
 
+# 9.5 Antigravity telemetry: preserve agSessions, auto-resolve transcript path, engine-aware /compact nudges & real context tokens
+TMP_AG_DIR="$(mktemp -d /tmp/agt-ag-XXXXXX)"
+TMP_AG_HOME="$(mktemp -d /tmp/agt-aghome-XXXXXX)"
+mkdir -p "$TMP_AG_DIR/.claude/hooks/lib"
+cp "$ROOT_DIR/.claude/hooks/telemetry-tracker.sh" "$TMP_AG_DIR/.claude/hooks/"
+cp "$ROOT_DIR/.claude/hooks/audit-session-proof.sh" "$TMP_AG_DIR/.claude/hooks/"
+cp "$ROOT_DIR/.claude/hooks/lib/guard_helpers.py" "$TMP_AG_DIR/.claude/hooks/lib/"
+AG_UUID="11111111-2222-3333-4444-555555555555"
+mkdir -p "$TMP_AG_HOME/.gemini/antigravity/brain/$AG_UUID/.system_generated/logs"
+cat > "$TMP_AG_HOME/.gemini/antigravity/brain/$AG_UUID/.system_generated/logs/transcript.jsonl" <<'JEOF'
+{"type":"USER_INPUT","source":"USER_EXPLICIT","content":"<USER_REQUEST>test prompt</USER_REQUEST>"}
+{"type":"PLANNER_RESPONSE","input_tokens":12000,"cache_read_tokens":148000,"output_tokens":500}
+JEOF
+printf '{"agSessions":{"prev-uuid":{"turns":5,"steps":10,"lastCacheTokens":1000}},"sessionProof":{"sessionId":"11111111","opusTurns":12,"lastCacheTokens":135000}}\n' > "$TMP_AG_DIR/.claude/.telemetry.json"
+AG_NUDGE_OUT=$(HOME="$TMP_AG_HOME" bash "$TMP_AG_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin prompt <<< "{\"conversationId\":\"$AG_UUID\",\"prompt\":\"ทำต่อ\"}" 2>/dev/null || true)
+AG_PRESERVE_OK=$(python3 - "$TMP_AG_DIR/.claude/.telemetry.json" "$TMP_AG_HOME/.gemini/antigravity/brain/$AG_UUID/.system_generated/logs/transcript.jsonl" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+ok = ("prev-uuid" in d.get("agSessions", {})) and (d.get("lastTranscriptPath") == sys.argv[2])
+print("0" if ok else "1")
+PYEOF
+)
+echo "$AG_NUDGE_OUT" | grep -q "AUTO-HANDOFF NUDGE" && echo "$AG_NUDGE_OUT" | grep -q "/compact" && ! echo "$AG_NUDGE_OUT" | grep -q "/clear" && RC_AG_NUDGE=0 || RC_AG_NUDGE=1
+printf '{"agSessions":{"prev-uuid":{"turns":5,"steps":10,"lastCacheTokens":1000}},"sessionProof":{"sessionId":"11111111","opusTurns":12,"lastCacheTokens":160000}}\n' > "$TMP_AG_DIR/.claude/.telemetry.json"
+AG_SURV_OUT=$(HOME="$TMP_AG_HOME" bash "$TMP_AG_DIR/.claude/hooks/telemetry-tracker.sh" --hook-stdin prompt <<< "{\"conversationId\":\"$AG_UUID\",\"prompt\":\"ทำต่อ\"}" 2>/dev/null || true)
+echo "$AG_SURV_OUT" | grep -q "SURVIVAL MODE" && echo "$AG_SURV_OUT" | grep -q "/compact" && ! echo "$AG_SURV_OUT" | grep -q "/clear" && RC_AG_SURV=0 || RC_AG_SURV=1
+AG_AUDIT_OUT=$(HOME="$TMP_AG_HOME" bash "$TMP_AG_DIR/.claude/hooks/audit-session-proof.sh" --brief "$TMP_AG_DIR" 2>/dev/null || true)
+echo "$AG_AUDIT_OUT" | grep -q "160,000" && echo "$AG_AUDIT_OUT" | grep -q "/compact" && ! echo "$AG_AUDIT_OUT" | grep -q "/clear" && RC_AG_AUDIT=0 || RC_AG_AUDIT=1
+assert_exit "Antigravity telemetry preserves agSessions and auto-resolves transcript path" 0 "$AG_PRESERVE_OK"
+assert_exit "Antigravity prompt hook emits /compact AUTO-HANDOFF NUDGE at >=130k tokens (no /clear)" 0 "$RC_AG_NUDGE"
+assert_exit "Antigravity prompt hook emits /compact SURVIVAL MODE at >=150k tokens (no /clear)" 0 "$RC_AG_SURV"
+assert_exit "Antigravity audit-session-proof reports real 160,000 context tokens with /compact (no /clear)" 0 "$RC_AG_AUDIT"
+rm -rf "$TMP_AG_DIR" "$TMP_AG_HOME"
+
 # 10. Python Helper Unit Tests + Audit & Release Summary scripts must execute cleanly (exit 0)
 HAD_ROOT_TS=0
 [ -f "$ROOT_DIR/TASK_STATE.md" ] && HAD_ROOT_TS=1

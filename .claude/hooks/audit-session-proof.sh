@@ -314,6 +314,7 @@ def scan_ag_file(fpath):
         "turns": 0,
         "steps": 0,
         "tokens": 0,
+        "last_cache_tokens": 0,
         "first_prompt": "",
         "last_prompt": "",
         "prompt_turns": 0,
@@ -402,9 +403,14 @@ def scan_ag_file(fpath):
                         if obj.get("type") == "PLANNER_RESPONSE":
                             res["turns"] += 1
                             res["prompt_turns"] += 1
-                            tok_inc = int(obj.get("input_tokens") or 0) + int(obj.get("cache_read_tokens") or 0) + int(obj.get("output_tokens") or 0)
+                            in_tok = int(obj.get("input_tokens") or 0)
+                            cache_tok = int(obj.get("cache_read_tokens") or 0)
+                            out_tok = int(obj.get("output_tokens") or 0)
+                            tok_inc = in_tok + cache_tok + out_tok
                             res["tokens"] += tok_inc
                             res["prompt_tokens"] += tok_inc
+                            if (in_tok + cache_tok) > 0:
+                                res["last_cache_tokens"] = in_tok + cache_tok
                             for tc in (obj.get("tool_calls") or []):
                                 if isinstance(tc, dict):
                                     tname = tc.get("name")
@@ -460,12 +466,13 @@ def analyze_ag_session(cid, p_cached, ag_map):
     tpath = p_cached.get("transcriptPath") or os.path.expanduser(f"~/.gemini/antigravity/brain/{cid}/.system_generated/logs/transcript.jsonl")
     cand = os.path.join(os.path.dirname(tpath), "transcript.jsonl") if tpath else ""
     use_p = cand if (cand and os.path.isfile(cand)) else (tpath if (tpath and os.path.isfile(tpath)) else "")
-    live = scan_ag_file(use_p) if use_p else {"turns": 0, "steps": 0, "tokens": 0, "first_prompt": "", "last_prompt": "", "prompt_turns": 0, "prompt_steps": 0, "prompt_tokens": 0, "prompt_invoke_specs": [], "prompt_spawned_cids": [], "invoke_specs": [], "spawned_subs": [], "checkpoint_subs": [], "browser_facts": {}, "step_refs": {}, "reply_counts": {}}
+    live = scan_ag_file(use_p) if use_p else {"turns": 0, "steps": 0, "tokens": 0, "last_cache_tokens": 0, "first_prompt": "", "last_prompt": "", "prompt_turns": 0, "prompt_steps": 0, "prompt_tokens": 0, "prompt_invoke_specs": [], "prompt_spawned_cids": [], "invoke_specs": [], "spawned_subs": [], "checkpoint_subs": [], "browser_facts": {}, "step_refs": {}, "reply_counts": {}}
 
     epoch = os.path.getmtime(use_p) if use_p else float(p_cached.get("epoch") or 0)
     mtime_str = datetime.fromtimestamp(epoch).strftime("%Y-%m-%d %H:%M:%S") if epoch > 0 else (p_cached.get("mtime") or "")
     p_turns = live["turns"] or int(p_cached.get("turns") or 0)
     p_steps = live["steps"] or int(p_cached.get("steps") or 0)
+    last_ctx_tok = int(live.get("last_cache_tokens") or 0) or int(p_cached.get("lastCacheTokens") or 0)
     first_p = live["first_prompt"] or p_cached.get("firstPrompt") or ""
     last_p = live["last_prompt"] or p_cached.get("lastPrompt") or first_p
     prompt_turns = live["prompt_turns"] if live["turns"] > 0 else int(p_cached.get("promptTurns") or 0)
@@ -592,9 +599,12 @@ def analyze_ag_session(cid, p_cached, ag_map):
             pdk = psp.get("desk") or "implementer"
             prompt_roles[pdk] = prompt_roles.get(pdk, 0) + 1
 
-    if subs_dict != (p_cached.get("subagents") or {}) or (live["turns"] > 0 and p_cached.get("promptTurns") != prompt_turns):
+    if subs_dict != (p_cached.get("subagents") or {}) or (live["turns"] > 0 and (p_cached.get("promptTurns") != prompt_turns or p_cached.get("lastCacheTokens") != last_ctx_tok)):
         p_cached["subagents"] = subs_dict
         if live["turns"] > 0:
+            p_cached["turns"] = p_turns
+            p_cached["steps"] = p_steps
+            p_cached["lastCacheTokens"] = last_ctx_tok
             p_cached["lastPrompt"] = last_p
             p_cached["promptTurns"] = prompt_turns
             p_cached["promptSteps"] = prompt_steps
@@ -611,6 +621,7 @@ def analyze_ag_session(cid, p_cached, ag_map):
         "sonnet": self_turns,
         "haiku": flash_turns,
         "parent_steps": p_steps,
+        "last_cache_tokens": last_ctx_tok,
         "sub_steps": sub_steps,
         "sub_calls": max(len(specs), len(subs_dict)),
         "sub_files": len(subs_dict),
@@ -651,6 +662,10 @@ for jf in jsonl_files:
 ag_map = td.get("agSessions") if isinstance(td.get("agSessions"), dict) else {}
 last_cid = str(td.get("lastConversationId") or "")
 last_tpath = str(td.get("lastTranscriptPath") or "")
+if last_cid and not last_tpath and re.match(r"^[0-9a-f-]{36}$", last_cid):
+    cand_tp = os.path.expanduser(f"~/.gemini/antigravity/brain/{last_cid}/.system_generated/logs/transcript.jsonl")
+    if os.path.isfile(cand_tp):
+        last_tpath = cand_tp
 if not ag_map and not last_cid:
     sb_cands = glob.glob(os.path.expanduser("~/.gemini/antigravity/brain/*/.system_generated/logs/transcript.jsonl"))
     if len(sb_cands) == 1:
@@ -1057,6 +1072,9 @@ if brief_mode:
     # บันทึก Baseline ปัจจุบันลง .telemetry.json สำหรับเปรียบเทียบในคำสั่งถัดไป
     if os.path.isfile(t_file) and last_ab.get("sig") != state_sig:
         try:
+            td["sessionId"] = acc["sess_id"]
+            td["opusTurns"] = acc["opus"]
+            td["lastCacheTokens"] = int(acc.get("last_cache_tokens") or 0)
             if last_ab:
                 td["prevAuditBaseline"] = last_ab
             td["lastAuditBaseline"] = {
@@ -1172,12 +1190,13 @@ if brief_mode:
             burst_parts.append(f"Subagent รอบนี้ {cmd_sub_toks:,} tokens")
         tripwires.append(f"🔥 `TOKEN_BURST_WARNING` ({' / '.join(burst_parts)})")
     last_cache_tok = int(acc.get("last_cache_tokens") or 0)
+    reset_cmd = "พิมพ์ `/compact` หรือเปิดแชทใหม่" if acc.get("engine") == "antigravity" else "พิมพ์ `/clear`"
     if last_cache_tok >= 150000:
-        tripwires.append(f"🚨 `CONTEXT_TOKEN_BLOAT` (Context สะสม {last_cache_tok:,} tokens/รอบ > 150k — โหมด Survival Mode หรือพิมพ์ `/clear`)")
+        tripwires.append(f"🚨 `CONTEXT_TOKEN_BLOAT` (Context สะสม {last_cache_tok:,} tokens/รอบ > 150k — โหมด Survival Mode หรือ{reset_cmd})")
     elif acc["opus"] >= 120:
-        tripwires.append(f"🛡️ `SURVIVAL_MODE_ACTIVE` (หน้าต่างหลักสะสม {acc['opus']} รอบ >= 120 — ใช้โหมด Ultra-Thin Dispatcher โยนงานให้ Subagent สด หรือ `/clear`)")
+        tripwires.append(f"🛡️ `SURVIVAL_MODE_ACTIVE` (หน้าต่างหลักสะสม {acc['opus']} รอบ >= 120 — ใช้โหมด Ultra-Thin Dispatcher โยนงานให้ Subagent สด หรือ{reset_cmd})")
     elif acc["opus"] >= 80:
-        tripwires.append(f"⚠️ `CONTEXT_WINDOW_BLOAT` (หน้าต่างหลักสะสม {acc['opus']} รอบ — แนะนำพิมพ์ `/clear` หรือเปิดแชทใหม่เมื่อจบขั้นนี้)")
+        tripwires.append(f"⚠️ `CONTEXT_WINDOW_BLOAT` (หน้าต่างหลักสะสม {acc['opus']} รอบ — แนะนำ{reset_cmd}เมื่อจบขั้นนี้)")
     if d_blocks > 0:
         tripwires.append(f"⚠️ `PERMISSION_GATE_TRIGGERED` (บล็อกคำสั่งผิดกฎ {d_blocks} ครั้งในรอบนี้)")
     if pf_info["count"] >= 25 or pf_info.get("bytes", 0) > 4500:

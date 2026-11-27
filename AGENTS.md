@@ -41,6 +41,6 @@ Inspect root manifest files (including monorepo subfolders) to run the exact Tie
 ---
 
 ## 4. Cross-Engine Memory (`TASK_STATE.md` & `.claude/rules/project-pitfalls.md`)
-- Update `TASK_STATE.md` (`<= 20 lines`, `<= 2,500 bytes` above the `Auto-Synced` marker) on milestones or before `/clear` so switching between Claude Code and Antigravity resumes seamlessly on `"ทำต่อ"`.
+- Update `TASK_STATE.md` (`<= 20 lines`, `<= 2,500 bytes` above the `Auto-Synced` marker) on milestones or before `/compact` (Antigravity) / `/clear` (Claude Code) so switching between Claude Code and Antigravity resumes seamlessly on `"ทำต่อ"`.
 - Distill real blockers/bugs/corrections into 1 concise line (`<= 180 chars`, max 30 rules) in `.claude/rules/project-pitfalls.md`.
 - Detailed domain rules load automatically from `.claude/rules/` (`guard-core.md`, `code-simplicity.md`, `execution-discipline.md`, `testing-and-api.md`, `ui-anti-slop.md`, `project-pitfalls.md`) and `.claude/skills/`.
