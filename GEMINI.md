@@ -36,7 +36,7 @@ Inspect root manifest files (including monorepo subfolders) to run the exact Tie
 ## 3. Evidence-Based Reporting (No Over-Claiming) & No Ceremony Overhead
 - Claim only what was actually run and verified in this turn (exact command + pass/fail output). State explicitly anything not tested or unverified.
 - Never use exaggerated claims ("100% bug-free", "perfect") or invent data/specs (stop with `CIRCUIT_BREAKER: MISSING_SPEC` if a business formula is undefined).
-- Keep responses concise and end multi-file milestones with `### ⏭️ ขั้นตอนถัดไป (Next Steps)` (1–3 actionable items). Run `bash .claude/hooks/audit-session-proof.sh --brief` only on multi-file milestones or deploys (skip on trivial 1–2 line edits).
+- Keep responses concise and end multi-file / feature / deploy tasks with `### ⏭️ ขั้นตอนถัดไป (Next Steps)` (1–3 actionable items), then **MUST** run `bash .claude/hooks/audit-session-proof.sh --brief` and **append its 4-line `### 📊 ผลชี้วัด Agent Guard Template` output verbatim at the bottom of your final response** (skip only on pure Q&A or trivial 1–2 line edits).
 
 ---
 

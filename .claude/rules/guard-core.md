@@ -24,3 +24,5 @@ These non-negotiable guardrails apply to **every repository** (including repos w
    - Never `git push` commits containing new SQL migrations (`migrations/*.sql`) to `main`/`master` until applied on Production DB (`MIGRATION_PROD_VERIFIED=1` or `RELEASE_APPROVED=1`; `uat`/preview branches unaffected).
    - Never stage/commit local template files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `TASK_STATE.md`, `.claude/.telemetry.json`) into consumer repos (`ALLOW_TEMPLATE_COMMIT=1` to override).
    - Never pass tokens/passwords via `docker login -p/--password`, `echo $(gh auth token)`, or `ssh` positional args — always pipe via `--password-stdin`.
+7. **Mandatory Session Proof Footer (Multi-File / Feature / Deploy Tasks):**
+   - At the end of every feature, bug-fix, multi-file edit, or deploy task (skip only on pure Q&A or trivial 1–2 line edits), **MUST** run `bash .claude/hooks/audit-session-proof.sh --brief` and **append its exact 4-line `### 📊 ผลชี้วัด Agent Guard Template` block verbatim at the bottom of the final response** (right after `### ⏭️ ขั้นตอนถัดไป (Next Steps)`).
