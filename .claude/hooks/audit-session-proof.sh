@@ -23,20 +23,24 @@ from datetime import datetime
 
 root_dir = os.path.realpath(sys.argv[1])
 brief_mode = sys.argv[2] == "1"
+main_root = root_dir
+try:
+    g_common = subprocess.check_output(["git", "--no-optional-locks", "rev-parse", "--git-common-dir"], cwd=root_dir, stderr=subprocess.DEVNULL, timeout=1.5).decode("utf-8", errors="ignore").strip()
+    if g_common:
+        cand_main = os.path.dirname(os.path.realpath(os.path.join(root_dir, g_common)))
+        if os.path.isdir(cand_main):
+            main_root = cand_main
+except Exception:
+    pass
+guard_root = root_dir if os.path.isdir(os.path.join(root_dir, ".claude")) else main_root
 slug = re.sub(r"[^A-Za-z0-9-]", "-", root_dir)
 proj_dir = os.path.expanduser(f"~/.claude/projects/{slug}")
-if not glob.glob(os.path.join(proj_dir, "*.jsonl")):
-    try:
-        g_common = subprocess.check_output(["git", "--no-optional-locks", "rev-parse", "--git-common-dir"], cwd=root_dir, stderr=subprocess.DEVNULL, timeout=1.5).decode("utf-8", errors="ignore").strip()
-        if g_common:
-            main_root = os.path.dirname(os.path.realpath(os.path.join(root_dir, g_common)))
-            alt_slug = re.sub(r"[^A-Za-z0-9-]", "-", main_root)
-            alt_proj = os.path.expanduser(f"~/.claude/projects/{alt_slug}")
-            if glob.glob(os.path.join(alt_proj, "*.jsonl")):
-                proj_dir = alt_proj
-    except Exception:
-        pass
-t_file = os.path.join(root_dir, ".claude", ".telemetry.json")
+if not glob.glob(os.path.join(proj_dir, "*.jsonl")) and main_root != root_dir:
+    alt_slug = re.sub(r"[^A-Za-z0-9-]", "-", main_root)
+    alt_proj = os.path.expanduser(f"~/.claude/projects/{alt_slug}")
+    if glob.glob(os.path.join(alt_proj, "*.jsonl")):
+        proj_dir = alt_proj
+t_file = os.path.join(guard_root, ".claude", ".telemetry.json")
 
 def format_claude_model_label(raw_m):
     ml = str(raw_m or "").strip().lower()
@@ -953,7 +957,7 @@ def sync_task_state(r_dir):
     return f"`{branch}@{head_sha}{suffix}`" if head_sha else "`synced`"
 
 ts_badge = sync_task_state(root_dir)
-pf_info = scan_pitfalls(root_dir)
+pf_info = scan_pitfalls(guard_root)
 if pf_info["added_recent"]:
     pf_brief_line = f"- **ความจำ & ส่งต่องาน:** Pitfalls `{pf_info['count']}/30` (**สกัดใหม่:** {pf_info['added_recent'][-1]}) | `TASK_STATE.md`: ✅ ซิงก์อัตโนมัติ ({ts_badge})"
 elif pf_info["latest"]:
@@ -1040,7 +1044,7 @@ if brief_mode:
 
     cmd_tot = cmd_opus + cmd_sonnet + cmd_haiku
     try:
-        _lib_dir = os.path.join(root_dir, ".claude", "hooks", "lib")
+        _lib_dir = os.path.join(guard_root, ".claude", "hooks", "lib")
         if os.path.isdir(_lib_dir) and _lib_dir not in sys.path:
             sys.path.insert(0, _lib_dir)
         import guard_helpers as _gh
@@ -1161,7 +1165,7 @@ if brief_mode:
                                             burn_5hr_projs.add(short_p)
         # Also include Antigravity transcripts in the 5-hour rolling window
         try:
-            _lib_dir = os.path.join(root_dir, ".claude", "hooks", "lib")
+            _lib_dir = os.path.join(guard_root, ".claude", "hooks", "lib")
             if os.path.isdir(_lib_dir) and _lib_dir not in sys.path:
                 sys.path.insert(0, _lib_dir)
             import guard_helpers as _gh

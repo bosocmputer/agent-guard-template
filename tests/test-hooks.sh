@@ -293,6 +293,27 @@ assert_exit "Antigravity prompt hook emits /compact SURVIVAL MODE at >=150k toke
 assert_exit "Antigravity audit-session-proof reports real 160,000 context tokens with /compact (no /clear)" 0 "$RC_AG_AUDIT"
 rm -rf "$TMP_AG_DIR" "$TMP_AG_HOME"
 
+# 9.6 Git Worktree fallback: audit-session-proof resolves main repo .claude/ (.telemetry.json & project-pitfalls.md) when worktree has no .claude/
+TMP_WT_MAIN="$(mktemp -d /tmp/agt-wt-main-XXXXXX)"
+TMP_WT_LINK="$(mktemp -u /tmp/agt-wt-link-XXXXXX)"
+git -C "$TMP_WT_MAIN" init -q
+git -C "$TMP_WT_MAIN" config user.email "test@example.com"
+git -C "$TMP_WT_MAIN" config user.name "Test"
+echo "hello" > "$TMP_WT_MAIN/README.md"
+git -C "$TMP_WT_MAIN" add README.md && git -C "$TMP_WT_MAIN" commit -q -m "init"
+mkdir -p "$TMP_WT_MAIN/.claude/rules" "$TMP_WT_MAIN/.claude/hooks/lib"
+cp "$ROOT_DIR/.claude/hooks/audit-session-proof.sh" "$TMP_WT_MAIN/.claude/hooks/"
+cp "$ROOT_DIR/.claude/hooks/lib/guard_helpers.py" "$TMP_WT_MAIN/.claude/hooks/lib/"
+printf '# Pitfalls\n- **[DB]**: Never skip migration check\n- **[UI]**: Keep buttons >= 44px\n' > "$TMP_WT_MAIN/.claude/rules/project-pitfalls.md"
+printf '{"stats":{"explorerReads":77,"filesEdited":12,"verifierRuns":5,"blockedCount":1}}\n' > "$TMP_WT_MAIN/.claude/.telemetry.json"
+git -C "$TMP_WT_MAIN" worktree add -q -b feat/wt-test "$TMP_WT_LINK" HEAD
+TMP_WT_HOME="$(mktemp -d /tmp/agt-wthome-XXXXXX)"
+WT_OUT=$(HOME="$TMP_WT_HOME" bash "$TMP_WT_MAIN/.claude/hooks/audit-session-proof.sh" --brief "$TMP_WT_LINK" 2>/dev/null || true)
+echo "$WT_OUT" | grep -q "2/30" && echo "$WT_OUT" | grep -q "77" && RC_WT=0 || RC_WT=1
+assert_exit "Git worktree audit-session-proof resolves main repo pitfalls (2/30) and telemetry (77 reads)" 0 "$RC_WT"
+git -C "$TMP_WT_MAIN" worktree remove --force "$TMP_WT_LINK" >/dev/null 2>&1 || true
+rm -rf "$TMP_WT_MAIN" "$TMP_WT_LINK" "$TMP_WT_HOME"
+
 # 10. Python Helper Unit Tests + Audit & Release Summary scripts must execute cleanly (exit 0)
 HAD_ROOT_TS=0
 [ -f "$ROOT_DIR/TASK_STATE.md" ] && HAD_ROOT_TS=1

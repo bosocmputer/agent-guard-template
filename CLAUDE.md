@@ -18,8 +18,8 @@ Inspect root manifest files (including monorepo subfolders) to run the exact Tie
 ---
 
 ## 1. Native Subagent Delegation & Quota Discipline
-- Use each engine's native subagents (`Agent` in Claude Code / `invoke_subagent` in Antigravity) naturally for multi-file slices (`>= 3` files) or broad codebase searches — never pass `model="opus"` to a subagent.
-- **Pre-Mapped Fast Path:** When target files/lines are already given in the prompt, skip explorer subagents and stay within **`<= 4` subagents per prompt** to prevent token bursts.
+- Use each engine's native subagents (`Agent` in Claude Code / `invoke_subagent` in Antigravity) naturally — never pass `model="opus"` to a subagent (use `model="sonnet"` for workers).
+- **Pre-Mapped Fast Path (Skip Explorers ONLY, NOT Workers):** When target files/lines are already given in the prompt, skip explorer subagents, **but for `>= 6` files or `>= 2` independent modules/tracks, MUST delegate parallel worker subagents (`2–4` `model="sonnet"` workers)** so the main Opus window stays `<= 20` turns instead of burning 50+ turns at high context. Stay within **`<= 4` subagents per prompt**.
 - **6-Turn Investigation / SSH Ceiling:** Batch remote checks (`ssh`/`docker`/`psql`/`gh`) into 1–2 compound commands; if tracing exceeds 6 calls without a fix, stop and delegate to a fresh subagent.
 - **One Slice Per Prompt:** Complete the requested slice, verify with fresh terminal output, report, and stop.
 

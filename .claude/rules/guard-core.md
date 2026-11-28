@@ -6,8 +6,8 @@ description: "(กฎแกนกลาง Universal Guard — โหลดอ�
 These non-negotiable guardrails apply to **every repository** (including repos with a custom `CLAUDE.md`):
 
 1. **Native Subagent Discipline & Quota Budget:**
-   - Let each engine use its built-in native subagents (`Agent` in Claude Code / `invoke_subagent` in Antigravity) naturally for multi-file changes (`>= 3` files) or broad exploration — **never** pass `model="opus"` to a subagent.
-   - **Pre-Mapped Fast Path & Cap:** When the prompt already names exact target files/lines (or `<= 5` known modules), **skip explorer subagents** and stay within **`<= 4` subagents per prompt** to prevent token bursts (`>= 6M` tokens).
+   - Let each engine use its built-in native subagents (`Agent` in Claude Code / `invoke_subagent` in Antigravity) naturally — **never** pass `model="opus"` to a subagent (use `model="sonnet"` for worker/implementer/verifier subagents in Claude Code, or `Model="flash"` for browser/light subagents in Antigravity).
+   - **Pre-Mapped Fast Path (Skip Explorers ONLY, NOT Workers):** When the prompt already names exact target files/lines, **skip explorer subagents**, **BUT for multi-file edits (`>= 6` files) or `>= 2` independent modules/tracks (e.g. Backend + Frontend, or multiple channels), MUST shard implementation + tests across `2–4` parallel worker subagents (`model="sonnet"`)** so the main Opus window stays a thin dispatcher (`<= 20` turns) instead of burning 40–60 turns at 200k+ context. Keep total spawns `<= 4` subagents per prompt to prevent token bursts (`>= 6M` tokens).
 2. **6-Turn Investigation, Debug & SSH/Ops Ceiling:**
    - Batch remote checks (`ssh`, `docker logs`, `docker ps`, `psql`, `gh run view`) into **1–2 compound commands per step**.
    - If tracing/debugging exceeds **6 read/inspect/SSH calls** without a verified fix, stop looping in the main window and delegate root-cause tracing to a fresh subagent (under the 2-Strike rule).
