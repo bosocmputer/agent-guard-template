@@ -25,6 +25,11 @@ if [ -z "$COMMAND" ]; then
   allow_action
 fi
 
+# Always allow internal session proof / release summary hooks so final reporting is never blocked
+if echo "$COMMAND" | grep -qE '^[[:space:]]*(cd[[:space:]]+[^;&|]+[;&]+[[:space:]]*)*bash[[:space:]]+[^;&|]*\.claude/hooks/(audit-session-proof|release-summary)\.sh([[:space:]][^;&|]*)?$'; then
+  allow_action
+fi
+
 # 1) แยกตัวนับตาม agent_id/session_id + pwd เพื่อไม่ให้ Subagent ที่รันขนานกันนับปนกัน
 PWD_HASH="$(pwd | cksum | cut -d' ' -f1)"
 ACTOR_KEY=$(echo "$INPUT" | grep -oE '"(agent_id|session_id|conversation_id)"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/^"[^"]+"[[:space:]]*:[[:space:]]*"//;s/"$//' | tr -cd 'A-Za-z0-9_-' | cut -c1-32)
